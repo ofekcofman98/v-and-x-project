@@ -1,0 +1,119 @@
+# .cursorrules — VocalGrid
+
+## 1. Tech Stack (source of truth: /docs)
+
+- **Framework:** Next.js 15 (App Router, Server Components)
+- **Language:** TypeScript (strict mode — see §3)
+- **Styling:** Tailwind CSS + shadcn/ui (Radix primitives)
+- **UI State:** Zustand
+- **Server State:** TanStack Query v5
+- **Database:** Supabase (PostgreSQL + RLS + Realtime)
+- **Auth:** Supabase Auth
+- **AI — STT:** OpenAI Whisper (`whisper-1`)
+- **AI — Parsing:** OpenAI GPT-4o-mini (JSON mode)
+- **Deployment:** Vercel (Serverless + Edge)
+- **Testing:** Vitest, Playwright, MSW
+- **Key libraries:** `zod`, `fastest-levenshtein`, `soundex-code`, `chrono-node`, `xlsx`
+
+---
+
+## 2. Documentation as Source of Truth
+
+- The `/docs` folder contains 13 Markdown chapters that define **all architecture, data models, API contracts, and implementation decisions**.
+- **Before writing or modifying any code**, verify that the approach aligns with the relevant `/docs` chapter.
+- If code and docs conflict, the docs win. Flag the conflict and ask before deviating.
+- Never invent APIs, schema fields, or architectural patterns not described in `/docs`.
+
+### How to navigate docs efficiently
+
+1. **Always start with `/docs/00_PROJECT_STRUCTURE.md`** to orient yourself before opening any other file.
+2. **Read only the Table of Contents** at the top of each `.md` file to locate the relevant section.
+3. **Load only the specific section** needed for the current task (e.g., §4.2 of `03_DATABASE.md`), not the entire file.
+4. **Do not load multiple large documentation files simultaneously** unless the task explicitly requires cross-referencing (e.g., a change that touches both the state model and an API route).
+5. When in doubt about which section is relevant, check `00_PROJECT_STRUCTURE.md` first — do not guess.
+
+---
+
+## 3. Code Quality Rules
+
+### TypeScript — strict by default
+
+- `tsconfig.json` must have `"strict": true`. Never relax it.
+- **`any` is forbidden.** No exceptions — not in source code, not in comments, not as a temporary placeholder.
+  - Use `unknown` and narrow with type guards.
+  - Use `z.infer<typeof Schema>` for runtime-validated types.
+  - Use generics when the type is truly variable.
+- All function parameters and return types must be explicitly typed.
+- Prefer `interface` for object shapes, `type` for unions and aliases.
+- Use `as` type assertions only when you can justify them with a comment.
+
+### General cleanliness
+
+- **No `console.log` in committed code.** Use the monitoring helpers in `lib/monitoring/`.
+- **No magic strings or numbers.** Extract to named constants or enums.
+- One concern per file. Co-locate types with the code that owns them.
+- All async functions must handle errors explicitly — no silent `catch (() => {})` unless intentional fire-and-forget (add a comment explaining why).
+- Zod schemas are the single source of validation truth for every API boundary.
+- Prefer early returns over deeply nested conditionals.
+- Delete dead code. Do not comment it out and leave it.
+
+### File & folder conventions
+
+- Feature code lives under the path described in `02_ARCHITECTURE.md`.
+- API routes follow the pattern in `11_API_ROUTES.md` — standard envelope `{ success, data }` / `{ success, error }`.
+- Query keys must go through the central `lib/query-keys.ts` factory. Never inline raw key arrays.
+
+---
+
+## 4. Maintainable Architecture Rules
+
+### Separation of concerns
+Keep the three layers strictly separate — never let them bleed into each other:
+
+| Layer | Where | Responsibility |
+|---|---|---|
+| **UI** | `components/` | Render, layout, user interaction only |
+| **Logic** | `lib/hooks/` | Custom hooks own all complex UI behaviour |
+| **Data access** | `lib/queries/`, `lib/mutations/`, `app/api/` | All Supabase and OpenAI calls live here |
+
+- A component that imports directly from `@supabase/supabase-js` is wrong — route through `lib/queries/` or `lib/mutations/`.
+- An API route that contains UI logic is wrong.
+- A hook that renders JSX is wrong.
+
+### Single Responsibility
+- Each component, hook, or function must do **one thing**. If you need "and" to describe what it does, split it.
+- A component that fetches its own data AND manages form state AND handles errors is three things — break it up.
+- Keep components declarative: they receive props and call handlers. The hook drives the logic.
+
+### Hooks for logic
+- Any state machine, derived state, or multi-step async flow that belongs to a component must be extracted into a custom hook in `lib/hooks/`.
+- The voice recording lifecycle (`useVoiceEntry`), pointer advancement (`useSmartPointer`), and keyboard shortcuts (`useKeyboardShortcuts`) are examples of logic that must never live inline in a component.
+- Hooks should return a clean, stable interface — the component should not need to know implementation details.
+
+### DRY — extract at second repetition
+- If a piece of logic or JSX appears in **more than one place**, extract it immediately:
+  - Shared logic → `lib/` utility or custom hook.
+  - Shared UI → `components/ui/` (primitive) or `components/` (feature-level).
+- Do not wait until it appears three times. Two is already a pattern.
+- Before writing a new utility, search `lib/` to confirm it does not already exist.
+
+---
+
+## 5. Installing New Libraries
+
+- The approved library list is defined in `02_ARCHITECTURE.md §4.1` and `12_IMPLEMENTATION_ROADMAP.md §2.1`.
+- **Do not install any library that does not appear in the specification without explicit user approval.**
+- When you believe a new library is needed, stop and ask:
+  1. What problem does it solve?
+  2. What approved library or built-in does it replace or extend?
+  3. What is the bundle-size / security impact?
+- Only proceed with installation after the user confirms.
+
+---
+
+## 5. Behaviour Defaults
+
+- When generating new code, match the patterns already established in the codebase — do not introduce a second way of doing something that already has a convention.
+- When asked to implement a feature, cite the relevant `/docs` section that covers it.
+- When a task is ambiguous, ask one focused clarifying question rather than making assumptions and writing code.
+- Prefer editing the minimal surface area needed. Do not refactor unrelated code as a side effect.
