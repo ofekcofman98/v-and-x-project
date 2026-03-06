@@ -6,6 +6,55 @@
 
 ---
 
+## Table of Contents
+
+1. [Executive Summary](#1-executive-summary)
+   - 1.1 [Product Vision](#11-product-vision)
+   - 1.2 [The Problem We're Solving](#12-the-problem-were-solving)
+   - 1.3 [Primary Use Case (MVP)](#13-primary-use-case-mvp)
+   - 1.4 [Future Verticals (Post-MVP)](#14-future-verticals-post-mvp)
+   - 1.5 [Differentiation from Existing Solutions](#15-differentiation-from-existing-solutions)
+   - 1.6 [Key Innovation: The Smart Pointer System](#16-key-innovation-the-smart-pointer-system)
+   - 1.7 [Success Criteria (MVP)](#17-success-criteria-mvp)
+   - 1.8 [Platform Target](#18-platform-target)
+
+
+2. [User Personas](#2-user-personas)
+   - 2.1 [Primary Persona: The Multitasking Teacher](#primary-persona-the-multitasking-teacher)
+   - 2.2 [Secondary Persona: The Warehouse Supervisor](#secondary-persona-the-warehouse-supervisor)
+
+3. [Core Features (MVP Scope)](#3-core-features-mvp-scope)
+   - 3.1 [Must-Have Features](#31-must-have-features)
+   - 3.2 [Nice-to-Have (If Time Permits)](#32-nice-to-have-if-time-permits)
+   - 3.3 [Explicitly Out of Scope (V1.0)](#33-explicitly-out-of-scope-v10)
+
+4. [Non-Functional Requirements](#4-non-functional-requirements)
+   - 4.1 [Performance](#41-performance)
+   - 4.2 [Scalability](#42-scalability)
+   - 4.3 [Security](#43-security)
+   - 4.4 [Accessibility](#44-accessibility)
+   - 4.5 [Browser Support](#45-browser-support)
+
+5. [Assumptions & Constraints](#5-assumptions--constraints)
+   - 5.1 [Assumptions](#51-assumptions)
+   - 5.2 [Constraints](#52-constraints)
+   - 5.3 [Dependencies](#53-dependencies)
+
+6. [Risks & Mitigation](#6-risks--mitigation)
+
+7. [Success Measurement](#7-success-measurement)
+   - 7.1 [Launch Checklist](#71-launch-checklist)
+   - 7.2 [Post-Launch Metrics (Month 1)](#72-post-launch-metrics-month-1)
+
+8. [Timeline Overview](#8-timeline-overview)
+
+9. [Glossary](#9-glossary)
+
+10. [Next Steps](#10-next-steps)
+
+---
+
+
 ## 1. Executive Summary
 
 ### 1.1 Product Vision
@@ -142,6 +191,30 @@ User says: "Sarah, 92"
 - ✅ 50+ GitHub stars
 - ✅ 500+ LinkedIn post views
 - ✅ 2+ job interviews mention it
+
+
+### 1.8 Platform Target
+
+VocalGrid V1.0 is a **web application**, designed to work as a
+**Progressive Web App (PWA)** on both desktop and mobile.
+
+| Platform       | Support         | Notes                                      |
+|----------------|-----------------|--------------------------------------------|
+| Desktop (web)  | ✅ Primary      | Chrome, Safari, Firefox, Edge              |
+| Mobile (PWA)   | ✅ Supported    | Installable via Chrome/Safari, full-screen |
+| iOS native app | ❌ Out of scope | Planned V1.3 if traction justifies it      |
+| Android native | ❌ Out of scope | Planned V1.3 if traction justifies it      |
+
+**Why web / PWA and not native:**
+- `MediaRecorder` and `getUserMedia` cover all target browsers —
+  no native audio SDK needed
+- Next.js on Vercel provides HTTPS out of the box, which is a hard
+  PWA requirement
+- One codebase serves desktop and mobile with no native overhead
+- PWA can be upgraded to a native shell (Capacitor) later without
+  rewriting business logic
+- Native apps were explicitly deferred until Product-Market Fit is
+  confirmed (see §3.3)
 
 ---
 
