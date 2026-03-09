@@ -25,7 +25,7 @@ export default function HomePage() {
               Get Started
             </Link>
             <Link
-              href="#"
+              href="/demo/table"
               className="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background px-6 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 sm:h-11 sm:px-8"
             >
               View Demo
