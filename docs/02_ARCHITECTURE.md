@@ -6,6 +6,53 @@
 
 ---
 
+## Table of Contents
+
+1. [Architecture Overview](#1-architecture-overview)
+   - 1.1 [System Context Diagram](#11-system-context-diagram)
+   - 1.2 [High-Level Architecture](#12-high-level-architecture)
+
+2. [Technology Stack Decisions](#2-technology-stack-decisions)
+   - 2.1 [Frontend](#21-frontend)
+   - 2.2 [State Management](#22-state-management)
+   - 2.3 [Backend](#23-backend)
+   - 2.4 [Database](#24-database)
+   - 2.5 [AI Services](#25-ai-services)
+   - 2.6 [Deployment](#26-deployment)
+
+3. [Data Flow Diagrams](#3-data-flow-diagrams)
+   - 3.1 [Voice Input Flow (Detailed)](#31-voice-input-flow-detailed)
+   - 3.2 [Table Load Flow](#32-table-load-flow)
+
+4. [Security Architecture](#4-security-architecture)
+   - 4.1 [Authentication Flow](#41-authentication-flow)
+   - 4.2 [Row Level Security (RLS)](#42-row-level-security-rls)
+   - 4.3 [API Security](#43-api-security)
+
+5. [Scalability Considerations](#5-scalability-considerations)
+   - 5.1 [Performance Optimization](#51-performance-optimization)
+   - 5.2 [Future Scaling Path](#52-future-scaling-path)
+
+6. [Monitoring & Observability](#6-monitoring--observability)
+   - 6.1 [Logging Strategy](#61-logging-strategy)
+   - 6.2 [Metrics Collection](#62-metrics-collection)
+   - 6.3 [Error Tracking (Future)](#63-error-tracking-future)
+
+7. [Architecture Decision Records (ADRs)](#7-architecture-decision-records-adrs)
+
+8. [Deployment Architecture](#8-deployment-architecture)
+   - 8.1 [Vercel Deployment](#81-vercel-deployment)
+   - 8.2 [Environment Variables](#82-environment-variables)
+   - 8.3 [CI/CD Pipeline](#83-cicd-pipeline)
+
+9. [Disaster Recovery](#9-disaster-recovery)
+   - 9.1 [Backup Strategy](#91-backup-strategy)
+   - 9.2 [Rollback Procedure](#92-rollback-procedure)
+
+10. [Architecture Checklist](#10-architecture-checklist)
+
+---
+
 ## 1. Architecture Overview
 
 ### 1.1 System Context Diagram

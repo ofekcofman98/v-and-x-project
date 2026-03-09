@@ -234,7 +234,7 @@ CREATE TRIGGER update_tables_updated_at
 -- ═══════════════════════════════════════════════════════════
 
 -- Ensure name is not empty
-ALTER TABLE tables ADD CONSTRAINT tables_name_not_empty 
+ALTER TABLE tables ADD CONSTRAINT tables_name_not_empty
   CHECK (length(trim(name)) > 0);
 
 -- Ensure schema is valid JSON object
