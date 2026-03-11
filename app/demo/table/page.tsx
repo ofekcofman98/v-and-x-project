@@ -7,9 +7,15 @@
 
 import { DataTable } from '@/components/table/DataTable';
 import { MobileTableView } from '@/components/table/MobileTableView';
+import { VoiceButton } from '@/components/voice';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { ColumnType } from '@/lib/types/column-types';
-import type { ColumnDefinition, RowDefinition, CellData } from '@/components/table/DataTable';
+import type {
+  ColumnDefinition,
+  RowDefinition,
+  CellData,
+  TableSchema,
+} from '@/lib/types/table-schema';
 
 // Mock Data - Student Grades Example from docs/03_DATABASE.md
 const columns: ColumnDefinition[] = [
@@ -63,8 +69,10 @@ const mockData: CellData[] = [
 export default function DataTableDemoPage() {
   const activeCell = useUIStore((state) => state.activeCell);
   const recordingState = useUIStore((state) => state.recordingState);
+  const pendingConfirmation = useUIStore((state) => state.pendingConfirmation);
   const setActiveCell = useUIStore((state) => state.setActiveCell);
   const setRecordingState = useUIStore((state) => state.setRecordingState);
+  const tableSchema: TableSchema = { columns, rows };
   
   const handleCellClick = (rowId: string, columnId: string) => {
     console.log('Cell clicked:', { rowId, columnId });
@@ -219,8 +227,36 @@ export default function DataTableDemoPage() {
             <li>• Use the buttons above to simulate different recording states</li>
             <li>• Notice how the cell background changes based on the state</li>
             <li>• On mobile, tap a row to expand and see all columns</li>
+            <li>• Press and hold the voice button below to test recording</li>
           </ul>
         </div>
+        
+        {/* Voice Button */}
+        <div className="mt-8 flex justify-center">
+          <VoiceButton tableSchema={tableSchema} />
+        </div>
+
+        {pendingConfirmation && (
+          <div className="mt-4 max-w-md mx-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-sm">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Parsed Result:
+            </p>
+            <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              Entity: {pendingConfirmation.entity || '—'}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Value: {String(pendingConfirmation.value ?? '—')}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Confidence: {(pendingConfirmation.confidence * 100).toFixed(0)}%
+            </p>
+            {pendingConfirmation.alternatives?.length ? (
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Alternatives: {pendingConfirmation.alternatives.map((alt) => alt.label).join(', ')}
+              </p>
+            ) : null}
+          </div>
+        )}
       </main>
     </div>
   );

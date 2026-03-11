@@ -10,7 +10,7 @@ export type {
   ColumnDefinition,
   RowDefinition,
   CellData,
-} from './DataTable';
+} from '@/lib/types/table-schema';
 
 // Re-export column types for convenience
 export { ColumnType, formatCellValue } from '@/lib/types/column-types';

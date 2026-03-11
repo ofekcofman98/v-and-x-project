@@ -21,7 +21,8 @@ export type RecordingState =
   | 'listening'   // Recording audio
   | 'processing'  // Transcribing and parsing
   | 'confirming'  // Waiting for user confirmation
-  | 'committing'; // Saving to database
+  | 'committing'  // Saving to database
+  | 'error';      // Error occurred
 
 /**
  * Navigation mode for Smart Pointer advancement
@@ -34,7 +35,7 @@ export type NavigationMode = 'column-first' | 'row-first';
  */
 export interface PendingConfirmation {
   entity: string;
-  value: string | number | boolean;
+  value: string | number | boolean | null;
   confidence: number;
   alternatives?: Array<{ label: string; value: string | number | boolean }>;
 }
@@ -60,6 +61,13 @@ interface UIState {
   setRecordingState: (state: RecordingState) => void;
   setNavigationMode: (mode: NavigationMode) => void;
   setPendingConfirmation: (confirmation: PendingConfirmation | null) => void;
+  
+  // Voice recording lifecycle actions
+  startRecording: () => void;
+  stopRecording: () => void;
+  setProcessing: () => void;
+  setError: (error?: string) => void;
+  
   confirmEntry: () => void;
   cancelEntry: () => void;
   resetUI: () => void;
@@ -84,11 +92,24 @@ export const useUIStore = create<UIState>((set) => ({
   
   setPendingConfirmation: (confirmation) => set({ pendingConfirmation: confirmation }),
   
+  // Voice recording lifecycle actions
+  startRecording: () => set({ recordingState: 'listening' }),
+  
+  stopRecording: () => set({ recordingState: 'processing' }),
+  
+  setProcessing: () => set({ recordingState: 'processing' }),
+  
+  setError: () => {
+    set({ recordingState: 'error' });
+    
+    setTimeout(() => {
+      set({ recordingState: 'idle' });
+    }, 3000);
+  },
+  
   confirmEntry: () => {
-    // Set to committing state, then reset
     set({ recordingState: 'committing' });
     
-    // Simulate commit (will be replaced with actual mutation)
     setTimeout(() => {
       set({
         recordingState: 'idle',

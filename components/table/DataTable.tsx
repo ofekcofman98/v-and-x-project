@@ -15,33 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { DataTableCell } from './DataTableCell';
-import { ColumnType } from '@/lib/types/column-types';
-
-/**
- * Column definition matching docs/03_DATABASE.md §4.1
- */
-export interface ColumnDefinition {
-  id: string;
-  label: string;
-  type: ColumnType;
-}
-
-/**
- * Row definition matching docs/03_DATABASE.md §4.1
- */
-export interface RowDefinition {
-  id: string;
-  label: string;
-}
-
-/**
- * Cell data structure
- */
-export interface CellData {
-  rowId: string;
-  columnId: string;
-  value: string | number | boolean | null;
-}
+import type { ColumnDefinition, RowDefinition, CellData } from '@/lib/types/table-schema';
 
 /**
  * DataTable Props

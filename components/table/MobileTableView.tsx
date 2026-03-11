@@ -11,7 +11,7 @@ import { ChevronRight } from 'lucide-react';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { cn } from '@/lib/utils/cn';
 import { formatCellValue } from '@/lib/types/column-types';
-import type { ColumnDefinition, RowDefinition, CellData } from './DataTable';
+import type { ColumnDefinition, RowDefinition, CellData } from '@/lib/types/table-schema';
 
 interface MobileTableViewProps {
   columns: ColumnDefinition[];
