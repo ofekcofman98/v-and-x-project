@@ -214,11 +214,15 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
 
     let transcript: string;
     try {
+      // Build a domain-specific prompt to bias Whisper away from hallucinations
+      const whisperPrompt = buildWhisperPrompt(tableSchema);
+      
       const transcription = await openai.audio.transcriptions.create({
         file: audioFile,
         model: 'whisper-1',
         language: language as 'en' | 'he' | undefined,
         response_format: 'json',
+        prompt: whisperPrompt,
       });
       transcript = transcription.text;
     } catch (error: unknown) {
@@ -255,6 +259,28 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
 
     const transcriptionDuration = Date.now() - transcriptionStartTime;
     console.log('[VoiceEntry] Transcription complete:', { transcript, duration: transcriptionDuration });
+
+    // Early Exit: Check for known Whisper hallucinations
+    if (isWhisperHallucination(transcript)) {
+      console.log('[VoiceEntry] Detected Whisper hallucination, skipping GPT call:', transcript);
+      const totalDuration = Date.now() - totalStartTime;
+      
+      return NextResponse.json({
+        success: true,
+        data: {
+          entity: null,
+          entityMatch: null,
+          value: null,
+          valueValid: false,
+          action: 'ERROR' as const,
+          error: 'Empty or invalid audio detected',
+          transcript,
+          transcriptionDuration,
+          parsingDuration: 0,
+          totalDuration,
+        },
+      });
+    }
 
     // Step 2: Parse transcript using GPT-4o-mini
     console.log('[VoiceEntry] Starting parsing...');
@@ -441,6 +467,86 @@ RESPOND ONLY IN JSON (strictly matching this schema):
   "reasoning": "Extracted raw data from transcript"
 }
 `.trim();
+}
+
+/**
+ * Build a domain-specific prompt for Whisper to bias against hallucinations
+ * This helps Whisper understand the context and reduces false transcriptions
+ */
+function buildWhisperPrompt(tableSchema: TableSchema): string {
+  // Take up to 10 row labels as examples
+  const exampleEntities = tableSchema.rows.slice(0, 10).map((row) => row.label);
+  
+  // Add common value patterns
+  const commonPatterns = [
+    'numbers',
+    'scores',
+    'grades',
+    '100',
+    '95',
+    '85',
+    'update cell',
+    'Student A',
+    'Student B',
+    'John',
+    'Mary',
+  ];
+  
+  // Combine entities and patterns
+  const allExamples = [...exampleEntities, ...commonPatterns];
+  
+  // Whisper prompt should be concise but representative
+  // Limit to ~200 characters to stay within OpenAI's recommendation
+  return allExamples.slice(0, 20).join(', ') + '.';
+}
+
+/**
+ * Check if transcript is a known Whisper hallucination
+ * Returns true if we should skip GPT processing to save costs
+ */
+function isWhisperHallucination(transcript: string): boolean {
+  const normalized = transcript.trim().toLowerCase();
+  
+  // Empty or very short transcripts
+  if (normalized.length === 0 || normalized.length < 2) {
+    return true;
+  }
+  
+  // Known Whisper hallucinations
+  const hallucinations = [
+    'thank you',
+    'thank you.',
+    'thank you for watching',
+    'thank you for watching.',
+    'thank you for your time',
+    'thank you for your time.',
+    'thanks for watching',
+    'thanks for watching.',
+    'bye',
+    'bye.',
+    'goodbye',
+    'goodbye.',
+    '...',
+    '. . .',
+    'music',
+    '[music]',
+    '(music)',
+    'silence',
+    '[silence]',
+    '(silence)',
+  ];
+  
+  // Check exact matches
+  if (hallucinations.includes(normalized)) {
+    return true;
+  }
+  
+  // Check if it's just punctuation
+  if (/^[.,!?;:\s]+$/.test(normalized)) {
+    return true;
+  }
+  
+  return false;
 }
 
 export async function OPTIONS(): Promise<NextResponse> {

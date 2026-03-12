@@ -41,7 +41,15 @@
    - 8.1 [Test Audio Samples](#81-test-audio-samples)
    - 8.2 [Performance Monitoring](#82-performance-monitoring)
 
-9. [Voice Pipeline Checklist](#9-voice-pipeline-checklist)
+9. [Continuous Flow Mode](#9-continuous-flow-mode)
+   - 9.1 [What is Continuous Flow?](#91-what-is-continuous-flow)
+   - 9.2 [Voice Activity Detection (VAD)](#92-voice-activity-detection-vad)
+   - 9.3 [Continuous Flow Hook](#93-continuous-flow-hook)
+   - 9.4 [VAD Tuning Reference](#94-vad-tuning-reference)
+   - 9.5 [Error Handling in Continuous Mode](#95-error-handling-in-continuous-mode)
+   - 9.6 [Continuous Flow Checklist](#96-continuous-flow-checklist)
+
+10. [Voice Pipeline Checklist](#10-voice-pipeline-checklist)
 
 ---
 
@@ -1283,9 +1291,452 @@ export function trackVoiceMetrics(data: {
 }
 ```
 
+## 9. Continuous Flow Mode
+
+> **Status:** Planned feature — implement after push-to-talk baseline is stable (Phase 3+).  
+> **Related changes:** `04_STATE_MANAGEMENT.md §9`, `06_SMART_POINTER.md §10`
+
+### 9.1 What is Continuous Flow?
+
+**Push-to-talk** (the baseline model) requires the user to manually press and release a button for every single entry. For a teacher grading 30 students, that is 30 deliberate button presses.
+
+**Continuous Flow** eliminates the button entirely. The user activates the mode once, and the system:
+
+1. Listens continuously via the microphone
+2. Detects when the user starts speaking (Voice Activity Detection)
+3. Automatically captures the audio chunk
+4. Processes it through the normal pipeline (Whisper → GPT → commit)
+5. Returns to listening immediately after the pointer advances
+6. Repeats until the user says "stop" or presses Escape
+
+```
+PUSH-TO-TALK (current):
+  [Press] → Listen → [Release] → Process → Confirm → Commit → idle
+  [Press] → Listen → [Release] → Process → Confirm → Commit → idle
+  ...repeat manually every time
+
+CONTINUOUS FLOW (new):
+  [Activate] →
+    Listen → speech detected → chunk captured →
+    Process → Confirm → Commit → Advance →
+    Listen → speech detected → chunk captured →   ← automatic loop
+    Process → Confirm → Commit → Advance →
+    Listen → ...
+  [Deactivate / "stop" / Escape]
+```
+
+### 9.2 Voice Activity Detection (VAD)
+
+The browser does not have a native VAD API. We implement it using the **Web Audio API `AnalyserNode`**, which is already wired up in `useVoiceRecorder` for waveform visualization (`§2.1`). We reuse the same analyser to drive silence/speech detection.
+
+```typescript
+// lib/hooks/use-vad.ts
+
+import { useRef, useCallback } from 'react';
+
+export interface VADOptions {
+  /** RMS energy level (0–255) above which audio is considered speech. Default: 15 */
+  speechThreshold?: number;
+  /** RMS energy level below which audio is considered silence. Default: 8 */
+  silenceThreshold?: number;
+  /** Milliseconds of continuous silence before the chunk is considered complete. Default: 1200 */
+  silenceDurationMs?: number;
+  /** Milliseconds of continuous speech required before recording starts (debounce). Default: 150 */
+  speechDebounceMs?: number;
+  /** Maximum chunk duration in milliseconds before forcing a flush. Default: 15000 */
+  maxChunkMs?: number;
+}
+
+export interface VADCallbacks {
+  onSpeechStart: () => void;
+  onSpeechEnd:   (audioBlob: Blob) => void;
+  onError:       (error: Error) => void;
+}
+
+export function useVAD(options: VADOptions = {}) {
+  const {
+    speechThreshold   = 15,
+    silenceThreshold  = 8,
+    silenceDurationMs = 1200,
+    speechDebounceMs  = 150,
+    maxChunkMs        = 15_000,
+  } = options;
+
+  // ─── internal refs ───────────────────────────────────────────
+  const audioContextRef    = useRef<AudioContext | null>(null);
+  const analyserRef        = useRef<AnalyserNode | null>(null);
+  const mediaRecorderRef   = useRef<MediaRecorder | null>(null);
+  const chunksRef          = useRef<Blob[]>([]);
+  const streamRef          = useRef<MediaStream | null>(null);
+  const rafRef             = useRef<number | null>(null);
+
+  // VAD state
+  const isSpeakingRef      = useRef(false);
+  const silenceStartRef    = useRef<number | null>(null);
+  const speechStartRef     = useRef<number | null>(null);
+  const recordingStartRef  = useRef<number | null>(null);
+  const callbacksRef       = useRef<VADCallbacks | null>(null);
+
+  // ─── RMS energy helper ────────────────────────────────────────
+  const getRMS = (analyser: AnalyserNode): number => {
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteTimeDomainData(data);
+
+    let sumSquares = 0;
+    for (const amplitude of data) {
+      const normalised = (amplitude - 128) / 128; // –1 … +1
+      sumSquares += normalised * normalised;
+    }
+    return Math.sqrt(sumSquares / data.length) * 255; // scale to 0–255
+  };
+
+  // ─── flush current recording chunk ───────────────────────────
+  const flushChunk = useCallback(() => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') return;
+
+    mediaRecorderRef.current.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+      chunksRef.current = [];
+      callbacksRef.current?.onSpeechEnd(blob);
+    };
+
+    mediaRecorderRef.current.stop();
+    isSpeakingRef.current    = false;
+    silenceStartRef.current  = null;
+    recordingStartRef.current = null;
+  }, []);
+
+  // ─── main VAD loop (runs on every animation frame) ───────────
+  const tick = useCallback(() => {
+    if (!analyserRef.current || !callbacksRef.current) return;
+
+    const rms = getRMS(analyserRef.current);
+    const now = Date.now();
+
+    if (!isSpeakingRef.current) {
+      // ── Waiting for speech ──
+      if (rms >= speechThreshold) {
+        if (!speechStartRef.current) {
+          speechStartRef.current = now; // start debounce timer
+        } else if (now - speechStartRef.current >= speechDebounceMs) {
+          // Speech confirmed — start recording
+          isSpeakingRef.current     = true;
+          speechStartRef.current    = null;
+          silenceStartRef.current   = null;
+          recordingStartRef.current = now;
+
+          chunksRef.current = [];
+          mediaRecorderRef.current?.start(100); // 100 ms slices
+          callbacksRef.current.onSpeechStart();
+        }
+      } else {
+        speechStartRef.current = null; // reset debounce
+      }
+    } else {
+      // ── Currently recording ──
+
+      // Force-flush if chunk is too long
+      if (recordingStartRef.current && now - recordingStartRef.current >= maxChunkMs) {
+        flushChunk();
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      if (rms < silenceThreshold) {
+        if (!silenceStartRef.current) {
+          silenceStartRef.current = now; // start silence timer
+        } else if (now - silenceStartRef.current >= silenceDurationMs) {
+          // Silence confirmed — flush chunk
+          flushChunk();
+        }
+      } else {
+        silenceStartRef.current = null; // reset silence timer (speech resumed)
+      }
+    }
+
+    rafRef.current = requestAnimationFrame(tick);
+  }, [speechThreshold, silenceThreshold, speechDebounceMs, silenceDurationMs, maxChunkMs, flushChunk]);
+
+  // ─── public API ───────────────────────────────────────────────
+
+  const startVAD = useCallback(async (callbacks: VADCallbacks) => {
+    callbacksRef.current = callbacks;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl:  true,
+        },
+      });
+      streamRef.current = stream;
+
+      const audioContext = new AudioContext();
+      const analyser     = audioContext.createAnalyser();
+      const source       = audioContext.createMediaStreamSource(stream);
+
+      analyser.fftSize           = 512;
+      analyser.smoothingTimeConstant = 0.6;
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current     = analyser;
+
+      // Create a MediaRecorder in INACTIVE state — the VAD loop will call .start()
+      const recorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+      });
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mediaRecorderRef.current = recorder;
+
+      // Start the VAD tick loop
+      rafRef.current = requestAnimationFrame(tick);
+    } catch (err) {
+      callbacks.onError(err as Error);
+    }
+  }, [tick]);
+
+  const stopVAD = useCallback(() => {
+    // Cancel animation frame
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+
+    // Flush any in-progress recording
+    if (isSpeakingRef.current) flushChunk();
+
+    // Stop microphone stream
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+
+    // Close AudioContext
+    audioContextRef.current?.close();
+
+    // Reset all refs
+    isSpeakingRef.current     = false;
+    speechStartRef.current    = null;
+    silenceStartRef.current   = null;
+    recordingStartRef.current = null;
+    callbacksRef.current      = null;
+  }, [flushChunk]);
+
+  return { startVAD, stopVAD };
+}
+```
+
+### 9.3 Continuous Flow Hook
+
+This hook wraps `useVAD` and plugs it into the existing voice pipeline (`transcribeAudio` + `parseTranscript`) so that the component layer needs no awareness of the VAD internals.
+
+```typescript
+// lib/hooks/use-continuous-voice.ts
+
+import { useCallback, useRef } from 'react';
+import { useUIStore } from '@/lib/stores/ui-store';
+import { useVAD }     from '@/lib/hooks/use-vad';
+import { transcribeAudio } from '@/lib/voice/transcribe';
+import { parseTranscript }  from '@/lib/voice/parse';
+import type { TableSchema } from '@/lib/types';
+
+interface UseContinuousVoiceOptions {
+  schema:          TableSchema;
+  tableId:         string;
+  activeColumnId:  string;
+  onResult:        (result: ParseResult) => void;
+  onError:         (error: Error) => void;
+}
+
+export function useContinuousVoice({
+  schema,
+  tableId,
+  activeColumnId,
+  onResult,
+  onError,
+}: UseContinuousVoiceOptions) {
+  const { startVAD, stopVAD } = useVAD({
+    speechThreshold:   15,
+    silenceThreshold:   8,
+    silenceDurationMs: 1200,
+    speechDebounceMs:   150,
+  });
+
+  const setRecordingState = useUIStore((s) => s.setRecordingState);
+  const navigationMode    = useUIStore((s) => s.navigationMode);
+  const isContinuousRef   = useRef(false);
+
+  // ─── called by VAD when a complete speech chunk is ready ─────
+  const handleChunk = useCallback(async (audioBlob: Blob) => {
+    if (!isContinuousRef.current) return; // mode was deactivated mid-chunk
+
+    try {
+      setRecordingState('processing');
+
+      const { transcript } = await transcribeAudio(audioBlob);
+
+      if (!transcript.trim()) {
+        // Whisper returned empty — ignore and resume listening
+        setRecordingState('listening');
+        return;
+      }
+
+      const result = await parseTranscript(
+        transcript,
+        schema,
+        activeColumnId,
+        navigationMode
+      );
+
+      setRecordingState('confirming');
+      onResult(result);
+
+      // NOTE: the component is responsible for calling
+      // confirmEntry() / cancelEntry(). After confirmEntry(),
+      // Zustand advances the pointer and the state machine
+      // (06_SMART_POINTER.md §10) automatically re-enters
+      // 'listening' because continuousMode === true.
+
+    } catch (err) {
+      onError(err as Error);
+      setRecordingState('listening'); // recover and keep looping
+    }
+  }, [schema, activeColumnId, navigationMode, onResult, onError, setRecordingState]);
+
+  // ─── public API ───────────────────────────────────────────────
+
+  const startContinuous = useCallback(async () => {
+    isContinuousRef.current = true;
+    setRecordingState('listening');
+
+    await startVAD({
+      onSpeechStart: () => setRecordingState('listening'),
+      onSpeechEnd:   handleChunk,
+      onError:       (err) => {
+        onError(err);
+        setRecordingState('error');
+      },
+    });
+  }, [startVAD, handleChunk, onError, setRecordingState]);
+
+  const stopContinuous = useCallback(() => {
+    isContinuousRef.current = false;
+    stopVAD();
+    setRecordingState('idle');
+  }, [stopVAD, setRecordingState]);
+
+  return { startContinuous, stopContinuous };
+}
+```
+
+### 9.4 VAD Tuning Reference
+
+The thresholds in `useVAD` are environment-dependent. Use these as starting values and expose them as user preferences in `UIPreferences` (see `04_STATE_MANAGEMENT.md §9`).
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  VAD THRESHOLD GUIDE                                        │
+├──────────────────────┬──────────────────────────────────────┤
+│  Environment         │  Recommended speechThreshold         │
+├──────────────────────┼──────────────────────────────────────┤
+│  Quiet office        │  10                                  │
+│  Normal classroom    │  15  ← default                       │
+│  Noisy warehouse     │  25                                  │
+│  Outdoor / windy     │  30                                  │
+├──────────────────────┼──────────────────────────────────────┤
+│  silenceDurationMs   │  Effect                              │
+├──────────────────────┼──────────────────────────────────────┤
+│  800 ms              │  Aggressive — cuts off fast speakers │
+│  1200 ms             │  Balanced ← default                  │
+│  2000 ms             │  Relaxed — good for slow speakers    │
+└──────────────────────┴──────────────────────────────────────┘
+```
+
+### 9.5 Error Handling in Continuous Mode
+
+Continuous mode introduces failure patterns not present in push-to-talk. These map to the existing error codes in `09_ERROR_HANDLING.md` with one new addition.
+
+```typescript
+// Additional error codes for continuous mode
+// Add to the errorScenarios array in 09_ERROR_HANDLING.md
+
+{
+  code: 'VAD_NO_SPEECH_TIMEOUT',
+  trigger: 'No speech detected for > 60 seconds in continuous mode',
+  userMessage: 'No speech detected. Continuous mode paused — tap to resume.',
+  recovery: ['Auto-pause VAD loop', 'Show resume button'],
+  logLevel: 'info',
+},
+{
+  code: 'VAD_CHUNK_TOO_LONG',
+  trigger: 'User spoke for > 15 seconds without pause',
+  userMessage: 'Long input detected — processing what was said so far.',
+  recovery: ['Force-flush chunk at maxChunkMs', 'Continue loop'],
+  logLevel: 'info',
+},
+{
+  code: 'VAD_CONSECUTIVE_FAILURES',
+  trigger: '3 consecutive parse failures in continuous mode',
+  userMessage: 'Having trouble understanding. Continuous mode paused.',
+  recovery: ['Auto-stop continuous mode', 'Return to push-to-talk'],
+  logLevel: 'warn',
+},
+```
+
+```typescript
+// lib/hooks/use-continuous-voice.ts (add failure tracking)
+
+const consecutiveFailuresRef = useRef(0);
+const MAX_CONSECUTIVE_FAILURES = 3;
+
+// Inside handleChunk, in the catch block:
+catch (err) {
+  consecutiveFailuresRef.current += 1;
+
+  if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) {
+    stopContinuous();
+    onError(new Error('VAD_CONSECUTIVE_FAILURES'));
+    return;
+  }
+
+  onError(err as Error);
+  setRecordingState('listening'); // recover and keep looping
+}
+
+// Reset on success:
+consecutiveFailuresRef.current = 0;
+```
+
+### 9.6 Continuous Flow Checklist
+
+**Implementation:**
+- [ ] `useVAD` hook with RMS-based speech/silence detection
+- [ ] `useContinuousVoice` hook wrapping VAD + pipeline
+- [ ] `continuousMode` flag in Zustand store (see `04_STATE_MANAGEMENT.md §9`)
+- [ ] Auto-restart transition in state machine (see `06_SMART_POINTER.md §10`)
+- [ ] VAD threshold preferences in `UIPreferences`
+- [ ] Consecutive failure guard (auto-stop after 3 failures)
+- [ ] No-speech timeout (auto-pause after 60 s silence)
+
+**Testing:**
+- [ ] VAD fires `onSpeechStart` within 150 ms of speech onset
+- [ ] VAD fires `onSpeechEnd` within 1200 ms of speech ending
+- [ ] Background noise below threshold does not trigger recording
+- [ ] Two consecutive entries process correctly without overlap
+- [ ] Stopping mid-session does not leave microphone stream open
+- [ ] `maxChunkMs` force-flush works correctly
+
+**UX:**
+- [ ] Continuous mode clearly indicated in UI (distinct from push-to-talk)
+- [ ] Visual waveform active while listening
+- [ ] User can exit at any time via "Stop" button or Escape key
+- [ ] VAD sensitivity adjustable in preferences
+
 ---
 
-## 9. Voice Pipeline Checklist
+
+## 10. Voice Pipeline Checklist
 
 **Implementation:**
 - [ ] MediaRecorder setup

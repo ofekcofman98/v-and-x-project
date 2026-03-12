@@ -35,7 +35,15 @@
    - 6.1 [Voice Input → Cell Update Flow](#61-voice-input--cell-update-flow)
    - 6.2 [Collaborative Editing Flow](#62-collaborative-editing-flow)
 
-7. [State Management Checklist](#7-state-management-checklist)
+7. [Continuous Flow State](#7-continuous-flow-state)
+   - 7.1 [What Changes in the Store](#71-what-changes-in-the-store)
+   - 7.2 [Store Updates](#72-store-updates)
+   - 7.3 [Persistence Update](#73-persistence-update)
+   - 7.4 [State Flow — Continuous Mode Lifecycle](#74-state-flow-continuous-mode-lifecycle)
+   - 7.5 [Selector Reference](#75-selector-reference)
+   - 7.6 [Continuous Flow State Checklist](#76-continuous-flow-state-checklist)
+
+8. [State Management Checklist](#8-state-management-checklist)
 
 ---
 
@@ -1023,9 +1031,231 @@ const persister = createSyncStoragePersister({
 └────────────────────────────────────────────────────────────┘
 ```
 
+## 7. Continuous Flow State
+
+> **Status:** Planned feature — depends on `05_VOICE_PIPELINE.md §9` (VAD hook) and `06_SMART_POINTER.md §10` (auto-restart transition).
+
+### 7.1 What Changes in the Store
+
+Continuous Flow requires two additions to the existing `UIStore` (`§2.1`):
+
+1. **`continuousMode: boolean`** — whether the VAD loop is active
+2. **`vadSensitivity`** — user-adjustable thresholds, stored under `UIPreferences` so they persist to `localStorage` via the existing `partialize` config (`§5.1`)
+
+Everything else — `recordingState`, `activeCell`, `pendingConfirmation` — is reused unchanged. Continuous mode is purely a behavioural flag, not a parallel state tree.
+
+### 7.2 Store Updates
+
+```typescript
+// lib/stores/ui-store.ts  (additions only — merge into existing store)
+
+// ─── new type additions ───────────────────────────────────────
+
+export interface VADSensitivity {
+  /** RMS level (0–255) above which audio is speech. Default: 15 */
+  speechThreshold:   number;
+  /** RMS level below which audio is silence. Default: 8 */
+  silenceThreshold:  number;
+  /** Ms of continuous silence before chunk flushes. Default: 1200 */
+  silenceDurationMs: number;
+}
+
+const defaultVADSensitivity: VADSensitivity = {
+  speechThreshold:   15,
+  silenceThreshold:   8,
+  silenceDurationMs: 1200,
+};
+
+// ─── add to UIPreferences interface ──────────────────────────
+
+interface UIPreferences {
+  theme:                'light' | 'dark' | 'system';
+  fontSize:             'small' | 'medium' | 'large';
+  showConfidenceScores: boolean;
+  autoAdvanceDelay:     number;
+  voiceFeedbackEnabled: boolean;
+  vadSensitivity:       VADSensitivity;   // ← NEW
+}
+
+const defaultPreferences: UIPreferences = {
+  theme:                'system',
+  fontSize:             'medium',
+  showConfidenceScores: true,
+  autoAdvanceDelay:     2000,
+  voiceFeedbackEnabled: false,
+  vadSensitivity:       defaultVADSensitivity,  // ← NEW
+};
+
+// ─── add to UIStore interface ─────────────────────────────────
+
+interface UIStore {
+  // ... (all existing fields unchanged)
+
+  /** Whether the VAD continuous loop is active */
+  continuousMode: boolean;                        // ← NEW
+
+  // ... (all existing actions unchanged)
+
+  /** Toggle continuous mode on/off */
+  setContinuousMode: (enabled: boolean) => void;  // ← NEW
+}
+
+// ─── add to store implementation ─────────────────────────────
+
+// Inside create<UIStore>()(devtools((set, get) => ({
+//   ... existing state ...
+
+  continuousMode: false,
+
+  setContinuousMode: (enabled) => set({ continuousMode: enabled }),
+
+// ─── update reset() to also clear continuousMode ─────────────
+
+  reset: () => set({
+    activeCell:           null,
+    isRecording:          false,
+    recordingState:       'idle',
+    currentTranscript:    null,
+    pendingConfirmation:  null,
+    continuousMode:       false,   // ← NEW: always reset on full reset
+  }),
+```
+
+### 7.3 Persistence Update
+
+The existing `partialize` config in `§5.1` persists only `preferences` and `navigationMode`. We add `vadSensitivity` via `preferences` (already included) and explicitly exclude `continuousMode` — continuous mode must never auto-restore on page reload, because the microphone would start without explicit user action.
+
+```typescript
+// lib/stores/ui-store.ts  (partialize config — replace existing)
+
+persist(
+  (set, get) => ({ /* store implementation */ }),
+  {
+    name: 'vocalgrid-ui-preferences',
+
+    partialize: (state) => ({
+      preferences:    state.preferences,    // includes vadSensitivity
+      navigationMode: state.navigationMode,
+      // continuousMode intentionally excluded:
+      // microphone must never auto-activate on page load
+    }),
+  }
+)
+```
+
+### 7.4 State Flow — Continuous Mode Lifecycle
+
+This extends the flow diagram in `§6.1` to show the continuous loop branch.
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│ USER: Clicks "Continuous Mode" toggle                            │
+└───────────────────────┬───────────────────────────────────────────┘
+                        │
+                        ▼
+┌───────────────────────────────────────────────────────────────────┐
+│ ZUSTAND: setContinuousMode(true)                                 │
+│   continuousMode = true                                          │
+└───────────────────────┬───────────────────────────────────────────┘
+                        │
+                        ▼
+┌───────────────────────────────────────────────────────────────────┐
+│ useContinuousVoice: startVAD()                                   │
+│   recordingState = 'listening'                                   │
+│   VAD loop begins (Web Audio API analyser)                       │
+└───────────────────────┬───────────────────────────────────────────┘
+                        │  (user speaks)
+                        ▼
+┌───────────────────────────────────────────────────────────────────┐
+│ VAD: onSpeechEnd(blob)                                           │
+│   recordingState = 'processing'                                  │
+└───────────────────────┬───────────────────────────────────────────┘
+                        │
+                        ▼
+┌───────────────────────────────────────────────────────────────────┐
+│ Pipeline: transcribe + parse                                     │
+│   recordingState = 'confirming'                                  │
+│   pendingConfirmation = { entity, value, confidence }            │
+└───────────────────────┬───────────────────────────────────────────┘
+                        │  (user confirms — or auto-confirm if ≥ 0.85)
+                        ▼
+┌───────────────────────────────────────────────────────────────────┐
+│ TANSTACK QUERY: updateCell.mutate() — optimistic update          │
+│   recordingState = 'committing' → 'advancing'                    │
+└───────────────────────┬───────────────────────────────────────────┘
+                        │
+                        ▼
+┌───────────────────────────────────────────────────────────────────┐
+│ useContinuousAutoRestart: continuousMode === true?               │
+│   YES → wait 400ms → recordingState = 'listening'  ◄────────┐   │
+│   NO  → recordingState = 'idle'                             │   │
+└───────────────────────┬─────────────────────────────────────┘   │
+                        │                                          │
+                        └──────────────────────────────────────────┘
+                                 (loop repeats)
+
+EXIT CONDITIONS:
+  • User clicks "Stop Continuous" button
+  • User presses Escape
+  • 3 consecutive parse failures  (auto-stop)
+  • 60 s of silence               (auto-pause)
+  • End of table reached
+
+All exit paths call:
+  setContinuousMode(false) → stopVAD() → recordingState = 'idle'
+```
+
+### 7.5 Selector Reference
+
+Components that need to react to continuous mode should use these selectors. Follow the same slice-selector pattern used throughout `§2.2` to avoid unnecessary re-renders.
+
+```typescript
+// Read continuous mode flag
+const continuousMode = useUIStore((s) => s.continuousMode);
+
+// Read VAD sensitivity (for preferences UI)
+const vadSensitivity = useUIStore((s) => s.preferences.vadSensitivity);
+
+// Update VAD sensitivity
+const updatePreferences = useUIStore((s) => s.updatePreferences);
+updatePreferences({
+  vadSensitivity: { speechThreshold: 25, silenceThreshold: 10, silenceDurationMs: 1500 },
+});
+
+// Toggle continuous mode
+const setContinuousMode = useUIStore((s) => s.setContinuousMode);
+setContinuousMode(true);
+
+// Derived: is the system actively listening in continuous mode?
+const isActivelyListening = useUIStore(
+  (s) => s.continuousMode && s.recordingState === 'listening'
+);
+```
+
+### 7.6 Continuous Flow State Checklist
+
+**Store:**
+- [ ] `continuousMode: boolean` added to `UIStore` interface
+- [ ] `setContinuousMode` action implemented
+- [ ] `vadSensitivity` added to `UIPreferences` with defaults
+- [ ] `continuousMode` excluded from `partialize` (must not persist)
+- [ ] `reset()` clears `continuousMode`
+
+**Integration:**
+- [ ] `useContinuousVoice` reads `continuousMode` from store
+- [ ] `useContinuousAutoRestart` reads `continuousMode` before auto-restart
+- [ ] `ContinuousModeToggle` writes `continuousMode` via `setContinuousMode`
+- [ ] Preferences UI exposes `vadSensitivity` sliders
+
+**Testing:**
+- [ ] `continuousMode` is `false` after `reset()`
+- [ ] `continuousMode` is not restored on page reload
+- [ ] `vadSensitivity` persists across page reload (via preferences)
+- [ ] Selector `isActivelyListening` is `false` when `recordingState !== 'listening'`
+
 ---
 
-## 7. State Management Checklist
+## 8. State Management Checklist
 
 **Before Implementation:**
 - [ ] Zustand store defined

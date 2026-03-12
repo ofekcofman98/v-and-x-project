@@ -5,10 +5,12 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { DataTable } from '@/components/table/DataTable';
 import { MobileTableView } from '@/components/table/MobileTableView';
 import { VoiceButton } from '@/components/voice';
 import { useUIStore } from '@/lib/stores/ui-store';
+import { useTableDataStore } from '@/lib/stores/table-data-store';
 import { ColumnType } from '@/lib/types/column-types';
 import type {
   ColumnDefinition,
@@ -72,7 +74,13 @@ export default function DataTableDemoPage() {
   const pendingConfirmation = useUIStore((state) => state.pendingConfirmation);
   const setActiveCell = useUIStore((state) => state.setActiveCell);
   const setRecordingState = useUIStore((state) => state.setRecordingState);
+  const setCellData = useTableDataStore((state) => state.setCellData);
   const tableSchema: TableSchema = { columns, rows };
+  
+  // Initialize the table data store with mock data
+  useEffect(() => {
+    setCellData(mockData);
+  }, [setCellData]);
   
   const handleCellClick = (rowId: string, columnId: string) => {
     console.log('Cell clicked:', { rowId, columnId });

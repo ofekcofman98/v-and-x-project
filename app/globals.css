@@ -78,4 +78,23 @@
   }
 }
 
+@layer utilities {
+  @keyframes flash {
+    0%, 100% {
+      background-color: transparent;
+    }
+    50% {
+      background-color: rgb(34 197 94 / 0.3);
+    }
+  }
+  
+  @keyframes fadeOut {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+}
 

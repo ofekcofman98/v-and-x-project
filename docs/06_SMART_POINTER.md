@@ -42,7 +42,16 @@
 8. [Testing](#8-testing)
    - 8.1 [Navigation Tests](#81-navigation-tests)
 
-9. [Smart Pointer Checklist](#9-smart-pointer-checklist)
+9. [Continuous Flow Integration](#9-continuous-flow-integration)
+   - 9.1 [The Core Problem with the Current State Machine](#91-the-core-problem-with-the-current-state-machine)
+   - 9.2 [Updated State Transition Diagram](#92-updated-state-transition-diagram)
+   - 9.3 [Updated State Machine Implementation](#93-updated-state-machine-implementation)
+   - 9.4 [Navigation Hook — Continuous Mode Extension](#94-navigation-hook-continuous-mode-extension)
+   - 9.5 [Continuous Mode UI Controls](#95-continuous-mode-ui-controls)
+   - 9.6 [Continuous Flow — Full Sequence Diagram](#96-continuous-flow-full-sequence-diagram)
+   - 9.7 [Continuous Flow Checklist](#97-continuous-flow-checklist)
+
+10. [Smart Pointer Checklist](#10-smart-pointer-checklist)
 
 ---
 
@@ -1169,9 +1178,364 @@ describe('Row-First Navigation', () => {
 });
 ```
 
+## 9. Continuous Flow Integration
+
+> **Status:** Planned feature — depends on `05_VOICE_PIPELINE.md §9` (VAD) and `04_STATE_MANAGEMENT.md §9` (store flag).
+
+### 9.1 The Core Problem with the Current State Machine
+
+The existing state machine (`§2.2`) terminates at `advancing → idle` and stops. In Continuous Flow mode, `idle` should not be a resting state — the system must immediately re-enter `listening` after the pointer advances.
+
+The fix is a **single conditional auto-transition** driven by the `continuousMode` flag in the Zustand store. The state machine logic itself does not change; the component that drives it checks the flag after `ADVANCE_COMPLETE` and dispatches `START_RECORDING` automatically.
+
+### 9.2 Updated State Transition Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│           SMART POINTER STATE MACHINE (with Continuous Flow)    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│                      ┌─────────┐                               │
+│           ┌──────────│  IDLE   │◄──────────────────────┐       │
+│           │          └────┬────┘                       │       │
+│           │               │ START_RECORDING             │       │
+│           │               ▼                             │       │
+│           │         ┌───────────┐                       │       │
+│           │         │ LISTENING │◄─────────────────┐    │       │
+│           │         └─────┬─────┘                  │    │       │
+│           │               │ STOP_RECORDING          │    │       │
+│           │               ▼                         │    │       │
+│           │        ┌────────────┐                   │    │       │
+│           │        │ PROCESSING │                   │    │       │
+│           │        └─────┬──────┘                   │    │       │
+│           │               │ PARSE_COMPLETE           │    │       │
+│           │               ▼                         │    │       │
+│           │        ┌────────────┐                   │    │       │
+│           │        │ CONFIRMING │                   │    │       │
+│           │        └─────┬──────┘                   │    │       │
+│           │    confirmed │ │ cancelled               │    │       │
+│           │               │ └────────────────────────┘    │       │
+│           │               ▼                               │       │
+│           │        ┌────────────┐                         │       │
+│           │        │ COMMITTING │                         │       │
+│           │        └─────┬──────┘                         │       │
+│           │               │ COMMIT_SUCCESS                │       │
+│           │               ▼                               │       │
+│           │        ┌──────────────┐                       │       │
+│           │        │  ADVANCING   │                       │       │
+│           │        └──────┬───────┘                       │       │
+│           │               │ ADVANCE_COMPLETE               │       │
+│           │               ▼                               │       │
+│           │    ┌─────────────────────┐                    │       │
+│           │    │ continuousMode?     │                    │       │
+│           │    ├──────┬──────────────┤                    │       │
+│           │    │ YES  │ NO           │                    │       │
+│           │    │  ────┼──────────────┼────► IDLE ─────────┘       │
+│           │    │      │              │                             │
+│           │    │      └──────────────┼► START_RECORDING ──────────┘│
+│           │    └─────────────────────┘     (back to LISTENING)      │
+│           │                                                          │
+│           │  ┌───────┐                                              │
+│           └─►│ ERROR │── auto-timeout (2s) ──► IDLE                │
+│              └───────┘                                              │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.3 Updated State Machine Implementation
+
+This extends `§2.2` — replace `pointerReducer` with the version below, and update the driving hook to handle the auto-restart side effect.
+
+```typescript
+// lib/state-machines/pointer-state.ts  (updated)
+
+export type PointerState =
+  | 'idle'
+  | 'listening'
+  | 'processing'
+  | 'confirming'
+  | 'committing'
+  | 'advancing'
+  | 'error';
+
+export type PointerEvent =
+  | { type: 'START_RECORDING' }
+  | { type: 'STOP_RECORDING' }
+  | { type: 'TRANSCRIPTION_COMPLETE' }
+  | { type: 'PARSE_COMPLETE' }
+  | { type: 'USER_CONFIRMED' }
+  | { type: 'USER_CANCELLED' }
+  | { type: 'COMMIT_SUCCESS' }
+  | { type: 'COMMIT_FAILED' }
+  | { type: 'ADVANCE_COMPLETE' }
+  | { type: 'AUTO_RESTART' }        // ← NEW: fired when continuousMode = true
+  | { type: 'CONTINUOUS_STOPPED' }  // ← NEW: user exits continuous mode
+  | { type: 'ERROR'; error: string };
+
+export function pointerReducer(
+  state: PointerState,
+  event: PointerEvent
+): PointerState {
+  switch (state) {
+    case 'idle':
+      if (event.type === 'START_RECORDING') return 'listening';
+      break;
+
+    case 'listening':
+      if (event.type === 'STOP_RECORDING')      return 'processing';
+      if (event.type === 'CONTINUOUS_STOPPED')  return 'idle';
+      if (event.type === 'ERROR')               return 'error';
+      break;
+
+    case 'processing':
+      if (event.type === 'PARSE_COMPLETE')      return 'confirming';
+      if (event.type === 'ERROR')               return 'error';
+      break;
+
+    case 'confirming':
+      if (event.type === 'USER_CONFIRMED')      return 'committing';
+      if (event.type === 'USER_CANCELLED')      return 'idle';
+      break;
+
+    case 'committing':
+      if (event.type === 'COMMIT_SUCCESS')      return 'advancing';
+      if (event.type === 'COMMIT_FAILED')       return 'error';
+      break;
+
+    case 'advancing':
+      // AUTO_RESTART is dispatched by the hook when continuousMode = true
+      if (event.type === 'AUTO_RESTART')        return 'listening';
+      if (event.type === 'ADVANCE_COMPLETE')    return 'idle';
+      break;
+
+    case 'error':
+      // Auto-return to idle handled by timeout in component
+      // In continuous mode: auto-return to listening (see §10.4)
+      break;
+  }
+
+  return state;
+}
+```
+
+### 9.4 Navigation Hook — Continuous Mode Extension
+
+This extends `§3.3` (Unified Navigation Hook). The only addition is the `useEffect` that watches for the `advancing` state and dispatches `AUTO_RESTART` when `continuousMode` is active.
+
+```typescript
+// lib/hooks/use-smart-pointer.ts  (continuous flow addition)
+
+import { useEffect, useRef } from 'react';
+import { useUIStore } from '@/lib/stores/ui-store';
+import type { TableSchema } from '@/lib/types';
+
+/**
+ * Add this hook alongside the existing useNavigation hook.
+ * It is responsible for the single continuous-flow side effect:
+ * auto-restarting the VAD loop after the pointer advances.
+ */
+export function useContinuousAutoRestart(
+  schema: TableSchema,
+  onAutoRestart: () => void   // calls startVAD again
+) {
+  const recordingState = useUIStore((s) => s.recordingState);
+  const continuousMode = useUIStore((s) => s.continuousMode);
+  const advancePointer = useUIStore((s) => s.advancePointer);
+  const setRecordingState = useUIStore((s) => s.setRecordingState);
+
+  // Tracks whether we have already fired the restart for this advancing cycle
+  const restartFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (recordingState !== 'advancing') {
+      restartFiredRef.current = false; // reset for next cycle
+      return;
+    }
+
+    if (!continuousMode || restartFiredRef.current) return;
+
+    restartFiredRef.current = true;
+
+    // 1. Advance the pointer (same as non-continuous path)
+    advancePointer(schema);
+
+    // 2. Short pause so the user sees the green flash before we listen again
+    const RESTART_DELAY_MS = 400;
+
+    const timer = setTimeout(() => {
+      if (!useUIStore.getState().continuousMode) return; // guard: user may have stopped
+      setRecordingState('listening');
+      onAutoRestart(); // re-activates the VAD loop in useContinuousVoice
+    }, RESTART_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, [recordingState, continuousMode, schema, advancePointer, setRecordingState, onAutoRestart]);
+}
+```
+
+### 9.5 Continuous Mode UI Controls
+
+The user needs clear, unambiguous controls to enter and exit continuous mode. These integrate into the existing `VoiceButton` component (`08_UI_COMPONENTS.md`).
+
+```typescript
+// components/ContinuousModeToggle.tsx
+
+'use client';
+
+import { useUIStore } from '@/lib/stores/ui-store';
+import { Button }     from '@/components/ui/button';
+import { Badge }      from '@/components/ui/badge';
+import { Mic, MicOff, Infinity } from 'lucide-react';
+
+interface ContinuousModeToggleProps {
+  onStart: () => Promise<void>;
+  onStop:  () => void;
+}
+
+export function ContinuousModeToggle({ onStart, onStop }: ContinuousModeToggleProps) {
+  const continuousMode    = useUIStore((s) => s.continuousMode);
+  const recordingState    = useUIStore((s) => s.recordingState);
+  const setContinuousMode = useUIStore((s) => s.setContinuousMode);
+
+  const isListening = continuousMode && recordingState === 'listening';
+
+  const handleToggle = async () => {
+    if (continuousMode) {
+      setContinuousMode(false);
+      onStop();
+    } else {
+      setContinuousMode(true);
+      await onStart();
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant={continuousMode ? 'destructive' : 'outline'}
+        size="sm"
+        onClick={handleToggle}
+        className="gap-2"
+      >
+        {continuousMode ? (
+          <>
+            <MicOff size={14} />
+            Stop Continuous
+          </>
+        ) : (
+          <>
+            <Infinity size={14} />
+            Continuous Mode
+          </>
+        )}
+      </Button>
+
+      {/* Live status badge — only visible in continuous mode */}
+      {continuousMode && (
+        <Badge
+          variant={isListening ? 'default' : 'secondary'}
+          className={isListening ? 'animate-pulse bg-red-500' : ''}
+        >
+          {isListening ? '● Listening' : recordingState}
+        </Badge>
+      )}
+
+      {/* Keyboard hint */}
+      {continuousMode && (
+        <span className="text-xs text-zinc-400">Press Esc to stop</span>
+      )}
+    </div>
+  );
+}
+```
+
+```typescript
+// Add Escape key handler to existing useKeyboardShortcuts hook (04_KEYBOARD_SHORTCUTS)
+
+// In the keyboard handler useEffect, add:
+if (e.key === 'Escape' && continuousMode) {
+  e.preventDefault();
+  setContinuousMode(false);
+  onStop();
+}
+```
+
+### 9.6 Continuous Flow — Full Sequence Diagram
+
+```
+┌──────────┐   ┌──────────┐   ┌──────────────┐   ┌──────────┐   ┌────────┐
+│   User   │   │  VAD     │   │ Voice        │   │ Zustand  │   │  DB    │
+│          │   │  Hook    │   │ Pipeline     │   │ Store    │   │        │
+└────┬─────┘   └────┬─────┘   └──────┬───────┘   └────┬─────┘   └───┬────┘
+     │              │                │                 │             │
+     │ activate     │                │                 │             │
+     │─────────────►│                │                 │             │
+     │              │ getUserMedia   │                 │             │
+     │              │ startAnalyser  │                 │             │
+     │              │                │    listening    │             │
+     │              │────────────────┼────────────────►│             │
+     │              │                │                 │             │
+     │ speaks       │                │                 │             │
+     │──────────────►                │                 │             │
+     │              │ onSpeechStart  │                 │             │
+     │              │────────────────►                 │             │
+     │              │                │                 │             │
+     │ stops speaking│               │                 │             │
+     │──────────────►                │                 │             │
+     │              │ onSpeechEnd    │                 │             │
+     │              │ (audioBlob)    │                 │             │
+     │              │────────────────►                 │             │
+     │              │                │  processing     │             │
+     │              │                │────────────────►│             │
+     │              │                │ transcribe()    │             │
+     │              │                │ parse()         │             │
+     │              │                │  confirming     │             │
+     │              │                │────────────────►│             │
+     │              │                │                 │             │
+     │ confirms     │                │                 │             │
+     │─────────────────────────────────────────────────►             │
+     │              │                │  committing     │             │
+     │              │                │────────────────►│             │
+     │              │                │                 │ upsert      │
+     │              │                │                 │────────────►│
+     │              │                │                 │◄────────────│
+     │              │                │  advancing      │             │
+     │              │                │────────────────►│             │
+     │              │                │                 │             │
+     │              │ ◄── auto-restart after 400ms ────│             │
+     │              │                │  listening      │             │
+     │              │────────────────┼────────────────►│             │
+     │              │                │                 │             │
+     │ speaks again │                │                 │             │
+     │──────────────►  (loop repeats)                  │             │
+```
+
+### 9.7 Continuous Flow Checklist
+
+**Implementation:**
+- [ ] `AUTO_RESTART` and `CONTINUOUS_STOPPED` events added to `pointerReducer`
+- [ ] `useContinuousAutoRestart` hook wired to `advancePointer`
+- [ ] `ContinuousModeToggle` component built and placed in table toolbar
+- [ ] Escape key exits continuous mode
+- [ ] 400 ms restart delay after green flash
+- [ ] Error state in continuous mode auto-recovers to `listening` (not `idle`)
+
+**Testing:**
+- [ ] Two consecutive entries process without overlap
+- [ ] Cancelling an entry in continuous mode returns to `listening` (not `idle`)
+- [ ] Stopping continuous mode mid-processing does not leave mic open
+- [ ] Escape key always exits regardless of current state
+- [ ] After end-of-table in continuous mode, mode stops gracefully
+
+**UX:**
+- [ ] Pulsing red badge visible while VAD is listening
+- [ ] State label updates in real time (listening / processing / confirming)
+- [ ] Continuous mode visually distinct from push-to-talk at a glance
+
+
 ---
 
-## 9. Smart Pointer Checklist
+## 10. Smart Pointer Checklist
 
 **Implementation:**
 - [ ] Column-first navigation logic

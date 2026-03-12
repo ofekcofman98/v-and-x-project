@@ -7,6 +7,7 @@
 'use client';
 
 import { useUIStore } from '@/lib/stores/ui-store';
+import { useTableDataStore } from '@/lib/stores/table-data-store';
 import { cn } from '@/lib/utils/cn';
 import { ColumnType, formatCellValue } from '@/lib/types/column-types';
 
@@ -27,9 +28,13 @@ export function DataTableCell({
 }: DataTableCellProps) {
   const activeCell = useUIStore((state) => state.activeCell);
   const recordingState = useUIStore((state) => state.recordingState);
+  const lastUpdatedCell = useTableDataStore((state) => state.lastUpdatedCell);
   
   const isActive =
     activeCell?.rowId === rowId && activeCell?.columnId === columnId;
+  
+  const isJustUpdated =
+    lastUpdatedCell?.rowId === rowId && lastUpdatedCell?.columnId === columnId;
   
   const formattedValue = formatCellValue(value, columnType);
   
@@ -51,7 +56,10 @@ export function DataTableCell({
           recordingState === 'listening' && 'bg-blue-100 dark:bg-blue-900 animate-pulse',
           recordingState === 'processing' && 'bg-yellow-50 dark:bg-yellow-950',
           recordingState === 'confirming' && 'bg-orange-50 dark:bg-orange-950',
-        ]
+        ],
+        
+        // Success animation (green flash)
+        isJustUpdated && 'animate-[flash_0.5s_ease-in-out]'
       )}
     >
       {/* Value */}
@@ -64,11 +72,16 @@ export function DataTableCell({
         </div>
       )}
       
-      {/* Success animation overlay (will be added later with framer-motion) */}
+      {/* Success animation overlay */}
       {isActive && recordingState === 'committing' && (
         <div className="absolute inset-0 flex items-center justify-center bg-green-500/20 rounded pointer-events-none">
           <div className="text-green-600 dark:text-green-400 text-lg">✓</div>
         </div>
+      )}
+      
+      {/* Just updated overlay (green flash) */}
+      {isJustUpdated && (
+        <div className="absolute inset-0 bg-green-500/30 rounded pointer-events-none animate-[fadeOut_1s_ease-out]" />
       )}
     </td>
   );

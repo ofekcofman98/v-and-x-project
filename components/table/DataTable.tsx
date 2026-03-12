@@ -7,6 +7,7 @@
 'use client';
 
 import { useUIStore } from '@/lib/stores/ui-store';
+import { useTableDataStore } from '@/lib/stores/table-data-store';
 import {
   Table,
   TableBody,
@@ -34,11 +35,21 @@ export function DataTable({
   onCellClick,
 }: DataTableProps) {
   const setActiveCell = useUIStore((state) => state.setActiveCell);
+  const cellData = useTableDataStore((state) => state.cellData);
   
   /**
-   * Get cell value from data array
+   * Get cell value from data array (use store data if available, otherwise fallback to props)
    */
   const getCellValue = (rowId: string, columnId: string) => {
+    // Try store first
+    const storeCell = cellData.find(
+      (d) => d.rowId === rowId && d.columnId === columnId
+    );
+    if (storeCell !== undefined) {
+      return storeCell.value;
+    }
+    
+    // Fallback to prop data
     const cell = data.find(
       (d) => d.rowId === rowId && d.columnId === columnId
     );
