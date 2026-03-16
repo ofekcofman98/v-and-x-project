@@ -124,15 +124,33 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
         throw new VoiceInputError('UPDATE_FAILED', 'Could not match entity to table row', true);
       }
 
+      // CRITICAL FIX 1: Sync pointer to matched entity BEFORE updating cell
+      // This prevents out-of-order desync when user says "Student E, 90" while pointer is on Student A
+      const matchedCell: typeof activeCell = {
+        rowId: matchedRow.id,
+        columnId: activeCell.columnId,
+      };
+
+      // Update UI store to point at the actually matched cell
+      setActiveCell(matchedCell);
+      console.log('[VoiceButton] Synced pointer to matched entity:', matchedCell);
+
+      // Now update the cell value at the matched location
       updateCell(matchedRow.id, activeCell.columnId, parsed.value as string | number | boolean | null);
       setRecordingState('committing');
 
-      const nextCell = calculateNextCell(activeCell);
+      // CRITICAL FIX 2: Calculate next cell from the MATCHED cell, not the old activeCell
+      // This ensures we advance from the correct position
+      const nextCell = calculateNextCell(matchedCell);
 
       if (nextCell) {
-        // Advance to next cell after short delay
+        // Advance to next cell after short delay (green flash animation)
         setTimeout(() => {
+          // CRITICAL FIX 3: Read fresh state from store to avoid stale closures
+          const currentContinuousMode = useUIStore.getState().continuousMode;
+          
           setActiveCell(nextCell);
+          console.log('[VoiceButton] Advanced pointer to:', nextCell);
           setRecordingState('advancing');
         }, 500);
       } else {
@@ -283,28 +301,40 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
   /**
    * Auto-restart logic for continuous mode
    * When advancing state is reached and continuous mode is active, auto-restart listening
+   * CRITICAL: Uses fresh store state to avoid stale closures causing infinite loops
    */
   useEffect(() => {
-    if (recordingState === 'advancing' && continuousMode) {
+    if (recordingState === 'advancing') {
       // Clear any existing timer
       if (autoRestartTimerRef.current) {
         clearTimeout(autoRestartTimerRef.current);
+        autoRestartTimerRef.current = null;
       }
 
-      // Wait 400ms to show green flash, then restart
+      // CRITICAL FIX 4: Read fresh state from store at execution time
+      // Wait 400ms to show green flash, then check if continuous mode is still active
       autoRestartTimerRef.current = setTimeout(() => {
-        if (useUIStore.getState().continuousMode) {
+        const freshState = useUIStore.getState();
+        
+        // Only restart if continuous mode is still active and we're still advancing
+        if (freshState.continuousMode && freshState.recordingState === 'advancing') {
+          console.log('[VoiceButton] Auto-restarting listening after pointer advance');
           setRecordingState('listening');
+        } else {
+          console.log('[VoiceButton] Skipping auto-restart - continuous mode inactive or state changed');
         }
+        
+        autoRestartTimerRef.current = null;
       }, 400);
     }
 
     return () => {
       if (autoRestartTimerRef.current) {
         clearTimeout(autoRestartTimerRef.current);
+        autoRestartTimerRef.current = null;
       }
     };
-  }, [recordingState, continuousMode, setRecordingState]);
+  }, [recordingState, setRecordingState]);
 
   /**
    * Handle Escape key to stop continuous mode
