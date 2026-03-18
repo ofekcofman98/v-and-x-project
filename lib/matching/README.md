@@ -1,10 +1,10 @@
 # Matching Engine Implementation
 
-✅ **Status**: Complete (Levels 1-3, Client-Side)
+✅ **Status**: Complete (Levels 1-3, Client-Side, Refactored with Chain of Responsibility)
 
 ## Overview
 
-The Matching Engine has been implemented according to `docs/07_MATCHING_ENGINE.md`. It provides cascading string matching for entity resolution with three levels of matching algorithms.
+The Matching Engine has been implemented according to `docs/07_MATCHING_ENGINE.md`. It provides cascading string matching for entity resolution with three levels of matching algorithms, using the **Chain of Responsibility** design pattern for clean, maintainable, and modular code.
 
 **Note**: Level 4 (LLM Semantic Match) is already implemented server-side in the voice pipeline and is intentionally excluded from this client-side implementation to save API calls and latency.
 
@@ -12,19 +12,67 @@ The Matching Engine has been implemented according to `docs/07_MATCHING_ENGINE.m
 
 ```
 lib/matching/
-├── exact-match.ts       # Level 1: Exact match (case-insensitive)
-├── phonetic-match.ts    # Level 2: Phonetic match (Soundex)
-├── fuzzy-match.ts       # Level 3: Levenshtein distance
+├── types.ts             # Core interfaces (MatchResult, Matcher, MatchConfig)
+├── exact-match.ts       # Level 1: ExactMatcher class
+├── phonetic-match.ts    # Level 2: PhoneticMatcher class
+├── fuzzy-match.ts       # Level 3: FuzzyMatcher class
+├── MatcherChain.ts      # Chain of Responsibility implementation
 ├── partial-match.ts     # First/Last name matching
 ├── ambiguity.ts         # Ambiguity detection
 ├── cache.ts             # LRU caching (500 entries, 5min TTL)
-├── matcher.ts           # Unified cascading matcher
+├── matcher.ts           # Unified API with factory functions
 └── index.ts             # Public exports
+```
+
+## Design Pattern: Chain of Responsibility
+
+The matching engine uses the **Chain of Responsibility** pattern to eliminate if-else chains and provide better modularity:
+
+### Core Interface
+
+```typescript
+interface Matcher {
+  match(input: string, entities: string[]): MatchResult;
+  readonly name: string;
+}
+```
+
+### Matcher Classes
+
+Each matching level is implemented as a class:
+
+```typescript
+class ExactMatcher implements Matcher {
+  readonly name = 'exact';
+  match(input: string, entities: string[]): MatchResult { /* ... */ }
+}
+
+class PhoneticMatcher implements Matcher {
+  readonly name = 'phonetic';
+  match(input: string, entities: string[]): MatchResult { /* ... */ }
+}
+
+class FuzzyMatcher implements Matcher {
+  readonly name = 'fuzzy';
+  constructor(private threshold: number = 2) {}
+  match(input: string, entities: string[]): MatchResult { /* ... */ }
+}
+```
+
+### Chain of Responsibility
+
+```typescript
+class MatcherChain {
+  addMatcher(matcher: Matcher): this;
+  match(input: string, entities: string[], minConfidence?: number): MatchResult;
+}
 ```
 
 ## Usage
 
-### Basic Matching
+### 1. Simple Usage (Legacy API)
+
+The legacy function API still works for backward compatibility:
 
 ```typescript
 import { match } from '@/lib/matching';
@@ -33,11 +81,84 @@ const entities = ['John Smith', 'Jonathan Smith', 'Joan Rivers'];
 const result = match('jon smith', entities);
 
 console.log(result);
-// {
-//   matched: 'John Smith',
-//   confidence: 1.0,
-//   matchType: 'exact'
-// }
+// { matched: 'John Smith', confidence: 0.95, matchType: 'phonetic' }
+```
+
+### 2. Object-Oriented Usage (Recommended)
+
+Use matcher classes directly for better control:
+
+```typescript
+import { ExactMatcher, PhoneticMatcher, FuzzyMatcher } from '@/lib/matching';
+
+// Single matcher
+const exactMatcher = new ExactMatcher();
+const result = exactMatcher.match('john smith', entities);
+
+// Fuzzy matcher with custom threshold
+const fuzzyMatcher = new FuzzyMatcher(3);
+const fuzzyResult = fuzzyMatcher.match('micheal', entities);
+```
+
+### 3. Chain of Responsibility (Most Flexible)
+
+Build custom chains with any combination of matchers:
+
+```typescript
+import { MatcherChain, ExactMatcher, PhoneticMatcher, FuzzyMatcher } from '@/lib/matching';
+
+const chain = new MatcherChain()
+  .addMatcher(new ExactMatcher())
+  .addMatcher(new PhoneticMatcher())
+  .addMatcher(new FuzzyMatcher(2));
+
+const result = chain.match('jon smith', entities);
+// Tries Exact → Phonetic → Fuzzy in order, stops at first match
+```
+
+### 4. Factory Function
+
+Use the factory for standard configuration:
+
+```typescript
+import { createDefaultMatcherChain } from '@/lib/matching';
+
+const chain = createDefaultMatcherChain({
+  usePhonetic: true,
+  useFuzzy: true,
+  fuzzyThreshold: 2,
+});
+
+const result = chain.match('yosi cohen', entities);
+```
+
+### 5. Custom Chain Order
+
+Change the order to prioritize different matching strategies:
+
+```typescript
+// Prioritize fuzzy over phonetic
+const customChain = new MatcherChain()
+  .addMatcher(new ExactMatcher())
+  .addMatcher(new FuzzyMatcher(1))    // Try fuzzy first
+  .addMatcher(new PhoneticMatcher()); // Phonetic as fallback
+```
+
+### 6. Conditional Matchers
+
+Add matchers conditionally based on configuration:
+
+```typescript
+const chain = new MatcherChain()
+  .addMatcher(new ExactMatcher());
+
+if (config.enablePhonetic) {
+  chain.addMatcher(new PhoneticMatcher());
+}
+
+if (config.enableFuzzy) {
+  chain.addMatcher(new FuzzyMatcher(config.fuzzyThreshold ?? 2));
+}
 ```
 
 ### Cascading Strategy
@@ -56,16 +177,106 @@ The matcher automatically cascades through levels:
    - Levenshtein distance with threshold
    - Confidence: 0.90-0.95 based on distance
 
-### Configuration
+## Benefits of the Refactored Design
+
+### 1. **Single Responsibility Principle**
+Each matcher class has one job:
+- `ExactMatcher`: Handles exact matching
+- `PhoneticMatcher`: Handles phonetic matching
+- `FuzzyMatcher`: Handles fuzzy matching
+
+### 2. **Open/Closed Principle**
+Easy to add new matchers without modifying existing code:
+
+```typescript
+// Add a custom matcher
+class NicknameMatcher implements Matcher {
+  readonly name = 'nickname';
+  
+  match(input: string, entities: string[]): MatchResult {
+    // Custom nickname logic
+  }
+}
+
+// Use it in the chain
+chain.addMatcher(new NicknameMatcher());
+```
+
+### 3. **No If-Else Chains**
+The old code had multiple if statements. The new code uses a clean loop:
+
+```typescript
+// OLD (procedural with if-else):
+if (exactResult.matched) return exactResult;
+if (usePhonetic) {
+  if (phoneticResult.matched) return phoneticResult;
+}
+if (useFuzzy) {
+  if (fuzzyResult.matched) return fuzzyResult;
+}
+
+// NEW (Chain of Responsibility):
+for (const matcher of this.matchers) {
+  const result = matcher.match(input, entities);
+  if (result.matched && result.confidence >= minConfidence) {
+    return result;
+  }
+}
+```
+
+### 4. **Testability**
+Each matcher can be unit tested in isolation:
+
+```typescript
+describe('ExactMatcher', () => {
+  it('should match case-insensitively', () => {
+    const matcher = new ExactMatcher();
+    const result = matcher.match('john', ['John Smith']);
+    expect(result.matched).toBe('John Smith');
+  });
+});
+```
+
+### 5. **Flexibility**
+Easily reorder, enable/disable, or customize matchers:
+
+```typescript
+// Quick phonetic-only matching
+const fastChain = new MatcherChain()
+  .addMatcher(new PhoneticMatcher());
+
+// Aggressive fuzzy matching
+const aggressiveChain = new MatcherChain()
+  .addMatcher(new FuzzyMatcher(5)); // Higher threshold
+
+// Custom order
+const customChain = new MatcherChain()
+  .addMatcher(new FuzzyMatcher(1))
+  .addMatcher(new ExactMatcher())
+  .addMatcher(new PhoneticMatcher());
+```
+
+### 6. **Introspection**
+Inspect the chain at runtime:
+
+```typescript
+const chain = createDefaultMatcherChain();
+console.log(chain.getMatchers().map(m => m.name));
+// ['exact', 'phonetic', 'fuzzy']
+```
+
+## Advanced Features
+
+### Configuration Options
 
 ```typescript
 import { match, type MatchConfig } from '@/lib/matching';
 
 const config: MatchConfig = {
-  usePhonetic: true,      // Default: true
-  useFuzzy: true,         // Default: true
-  fuzzyThreshold: 2,      // Default: 2 (max edit distance)
-  useCache: true,         // Default: true
+  usePhonetic: true,      // Enable phonetic matching
+  useFuzzy: true,         // Enable fuzzy matching
+  fuzzyThreshold: 2,      // Max edit distance (default: 2)
+  useCache: true,         // Enable LRU caching (default: true)
 };
 
 const result = match('micheal', entities, config);
@@ -79,6 +290,7 @@ For small entity sets (≤5), skip expensive operations:
 import { matchWithEarlyTermination } from '@/lib/matching';
 
 const result = matchWithEarlyTermination('john', ['John Smith', 'Jane Doe']);
+// Only uses Exact + Fuzzy for small datasets
 ```
 
 ### Partial Name Matching
@@ -222,14 +434,18 @@ This implementation intentionally excludes:
 
 ## Key Design Decisions
 
-1. **Client-Side Only**: All matching runs in the browser to minimize latency and API costs
-2. **No LLM Calls**: Level 4 is excluded to prevent duplicate server calls
-3. **Smart Caching**: 500-entry LRU cache with 5min TTL reduces redundant computation
-4. **Early Termination**: For ≤5 entities, skip expensive algorithms
-5. **Strict Spec Compliance**: Implementation matches `07_MATCHING_ENGINE.md` exactly
+1. **Chain of Responsibility Pattern**: Eliminates if-else chains, provides better modularity and testability
+2. **Class-Based Matchers**: Each matcher is a separate class implementing the `Matcher` interface
+3. **Backward Compatibility**: Legacy function API preserved for existing code
+4. **Client-Side Only**: All matching runs in the browser to minimize latency and API costs
+5. **No LLM Calls**: Level 4 is excluded to prevent duplicate server calls
+6. **Smart Caching**: 500-entry LRU cache with 5min TTL reduces redundant computation
+7. **Early Termination**: For ≤5 entities, skip expensive algorithms
+8. **Strict Spec Compliance**: Implementation matches `07_MATCHING_ENGINE.md` exactly
 
 ---
 
 **Implementation Date**: March 16, 2026  
+**Refactored**: March 18, 2026 (Chain of Responsibility)  
 **Spec Reference**: `docs/07_MATCHING_ENGINE.md`  
-**Status**: ✅ Complete (Levels 1-3)
+**Status**: ✅ Complete (Levels 1-3, Refactored)

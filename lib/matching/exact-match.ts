@@ -1,42 +1,46 @@
-export interface MatchResult {
-  matched: string | null;
-  confidence: number;
-  matchType: 'exact' | 'phonetic' | 'fuzzy' | 'semantic' | 'none';
-  candidates?: Array<{ entity: string; score: number }>;
-}
+import type { Matcher, MatchResult } from './types';
 
 /**
  * Exact match (case-insensitive, whitespace-normalized)
  */
-export function exactMatch(
-  input: string,
-  entities: string[]
-): MatchResult {
-  const normalized = normalizeString(input);
-  
-  for (const entity of entities) {
-    if (normalizeString(entity) === normalized) {
-      return {
-        matched: entity,
-        confidence: 1.0,
-        matchType: 'exact',
-      };
+export class ExactMatcher implements Matcher {
+  readonly name = 'exact';
+
+  match(input: string, entities: string[]): MatchResult {
+    const normalized = this.normalizeString(input);
+    
+    for (const entity of entities) {
+      if (this.normalizeString(entity) === normalized) {
+        return {
+          matched: entity,
+          confidence: 1.0,
+          matchType: 'exact',
+        };
+      }
     }
+    
+    return this.noMatch();
   }
-  
-  return {
-    matched: null,
-    confidence: 0,
-    matchType: 'none',
-  };
+
+  private normalizeString(str: string): string {
+    return str
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ');
+  }
+
+  private noMatch(): MatchResult {
+    return {
+      matched: null,
+      confidence: 0,
+      matchType: 'none',
+    };
+  }
 }
 
 /**
- * Normalize string for comparison
+ * Legacy function for backward compatibility
  */
-function normalizeString(str: string): string {
-  return str
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ');
+export function exactMatch(input: string, entities: string[]): MatchResult {
+  return new ExactMatcher().match(input, entities);
 }

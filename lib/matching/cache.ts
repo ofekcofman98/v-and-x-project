@@ -1,5 +1,5 @@
 import { LRUCache } from 'lru-cache';
-import type { MatchResult } from './exact-match';
+import { MatchResult } from './types';
 
 const matchCache = new LRUCache<string, MatchResult>({
   max: 500,

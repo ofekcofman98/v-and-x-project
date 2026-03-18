@@ -1,30 +1,46 @@
-import { exactMatch, type MatchResult } from './exact-match';
-import { phoneticMatch } from './phonetic-match';
-import { fuzzyMatchOptimized } from './fuzzy-match';
+import { ExactMatcher } from './exact-match';
+import { PhoneticMatcher } from './phonetic-match';
+import { FuzzyMatcher } from './fuzzy-match';
+import { MatcherChain } from './MatcherChain';
 import { getCachedMatch, setCachedMatch } from './cache';
+import type { MatchConfig, MatchResult } from './types';
 
-export interface MatchConfig {
-  usePhonetic?: boolean;
-  useFuzzy?: boolean;
-  fuzzyThreshold?: number;
-  useCache?: boolean;
+/**
+ * Create a default matcher chain with standard configuration
+ * Level 4 (LLM Semantic Match) is already implemented server-side and not included here
+ */
+export function createDefaultMatcherChain(config: MatchConfig = {}): MatcherChain {
+  const {
+    usePhonetic = true,
+    useFuzzy = true,
+    fuzzyThreshold = 2,
+  } = config;
+
+  const chain = new MatcherChain();
+  
+  chain.addMatcher(new ExactMatcher());
+  
+  if (usePhonetic) {
+    chain.addMatcher(new PhoneticMatcher());
+  }
+  
+  if (useFuzzy) {
+    chain.addMatcher(new FuzzyMatcher(fuzzyThreshold));
+  }
+  
+  return chain;
 }
 
 /**
  * Unified matching function with cascading strategy (Levels 1-3 only, client-side)
- * Level 4 (LLM Semantic Match) is already implemented server-side and not included here
+ * Uses Chain of Responsibility pattern for cleaner, more maintainable code
  */
 export function match(
   input: string,
   entities: string[],
   config: MatchConfig = {}
 ): MatchResult {
-  const {
-    usePhonetic = true,
-    useFuzzy = true,
-    fuzzyThreshold = 2,
-    useCache = true,
-  } = config;
+  const { useCache = true } = config;
   
   if (useCache) {
     const cached = getCachedMatch(input, entities);
@@ -33,45 +49,14 @@ export function match(
     }
   }
   
-  const exactResult = exactMatch(input, entities);
-  if (exactResult.matched) {
-    if (useCache) {
-      setCachedMatch(input, entities, exactResult);
-    }
-    return exactResult;
-  }
-  
-  if (usePhonetic) {
-    const phoneticResult = phoneticMatch(input, entities);
-    if (phoneticResult.matched) {
-      if (useCache) {
-        setCachedMatch(input, entities, phoneticResult);
-      }
-      return phoneticResult;
-    }
-  }
-  
-  if (useFuzzy) {
-    const fuzzyResult = fuzzyMatchOptimized(input, entities, fuzzyThreshold);
-    if (fuzzyResult.matched && fuzzyResult.confidence >= 0.85) {
-      if (useCache) {
-        setCachedMatch(input, entities, fuzzyResult);
-      }
-      return fuzzyResult;
-    }
-  }
-  
-  const noMatchResult: MatchResult = {
-    matched: null,
-    confidence: 0,
-    matchType: 'none',
-  };
+  const chain = createDefaultMatcherChain(config);
+  const result = chain.match(input, entities, 0.85);
   
   if (useCache) {
-    setCachedMatch(input, entities, noMatchResult);
+    setCachedMatch(input, entities, result);
   }
   
-  return noMatchResult;
+  return result;
 }
 
 /**
@@ -92,17 +77,11 @@ export function matchWithEarlyTermination(
   entities: string[]
 ): MatchResult {
   if (entities.length <= 5) {
-    const exact = exactMatch(input, entities);
-    if (exact.matched) return exact;
+    const chain = new MatcherChain()
+      .addMatcher(new ExactMatcher())
+      .addMatcher(new FuzzyMatcher(2));
     
-    const fuzzy = fuzzyMatchOptimized(input, entities);
-    if (fuzzy.matched) return fuzzy;
-    
-    return {
-      matched: null,
-      confidence: 0,
-      matchType: 'none',
-    };
+    return chain.match(input, entities);
   }
   
   return match(input, entities);

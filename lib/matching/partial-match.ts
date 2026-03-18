@@ -1,4 +1,4 @@
-import type { MatchResult } from './exact-match';
+import { MatchResult } from "./types";
 
 /**
  * Match by first name only

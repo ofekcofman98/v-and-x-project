@@ -1,4 +1,4 @@
-import type { MatchResult } from './exact-match';
+import type { Matcher, MatchResult } from './types';
 
 /**
  * Soundex algorithm for phonetic matching
@@ -35,37 +35,49 @@ export function soundex(name: string): string {
 /**
  * Phonetic matching using Soundex
  */
-export function phoneticMatch(
-  input: string,
-  entities: string[]
-): MatchResult {
-  const inputWords = input.toLowerCase().split(' ');
-  const inputCodes = inputWords.map(soundex);
-  
-  for (const entity of entities) {
-    const entityWords = entity.toLowerCase().split(' ');
-    const entityCodes = entityWords.map(soundex);
+export class PhoneticMatcher implements Matcher {
+  readonly name = 'phonetic';
+
+  match(input: string, entities: string[]): MatchResult {
+    const inputWords = input.toLowerCase().split(' ');
+    const inputCodes = inputWords.map(soundex);
     
-    let allMatch = true;
-    for (let i = 0; i < inputCodes.length; i++) {
-      if (!entityCodes.includes(inputCodes[i])) {
-        allMatch = false;
-        break;
+    for (const entity of entities) {
+      const entityWords = entity.toLowerCase().split(' ');
+      const entityCodes = entityWords.map(soundex);
+      
+      let allMatch = true;
+      for (let i = 0; i < inputCodes.length; i++) {
+        if (!entityCodes.includes(inputCodes[i])) {
+          allMatch = false;
+          break;
+        }
+      }
+      
+      if (allMatch) {
+        return {
+          matched: entity,
+          confidence: 0.95,
+          matchType: 'phonetic',
+        };
       }
     }
     
-    if (allMatch) {
-      return {
-        matched: entity,
-        confidence: 0.95,
-        matchType: 'phonetic',
-      };
-    }
+    return this.noMatch();
   }
-  
-  return {
-    matched: null,
-    confidence: 0,
-    matchType: 'none',
-  };
+
+  private noMatch(): MatchResult {
+    return {
+      matched: null,
+      confidence: 0,
+      matchType: 'none',
+    };
+  }
+}
+
+/**
+ * Legacy function for backward compatibility
+ */
+export function phoneticMatch(input: string, entities: string[]): MatchResult {
+  return new PhoneticMatcher().match(input, entities);
 }

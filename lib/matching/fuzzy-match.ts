@@ -1,5 +1,5 @@
 import { distance } from 'fastest-levenshtein';
-import type { MatchResult } from './exact-match';
+import type { Matcher, MatchResult } from './types';
 
 /**
  * Calculate Levenshtein distance between two strings
@@ -33,7 +33,53 @@ export function levenshteinDistance(a: string, b: string): number {
 }
 
 /**
- * Fuzzy matching using Levenshtein distance
+ * Fuzzy matching using Levenshtein distance (optimized with fastest-levenshtein)
+ */
+export class FuzzyMatcher implements Matcher {
+  readonly name = 'fuzzy';
+
+  constructor(private threshold: number = 2) {}
+
+  match(input: string, entities: string[]): MatchResult {
+    const normalized = input.toLowerCase().trim();
+    
+    const candidates = entities
+      .map((entity) => ({
+        entity,
+        distance: distance(normalized, entity.toLowerCase().trim()),
+      }))
+      .filter((c) => c.distance <= this.threshold)
+      .sort((a, b) => a.distance - b.distance);
+    
+    if (candidates.length > 0) {
+      const best = candidates[0];
+      const confidence = 1.0 - (best.distance * 0.05);
+      
+      return {
+        matched: best.entity,
+        confidence,
+        matchType: 'fuzzy',
+        candidates: candidates.slice(1, 4).map((c) => ({
+          entity: c.entity,
+          score: 1.0 - (c.distance * 0.05),
+        })),
+      };
+    }
+    
+    return this.noMatch();
+  }
+
+  private noMatch(): MatchResult {
+    return {
+      matched: null,
+      confidence: 0,
+      matchType: 'none',
+    };
+  }
+}
+
+/**
+ * Legacy function for backward compatibility (unoptimized)
  */
 export function fuzzyMatch(
   input: string,
@@ -73,41 +119,12 @@ export function fuzzyMatch(
 }
 
 /**
- * Optimized fuzzy matching using fastest-levenshtein
+ * Legacy function for backward compatibility (optimized)
  */
 export function fuzzyMatchOptimized(
   input: string,
   entities: string[],
   threshold: number = 2
 ): MatchResult {
-  const normalized = input.toLowerCase().trim();
-  
-  const candidates = entities
-    .map((entity) => ({
-      entity,
-      distance: distance(normalized, entity.toLowerCase().trim()),
-    }))
-    .filter((c) => c.distance <= threshold)
-    .sort((a, b) => a.distance - b.distance);
-  
-  if (candidates.length > 0) {
-    const best = candidates[0];
-    const confidence = 1.0 - (best.distance * 0.05);
-    
-    return {
-      matched: best.entity,
-      confidence,
-      matchType: 'fuzzy',
-      candidates: candidates.slice(1, 4).map((c) => ({
-        entity: c.entity,
-        score: 1.0 - (c.distance * 0.05),
-      })),
-    };
-  }
-  
-  return {
-    matched: null,
-    confidence: 0,
-    matchType: 'none',
-  };
+  return new FuzzyMatcher(threshold).match(input, entities);
 }
