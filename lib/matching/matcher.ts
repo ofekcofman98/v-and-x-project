@@ -45,12 +45,15 @@ export function match(
   if (useCache) {
     const cached = getCachedMatch(input, entities);
     if (cached) {
+      console.log(`[Matcher] 🚀 Cache Hit for input: "${input}"`);
       return cached;
     }
   }
   
   const chain = createDefaultMatcherChain(config);
   const result = chain.match(input, entities, 0.85);
+  
+  console.log(`[Matcher] 🎯 Level reached: ${result.matchType} with confidence ${result.confidence}`);
   
   if (useCache) {
     setCachedMatch(input, entities, result);

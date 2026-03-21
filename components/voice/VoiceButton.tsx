@@ -6,20 +6,17 @@
 
 'use client';
 
-import { useEffect, useCallback, useRef } from 'react';
-import { Mic, Square, Infinity } from 'lucide-react';
-import Fuse from 'fuse.js';
+import { useEffect, useRef } from 'react';
+import { Mic, Infinity } from 'lucide-react';
 import { useVoiceEntry } from '@/lib/hooks/use-voice-entry';
 import { useContinuousVoice } from '@/lib/hooks/use-continuous-voice';
+import { useVoiceActionHandler } from '@/lib/hooks/use-voice-action-handler';
 import { useUIStore } from '@/lib/stores/ui-store';
-import { useTableDataStore } from '@/lib/stores/table-data-store';
 import { cn } from '@/lib/utils/cn';
 import type { ParsedResult } from '@/lib/types/voice-pipeline';
 import type { TableSchema } from '@/lib/types/table-schema';
 import { VoiceErrors, VoiceInputError } from '@/lib/types/voice-errors';
 import { trackVoiceMetrics } from '@/lib/monitoring/voice-metrics';
-import { getNextCellColumnFirst } from '@/lib/navigation/column-first';
-import { getNextCellRowFirst } from '@/lib/navigation/row-first';
 
 interface VoiceButtonProps {
   tableSchema: TableSchema;
@@ -32,151 +29,23 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
   const recordingState = useUIStore((state) => state.recordingState);
   const activeCell = useUIStore((state) => state.activeCell);
   const navigationMode = useUIStore((state) => state.navigationMode);
-  const setActiveCell = useUIStore((state) => state.setActiveCell);
   const continuousMode = useUIStore((state) => state.continuousMode);
   const setContinuousMode = useUIStore((state) => state.setContinuousMode);
-  
-  const updateCell = useTableDataStore((state) => state.updateCell);
 
   // Track if we're in the advancing state to trigger auto-restart
   const autoRestartTimerRef = useRef<NodeJS.Timeout | null>(null);
   const stopContinuousRef = useRef<(() => void) | null>(null);
 
-  /**
-   * Calculate the next cell based on the current navigation mode
-   */
-  const calculateNextCell = useCallback((currentCell: typeof activeCell) => {
-    if (!currentCell) return null;
-
-    const nextCell = navigationMode === 'column-first'
-      ? getNextCellColumnFirst(currentCell, tableSchema)
-      : getNextCellRowFirst(currentCell, tableSchema);
-
-    return nextCell;
-  }, [navigationMode, tableSchema]);
-
-  /**
-   * Perform fuzzy matching on entity names
-   */
-  const performFuzzyMatch = useCallback((rawEntity: string, rows: typeof tableSchema.rows) => {
-    if (!rawEntity || rows.length === 0) {
-      return null;
-    }
-
-    const fuse = new Fuse(rows, {
-      keys: ['label'],
-      threshold: 0.4,
-      includeScore: true,
-    });
-
-    const results = fuse.search(rawEntity);
-
-    if (results.length === 0) {
-      return null;
-    }
-
-    const bestMatch = results[0];
-    const confidence = 1 - (bestMatch.score ?? 1);
-
-    return {
-      matched: bestMatch.item.label,
-      confidence,
-      alternatives: results.slice(1, 4).map((result) => ({
-        label: result.item.label,
-        confidence: 1 - (result.score ?? 1),
-      })),
-    };
-  }, [tableSchema.rows]);
-
-  /**
-   * Handle parsed voice result - processes entity/value and either auto-confirms or shows dialog
-   */
-  const handleParsedResult = useCallback(async (parsed: ParsedResult) => {
-    // Perform local fuzzy matching
-    let finalEntity = parsed.entity ?? '';
-    let finalConfidence = parsed.entityMatch?.confidence ?? 0;
-    let alternatives = parsed.alternatives?.map((alt) => ({
-      label: alt.entity,
-      value: alt.entity,
-    }));
-
-    if (parsed.entity) {
-      const fuzzyMatch = performFuzzyMatch(parsed.entity, tableSchema.rows);
-      
-      if (fuzzyMatch) {
-        finalEntity = fuzzyMatch.matched;
-        finalConfidence = fuzzyMatch.confidence;
-        
-        if (fuzzyMatch.alternatives.length > 0) {
-          alternatives = fuzzyMatch.alternatives.map((alt) => ({
-            label: alt.label,
-            value: alt.label,
-          }));
-        }
+  // Use the new voice action handler hook
+  const { handleParsedResult } = useVoiceActionHandler({
+    tableSchema,
+    onEndOfTable: () => {
+      // Stop continuous mode when end of table is reached
+      if (stopContinuousRef.current) {
+        stopContinuousRef.current();
       }
-    }
-
-    // Auto-confirm if confidence is high (> 0.8)
-    if (finalConfidence > 0.8) {
-      const matchedRow = tableSchema.rows.find((row) => row.label === finalEntity);
-
-      if (!matchedRow || !activeCell) {
-        throw new VoiceInputError('UPDATE_FAILED', 'Could not match entity to table row', true);
-      }
-
-      // CRITICAL FIX 1: Sync pointer to matched entity BEFORE updating cell
-      // This prevents out-of-order desync when user says "Student E, 90" while pointer is on Student A
-      const matchedCell: typeof activeCell = {
-        rowId: matchedRow.id,
-        columnId: activeCell.columnId,
-      };
-
-      // Update UI store to point at the actually matched cell
-      setActiveCell(matchedCell);
-      console.log('[VoiceButton] Synced pointer to matched entity:', matchedCell);
-
-      // Now update the cell value at the matched location
-      updateCell(matchedRow.id, activeCell.columnId, parsed.value as string | number | boolean | null);
-      setRecordingState('committing');
-
-      // CRITICAL FIX 2: Calculate next cell from the MATCHED cell, not the old activeCell
-      // This ensures we advance from the correct position
-      const nextCell = calculateNextCell(matchedCell);
-
-      if (nextCell) {
-        // Advance to next cell after short delay (green flash animation)
-        setTimeout(() => {
-          // CRITICAL FIX 3: Read fresh state from store to avoid stale closures
-          const currentContinuousMode = useUIStore.getState().continuousMode;
-          
-          setActiveCell(nextCell);
-          console.log('[VoiceButton] Advanced pointer to:', nextCell);
-          setRecordingState('advancing');
-        }, 500);
-      } else {
-        // End of table - stop continuous mode if active
-        console.log('[VoiceButton] End of table reached');
-        if (continuousMode) {
-          console.log('[VoiceButton] Stopping continuous mode automatically');
-          if (stopContinuousRef.current) {
-            stopContinuousRef.current();
-          }
-          setContinuousMode(false);
-        }
-        setRecordingState('idle');
-      }
-    } else {
-      // Low confidence - manual confirmation
-      setPendingConfirmation({
-        entity: finalEntity,
-        value: parsed.value as string | number | boolean | null,
-        confidence: finalConfidence,
-        alternatives,
-      });
-
-      setRecordingState('confirming');
-    }
-  }, [activeCell, calculateNextCell, continuousMode, performFuzzyMatch, setActiveCell, setContinuousMode, setPendingConfirmation, setRecordingState, tableSchema.rows, updateCell]);
+    },
+  });
 
   /**
    * Process voice entry through the API (for manual mode)

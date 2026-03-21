@@ -1,0 +1,16 @@
+{
+  "name": "VandX",
+  "short_name": "VandX",
+  "description": "Voice-enabled expense tracking app",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

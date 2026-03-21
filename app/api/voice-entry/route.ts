@@ -3,6 +3,12 @@
  * Combines transcription and parsing into a single endpoint
  * Eliminates one network round-trip for faster response times
  * Based on: docs/05_VOICE_PIPELINE.md
+ * 
+ * Performance Optimizations (docs/10_PERFORMANCE.md):
+ * - Transcript caching (Section 6.4): Avoid re-transcribing identical audio
+ * - Entity recognition cache (Section 4.5): Skip LLM for known entities
+ * - Quick entity extraction: Regex-based pattern matching before LLM
+ * - Performance monitoring (Section 8.3): Track cache hits and LLM fallbacks
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,6 +23,9 @@ import {
   parseNumber,
   validateValue,
 } from '@/lib/parsers/value-parsers';
+import { match } from '@/lib/matching/matcher';
+import { transcriptCache } from '@/lib/cache/transcript-cache';
+import { entityCache } from '@/lib/cache/entity-recognition-cache';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -81,6 +90,9 @@ interface VoiceEntryResponse {
     transcriptionDuration: number;
     parsingDuration: number;
     totalDuration: number;
+    cached?: boolean;
+    matchType?: 'exact' | 'phonetic' | 'fuzzy' | 'semantic';
+    pathTaken?: 'TRANSCRIPT_CACHE_HIT' | 'ENTITY_CACHE_HIT' | 'FAST_PATH' | 'LLM_FALLBACK';
   };
   error?: {
     code: string;
@@ -206,59 +218,77 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
       );
     }
 
-    // Step 1: Transcribe audio using Whisper
+    // Step 1: Transcribe audio using Whisper (with caching)
     console.log('[VoiceEntry] Starting transcription...');
     const transcriptionStartTime = Date.now();
 
     const language = req.headers.get('x-language') || undefined;
+    const tableId = formData.get('tableId') as string || 'default';
 
     let transcript: string;
-    try {
-      // Build a domain-specific prompt to bias Whisper away from hallucinations
-      const whisperPrompt = buildWhisperPrompt(tableSchema);
-      
-      const transcription = await openai.audio.transcriptions.create({
-        file: audioFile,
-        model: 'whisper-1',
-        language: language as 'en' | 'he' | undefined,
-        response_format: 'json',
-        prompt: whisperPrompt,
-      });
-      transcript = transcription.text;
-    } catch (error: unknown) {
-      const err = error as { status?: number; message?: string };
+    let transcriptionDuration: number;
+    let transcriptFromCache = false;
 
-      if (err?.status === 429) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: 'STT_RATE_LIMIT',
-              message: 'OpenAI rate limit exceeded. Please try again in a moment.',
+    // ═══════════════════════════════════════════════════════════
+    // OPTIMIZATION 1: Check transcript cache
+    // ═══════════════════════════════════════════════════════════
+    const cachedTranscript = await transcriptCache.get(audioFile);
+    
+    if (cachedTranscript) {
+      console.log('[VoiceEntry] 🚀 TRANSCRIPT_CACHE_HIT: Saved 1300ms transcription');
+      transcript = cachedTranscript.text;
+      transcriptionDuration = 0;
+      transcriptFromCache = true;
+    } else {
+      // Cache miss - proceed with Whisper transcription
+      try {
+        const whisperPrompt = buildWhisperPrompt(tableSchema);
+        
+        const transcription = await openai.audio.transcriptions.create({
+          file: audioFile,
+          model: 'whisper-1',
+          language: language as 'en' | 'he' | undefined,
+          response_format: 'json',
+          prompt: whisperPrompt,
+        });
+        transcript = transcription.text;
+        transcriptionDuration = Date.now() - transcriptionStartTime;
+
+        // Cache the transcription for future use
+        await transcriptCache.set(audioFile, transcript, transcriptionDuration);
+        console.log('[VoiceEntry] Transcription complete and cached:', { transcript, duration: transcriptionDuration });
+      } catch (error: unknown) {
+        const err = error as { status?: number; message?: string };
+
+        if (err?.status === 429) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: 'STT_RATE_LIMIT',
+                message: 'OpenAI rate limit exceeded. Please try again in a moment.',
+              },
             },
-          },
-          { status: 429 }
-        );
-      }
+            { status: 429 }
+          );
+        }
 
-      if (err?.status === 400) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: 'INVALID_AUDIO',
-              message: 'Invalid audio format. Please try recording again.',
+        if (err?.status === 400) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: 'INVALID_AUDIO',
+                message: 'Invalid audio format. Please try recording again.',
+              },
             },
-          },
-          { status: 400 }
-        );
-      }
+            { status: 400 }
+          );
+        }
 
-      throw error;
+        throw error;
+      }
     }
-
-    const transcriptionDuration = Date.now() - transcriptionStartTime;
-    console.log('[VoiceEntry] Transcription complete:', { transcript, duration: transcriptionDuration });
 
     // Early Exit: Check for known Whisper hallucinations
     if (isWhisperHallucination(transcript)) {
@@ -278,12 +308,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
           transcriptionDuration,
           parsingDuration: 0,
           totalDuration,
+          pathTaken: 'LLM_FALLBACK',
         },
       });
     }
 
-    // Step 2: Parse transcript using GPT-4o-mini
-    console.log('[VoiceEntry] Starting parsing...');
+    // Step 2: Parse transcript with optimized cascading strategy
+    console.log('[VoiceEntry] Starting parsing with cache check...');
     const parsingStartTime = Date.now();
 
     const activeColumn = tableSchema.columns.find((col) => col.id === activeCell.columnId);
@@ -301,6 +332,142 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
         { status: 400 }
       );
     }
+
+    // ═══════════════════════════════════════════════════════════
+    // OPTIMIZATION 2: Check entity recognition cache
+    // ═══════════════════════════════════════════════════════════
+    const cachedEntity = entityCache.get(transcript, tableId);
+    
+    if (cachedEntity) {
+      console.log('[VoiceEntry] 🚀 ENTITY_CACHE_HIT: Saved ~1500ms LLM call');
+      const parsingDuration = Date.now() - parsingStartTime;
+      const totalDuration = Date.now() - totalStartTime;
+
+      // Validate the cached value against current column
+      const normalizedValue = normalizeValue(cachedEntity.value, activeColumn);
+      const validation = validateValue(normalizedValue, activeColumn.type, activeColumn.validation);
+
+      const responsePayload: ParsedResult = {
+        entity: cachedEntity.entity,
+        entityMatch: {
+          original: cachedEntity.entity,
+          matched: cachedEntity.entity,
+          confidence: cachedEntity.confidence,
+          matchType: cachedEntity.matchType,
+        },
+        value: validation.valid ? normalizedValue : null,
+        valueValid: validation.valid,
+        action: 'UPDATE_CELL' as const,
+        reasoning: `Cached result (saved ~1500ms LLM call)`,
+        duration: totalDuration,
+      };
+
+      logPerformanceMetrics({
+        transcript,
+        transcriptionDuration,
+        parsingDuration,
+        totalDuration,
+        matchType: cachedEntity.matchType,
+        cached: true,
+        pathTaken: 'ENTITY_CACHE_HIT',
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          ...responsePayload,
+          transcript,
+          transcriptionDuration,
+          parsingDuration,
+          totalDuration,
+          cached: true,
+          matchType: cachedEntity.matchType,
+          pathTaken: 'ENTITY_CACHE_HIT',
+        },
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // OPTIMIZATION 3: Quick entity extraction (Fast Path)
+    // ═══════════════════════════════════════════════════════════
+    const quickExtract = extractEntityQuick(transcript);
+    
+    if (quickExtract) {
+      console.log('[VoiceEntry] Quick extraction found pattern:', quickExtract);
+      
+      // Try non-LLM matching first (Levels 1-3)
+      const entities = tableSchema.rows.map((r) => r.label);
+      const matchResult = match(quickExtract.entity, entities, {
+        useCache: true,
+        usePhonetic: true,
+        useFuzzy: true,
+        fuzzyThreshold: 2,
+      });
+      
+      if (matchResult.matched && matchResult.confidence >= 0.85 && matchResult.matchType !== 'none') {
+        console.log('[VoiceEntry] 🎯 FAST_PATH: Non-LLM match successful');
+        const parsingDuration = Date.now() - parsingStartTime;
+        const totalDuration = Date.now() - totalStartTime;
+
+        // Validate the extracted value
+        const normalizedValue = normalizeValue(quickExtract.value, activeColumn);
+        const validation = validateValue(normalizedValue, activeColumn.type, activeColumn.validation);
+
+        const responsePayload: ParsedResult = {
+          entity: matchResult.matched,
+          entityMatch: {
+            original: quickExtract.entity,
+            matched: matchResult.matched,
+            confidence: matchResult.confidence,
+            matchType: matchResult.matchType,
+          },
+          value: validation.valid ? normalizedValue : null,
+          valueValid: validation.valid,
+          action: 'UPDATE_CELL' as const,
+          reasoning: `Fast path: ${matchResult.matchType} match`,
+          duration: totalDuration,
+        };
+
+        // Cache this result for future use
+        entityCache.set(transcript, tableId, {
+          transcript,
+          entity: matchResult.matched,
+          value: quickExtract.value,
+          confidence: matchResult.confidence,
+          matchType: matchResult.matchType,
+        });
+
+        logPerformanceMetrics({
+          transcript,
+          transcriptionDuration,
+          parsingDuration,
+          totalDuration,
+          matchType: matchResult.matchType,
+          cached: false,
+          pathTaken: 'FAST_PATH',
+        });
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            ...responsePayload,
+            transcript,
+            transcriptionDuration,
+            parsingDuration,
+            totalDuration,
+            cached: false,
+            matchType: matchResult.matchType,
+            pathTaken: 'FAST_PATH',
+          },
+        });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // OPTIMIZATION 4: LLM Fallback (Last Resort)
+    // ═══════════════════════════════════════════════════════════
+    console.warn('[VoiceEntry] ⚠️ LLM_FALLBACK: Fast path failed, falling back to GPT');
+    const llmStartTime = Date.now();
 
     const prompt = buildParsePrompt({
       transcript,
@@ -326,6 +493,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
       max_tokens: 256,
     });
 
+    const llmDuration = Date.now() - llmStartTime;
     const parsingDuration = Date.now() - parsingStartTime;
     const rawContent = completion.choices?.[0]?.message?.content;
 
@@ -334,6 +502,17 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
     }
 
     const parsedResult = parseCompletion(rawContent);
+    
+    // Run final fuzzy matching on LLM result
+    const entities = tableSchema.rows.map((r) => r.label);
+    const finalMatch = match(parsedResult.entity || '', entities, {
+      useCache: true,
+      usePhonetic: true,
+      useFuzzy: true,
+      fuzzyThreshold: 2,
+    });
+
+    const matchedEntity = finalMatch.matched || parsedResult.entity;
     const normalizedValue = normalizeValue(parsedResult.value, activeColumn);
     const validation = validateValue(normalizedValue, activeColumn.type, activeColumn.validation);
 
@@ -341,16 +520,46 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
 
     const responsePayload: ParsedResult = {
       ...parsedResult,
+      entity: matchedEntity,
+      entityMatch: {
+        original: parsedResult.entity,
+        matched: matchedEntity,
+        confidence: finalMatch.confidence || parsedResult.entityMatch?.confidence || 0,
+        matchType: 'semantic',
+      },
       value: validation.valid ? normalizedValue : null,
       valueValid: validation.valid,
       duration: totalDuration,
       error: validation.valid ? parsedResult.error : validation.error ?? parsedResult.error,
     };
 
+    // Cache LLM result (especially important for expensive calls)
+    if (matchedEntity && responsePayload.entityMatch && responsePayload.entityMatch.confidence >= 0.7) {
+      entityCache.set(transcript, tableId, {
+        transcript,
+        entity: matchedEntity,
+        value: parsedResult.value,
+        confidence: responsePayload.entityMatch.confidence,
+        matchType: 'semantic',
+      });
+    }
+
+    logPerformanceMetrics({
+      transcript,
+      transcriptionDuration,
+      parsingDuration,
+      totalDuration,
+      matchType: 'semantic',
+      cached: false,
+      pathTaken: 'LLM_FALLBACK',
+      llmDuration,
+    });
+
     console.log('[VoiceEntry] Complete:', {
       transcript,
       transcriptionDuration,
       parsingDuration,
+      llmDuration,
       totalDuration,
       result: responsePayload,
     });
@@ -363,6 +572,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
         transcriptionDuration,
         parsingDuration,
         totalDuration,
+        cached: false,
+        matchType: 'semantic',
+        pathTaken: 'LLM_FALLBACK',
       },
     });
   } catch (error) {
@@ -498,6 +710,106 @@ function buildWhisperPrompt(tableSchema: TableSchema): string {
   // Whisper prompt should be concise but representative
   // Limit to ~200 characters to stay within OpenAI's recommendation
   return allExamples.slice(0, 20).join(', ') + '.';
+}
+
+/**
+ * Quick entity extraction using regex patterns
+ * Handles common patterns like "Student A, 84" or "John Smith, 92"
+ * Based on: docs/10_PERFORMANCE.md Section 4.5
+ */
+function extractEntityQuick(transcript: string): { entity: string; value: any } | null {
+  const patterns = [
+    /^(.+?),\s*(\d+\.?\d*)$/,           // "Student A, 84"
+    /^(.+?)\s+(\d+\.?\d*)$/,            // "Student A 84"
+    /^(.+?),\s*([a-zA-Z]+)$/,           // "Student A, present"
+    /^(.+?)\s+([a-zA-Z]+)$/,            // "Student A present"
+  ];
+  
+  for (const pattern of patterns) {
+    const match = transcript.trim().match(pattern);
+    if (match) {
+      const entity = match[1].trim();
+      const value = isNaN(Number(match[2])) ? match[2] : Number(match[2]);
+      return { entity, value };
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Performance monitoring and logging
+ * Based on: docs/10_PERFORMANCE.md Section 8.3
+ */
+function logPerformanceMetrics(metrics: {
+  transcript: string;
+  transcriptionDuration: number;
+  parsingDuration: number;
+  totalDuration: number;
+  matchType: 'exact' | 'phonetic' | 'fuzzy' | 'semantic';
+  cached: boolean;
+  pathTaken: 'TRANSCRIPT_CACHE_HIT' | 'ENTITY_CACHE_HIT' | 'FAST_PATH' | 'LLM_FALLBACK';
+  llmDuration?: number;
+}): void {
+  const { 
+    transcript, 
+    transcriptionDuration, 
+    parsingDuration, 
+    totalDuration, 
+    matchType, 
+    cached, 
+    pathTaken,
+    llmDuration 
+  } = metrics;
+
+  // Performance budget from docs/10_PERFORMANCE.md
+  const BUDGET = {
+    totalE2EOptimal: 1800,  // Optimal (no LLM) P50 (ms)
+    totalE2E: 3500,         // Total pipeline P95 (ms)
+  };
+
+  const exceedsBudget = totalDuration > BUDGET.totalE2E;
+  const isOptimal = totalDuration <= BUDGET.totalE2EOptimal;
+
+  let recommendation = '';
+  if (pathTaken === 'LLM_FALLBACK') {
+    recommendation = '⚠️ LLM fallback used. Consider improving fuzzy matching or caching this entity.';
+  } else if (isOptimal) {
+    recommendation = '✅ OPTIMAL: Fast path achieved (no LLM). Maintain this pattern.';
+  }
+
+  const logEntry = {
+    transcript: transcript.substring(0, 50),
+    pathTaken,
+    matchType,
+    cached,
+    transcriptionDuration: `${transcriptionDuration}ms`,
+    parsingDuration: `${parsingDuration}ms`,
+    llmDuration: llmDuration ? `${llmDuration}ms` : 'N/A',
+    totalDuration: `${totalDuration}ms`,
+    budget: `${BUDGET.totalE2E}ms`,
+    exceedsBudget,
+    isOptimal,
+    recommendation,
+  };
+
+  if (exceedsBudget) {
+    console.warn('[Performance] ⚠️ BUDGET EXCEEDED:', logEntry);
+  } else {
+    console.log('[Performance] ✅', logEntry);
+  }
+
+  // Log cache statistics periodically
+  if (Math.random() < 0.1) {
+    const stats = entityCache.getStats();
+    console.log('[EntityCache] Statistics:', {
+      hits: stats.hits,
+      misses: stats.misses,
+      hitRate: `${(stats.hitRate * 100).toFixed(1)}%`,
+      size: stats.size,
+      estimatedTimeSaved: `${(stats.estimatedTimeSaved / 1000).toFixed(1)}s`,
+    });
+  }
 }
 
 /**
