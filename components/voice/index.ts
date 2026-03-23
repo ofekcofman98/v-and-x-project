@@ -3,3 +3,4 @@
  */
 
 export { VoiceButton } from './VoiceButton';
+export { ConfirmationDialog } from './ConfirmationDialog';

@@ -8,7 +8,7 @@
 import { useEffect } from 'react';
 import { DataTable } from '@/components/table/DataTable';
 import { MobileTableView } from '@/components/table/MobileTableView';
-import { VoiceButton } from '@/components/voice';
+import { ConfirmationDialog, VoiceButton } from '@/components/voice';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useTableDataStore } from '@/lib/stores/table-data-store';
 import { ColumnType } from '@/lib/types/column-types';
@@ -243,6 +243,8 @@ export default function DataTableDemoPage() {
         <div className="mt-8 flex justify-center">
           <VoiceButton tableSchema={tableSchema} />
         </div>
+
+        <ConfirmationDialog />
 
         {pendingConfirmation && (
           <div className="mt-4 max-w-md mx-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-sm">

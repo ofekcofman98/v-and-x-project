@@ -2,11 +2,12 @@
  * Mobile-Optimized Table View
  * Card-based view for mobile devices
  * Based on: docs/08_UI_COMPONENTS.md §6.1
+ * Performance: docs/10_PERFORMANCE.md §3.1, §3.2
  */
 
 'use client';
 
-import { useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { cn } from '@/lib/utils/cn';
@@ -20,26 +21,27 @@ interface MobileTableViewProps {
   onCellClick?: (rowId: string, columnId: string) => void;
 }
 
-export function MobileTableView({
+export const MobileTableView = memo(function MobileTableView({
   columns,
   rows,
   data,
   onCellClick,
 }: MobileTableViewProps) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  // Optimized: Only subscribe to setActiveCell, not entire store (§3.2)
   const setActiveCell = useUIStore((state) => state.setActiveCell);
   
-  const getCellValue = (rowId: string, columnId: string) => {
+  const getCellValue = useCallback((rowId: string, columnId: string) => {
     const cell = data.find(
       (d) => d.rowId === rowId && d.columnId === columnId
     );
     return cell?.value;
-  };
+  }, [data]);
   
-  const handleCellClick = (rowId: string, columnId: string) => {
+  const handleCellClick = useCallback((rowId: string, columnId: string) => {
     setActiveCell({ rowId, columnId });
     onCellClick?.(rowId, columnId);
-  };
+  }, [setActiveCell, onCellClick]);
   
   return (
     <div className="lg:hidden space-y-2">
@@ -88,4 +90,4 @@ export function MobileTableView({
       ))}
     </div>
   );
-}
+});

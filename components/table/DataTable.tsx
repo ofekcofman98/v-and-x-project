@@ -2,10 +2,12 @@
  * DataTable Component
  * Spreadsheet-like grid with Smart Pointer integration
  * Based on: docs/08_UI_COMPONENTS.md §2.1
+ * Performance: docs/10_PERFORMANCE.md §3.1, §3.2
  */
 
 'use client';
 
+import { memo, useCallback } from 'react';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useTableDataStore } from '@/lib/stores/table-data-store';
 import {
@@ -28,19 +30,20 @@ interface DataTableProps {
   onCellClick?: (rowId: string, columnId: string) => void;
 }
 
-export function DataTable({
+export const DataTable = memo(function DataTable({
   columns,
   rows,
   data,
   onCellClick,
 }: DataTableProps) {
+  // Optimized state subscriptions - only subscribe to specific values (§3.2)
   const setActiveCell = useUIStore((state) => state.setActiveCell);
   const cellData = useTableDataStore((state) => state.cellData);
   
   /**
    * Get cell value from data array (use store data if available, otherwise fallback to props)
    */
-  const getCellValue = (rowId: string, columnId: string) => {
+  const getCellValue = useCallback((rowId: string, columnId: string) => {
     // Try store first
     const storeCell = cellData.find(
       (d) => d.rowId === rowId && d.columnId === columnId
@@ -54,15 +57,15 @@ export function DataTable({
       (d) => d.rowId === rowId && d.columnId === columnId
     );
     return cell?.value;
-  };
+  }, [cellData, data]);
   
   /**
    * Handle cell click - update Smart Pointer
    */
-  const handleCellClick = (rowId: string, columnId: string) => {
+  const handleCellClick = useCallback((rowId: string, columnId: string) => {
     setActiveCell({ rowId, columnId });
     onCellClick?.(rowId, columnId);
-  };
+  }, [setActiveCell, onCellClick]);
   
   return (
     <div className="w-full overflow-auto rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm">
@@ -113,4 +116,4 @@ export function DataTable({
       </Table>
     </div>
   );
-}
+});

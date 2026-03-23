@@ -11,6 +11,7 @@
   },
   "description": "VocalGrid - Voice-first spreadsheet data entry",
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
     "@supabase/supabase-js": "^2.98.0",
     "@tailwindcss/postcss": "^4.2.1",
     "@tanstack/react-query": "^5.90.21",
