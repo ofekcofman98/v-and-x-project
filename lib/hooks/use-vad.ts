@@ -4,7 +4,7 @@
  * Based on: docs/05_VOICE_PIPELINE.md §9.2
  */
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 
 export interface VADOptions {
   /** RMS energy level (0–255) above which audio is considered speech. Default: 15 */
@@ -53,6 +53,7 @@ export function useVAD(options: VADOptions = {}) {
   const speechStartRef = useRef<number | null>(null);
   const recordingStartRef = useRef<number | null>(null);
   const callbacksRef = useRef<VADCallbacks | null>(null);
+  const [volume, setVolume] = useState(0);
 
   /**
    * Calculate RMS (Root Mean Square) energy from audio samples
@@ -97,6 +98,8 @@ export function useVAD(options: VADOptions = {}) {
 
     const rms = getRMS(analyserRef.current);
     const now = Date.now();
+    const normalizedVolume = Math.min(1, Math.max(0, rms / 255));
+    setVolume(normalizedVolume);
 
     if (!isSpeakingRef.current) {
       // Waiting for speech to start
@@ -218,5 +221,5 @@ export function useVAD(options: VADOptions = {}) {
     mediaRecorderRef.current = null;
   }, [flushChunk]);
 
-  return { startVAD, stopVAD };
+  return { startVAD, stopVAD, volume };
 }

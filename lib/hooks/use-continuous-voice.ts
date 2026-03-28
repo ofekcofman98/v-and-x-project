@@ -33,7 +33,7 @@ export function useContinuousVoice({
   const navigationMode = useUIStore((s) => s.navigationMode);
 
   // Initialize VAD with user preferences
-  const { startVAD, stopVAD } = useVAD({
+  const { startVAD, stopVAD, volume } = useVAD({
     speechThreshold: vadSensitivity.speechThreshold,
     silenceThreshold: vadSensitivity.silenceThreshold,
     silenceDurationMs: vadSensitivity.silenceDurationMs,
@@ -153,5 +153,5 @@ export function useContinuousVoice({
     setRecordingState('idle');
   }, [stopVAD, setRecordingState]);
 
-  return { startContinuous, stopContinuous };
+  return { startContinuous, stopContinuous, volume };
 }

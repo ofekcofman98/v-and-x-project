@@ -8,6 +8,8 @@
 import { useEffect } from 'react';
 import { DataTable } from '@/components/table/DataTable';
 import { MobileTableView } from '@/components/table/MobileTableView';
+
+import { NavigationModeToggle } from '@/components/table/NavigationModeToggle';
 import { ConfirmationDialog, VoiceButton } from '@/components/voice';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useTableDataStore } from '@/lib/stores/table-data-store';
@@ -171,7 +173,16 @@ export default function DataTableDemoPage() {
               Current state: <span className="font-semibold">{recordingState}</span>
             </p>
           </div>
-          
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+              Navigation Mode
+            </span>
+            <NavigationModeToggle />
+          </div>
+
+
+
           {/* Quick Select Cells */}
           <div className="mt-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">

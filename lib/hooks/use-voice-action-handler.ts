@@ -5,18 +5,17 @@
  * Based on: docs/05_VOICE_PIPELINE.md §2.2 and docs/06_SMART_POINTER.md
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useTableDataStore } from '@/lib/stores/table-data-store';
 import { match } from '@/lib/matching/matcher';
 import { detectAmbiguity } from '@/lib/matching/ambiguity';
-import { getNextCellColumnFirst } from '@/lib/navigation/column-first';
-import { getNextCellRowFirst } from '@/lib/navigation/row-first';
 import { VoiceInputError } from '@/lib/types/voice-errors';
 import { warmEntityCache } from '@/lib/matching/cache';
 import type { ParsedResult } from '@/lib/types/voice-pipeline';
 import type { TableSchema } from '@/lib/types/table-schema';
 import type { CellPosition } from '@/lib/stores/ui-store';
+import { navigationStrategies } from '../navigation/strategies';
 
 interface UseVoiceActionHandlerOptions {
   tableSchema: TableSchema;
@@ -59,6 +58,25 @@ export function useVoiceActionHandler({
     }
   }, [tableSchema.rows]);
 
+
+  const rowIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    tableSchema.rows.forEach((row, index) => {
+      map.set(row.id, index);
+    });
+    return map;
+  }, [tableSchema.rows]);
+  
+  const colIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    tableSchema.columns.forEach((col, index) => {
+      map.set(col.id, index);
+    });
+    return map;
+  }, [tableSchema.columns]);
+  
+
+
   /**
    * Calculate the next cell based on the current navigation mode
    */
@@ -66,13 +84,11 @@ export function useVoiceActionHandler({
     (currentCell: CellPosition | null): CellPosition | null => {
       if (!currentCell) return null;
 
-      const nextCell = navigationMode === 'column-first'
-        ? getNextCellColumnFirst(currentCell, tableSchema)
-        : getNextCellRowFirst(currentCell, tableSchema);
+      const strategy = navigationStrategies[navigationMode];
 
-      return nextCell;
+      return strategy.getNext(currentCell, tableSchema, rowIndexMap, colIndexMap);
     },
-    [navigationMode, tableSchema]
+    [navigationMode, tableSchema, rowIndexMap, colIndexMap]
   );
 
   /**
@@ -129,22 +145,23 @@ export function useVoiceActionHandler({
           );
         }
 
-        // Sync pointer to matched entity BEFORE updating cell
-        // This prevents out-of-order desync when user says "Student E, 90" while pointer is on Student A
+        // Determine where the data should land before mutating state
         const matchedCell: CellPosition = {
           rowId: matchedRow.id,
           columnId: activeCell.columnId,
         };
 
-        setActiveCell(matchedCell);
-        console.log('[VoiceActionHandler] Synced pointer to matched entity:', matchedCell);
-
         // Update the cell value at the matched location
         updateCell(
-          matchedRow.id,
-          activeCell.columnId,
+          matchedCell.rowId,
+          matchedCell.columnId,
           parsed.value as string | number | boolean | null
         );
+        console.log('[VoiceActionHandler] Updated matched cell:', matchedCell);
+
+        // Sync pointer to matched entity after the write so the UI follows the data
+        setActiveCell(matchedCell);
+        console.log('[VoiceActionHandler] Synced pointer to matched entity:', matchedCell);
         setRecordingState('committing');
 
         // Calculate next cell from the MATCHED cell, not the old activeCell

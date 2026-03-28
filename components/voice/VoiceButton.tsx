@@ -7,12 +7,14 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Mic, Infinity } from 'lucide-react';
+import { Mic, Infinity as InfinityIcon, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useVoiceEntry } from '@/lib/hooks/use-voice-entry';
 import { useContinuousVoice } from '@/lib/hooks/use-continuous-voice';
 import { useVoiceActionHandler } from '@/lib/hooks/use-voice-action-handler';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { cn } from '@/lib/utils/cn';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ParsedResult } from '@/lib/types/voice-pipeline';
 import type { TableSchema } from '@/lib/types/table-schema';
 import { VoiceErrors, VoiceInputError } from '@/lib/types/voice-errors';
@@ -156,7 +158,8 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
   });
 
   // Continuous mode hook (VAD-based)
-  const { startContinuous, stopContinuous } = useContinuousVoice({
+  const { startContinuous, stopContinuous, volume: continuousAudioLevel } =
+    useContinuousVoice({
     tableSchema,
     onResult: handleParsedResult,
     onError: handleVoiceError,
@@ -241,44 +244,122 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
   const isCommitting = recordingState === 'committing';
   const isAdvancing = recordingState === 'advancing';
 
-  return (
-    <div className="relative flex flex-col items-center gap-2">
-      <button
-        type="button"
-        className={cn(
-          'relative rounded-full p-6 transition-all duration-200',
-          'focus:outline-none focus:ring-4 focus:ring-offset-2',
-          'shadow-lg hover:shadow-xl',
-          {
-            'bg-blue-500 hover:bg-blue-600 focus:ring-blue-300': !continuousMode && !isError,
-            'bg-green-500 hover:bg-green-600 focus:ring-green-300 animate-pulse': 
-              continuousMode && isListening,
-            'bg-green-600': continuousMode && !isListening && !isError && !isProcessing && !isConfirming,
-            'bg-gray-400 cursor-not-allowed': isProcessing || isConfirming,
-            'bg-emerald-500': isCommitting || isAdvancing,
-            'bg-red-600': isError,
-          }
-        )}
-        onClick={handleToggle}
-        disabled={isProcessing || isConfirming}
-        aria-label={continuousMode ? 'Stop continuous mode' : 'Start continuous mode'}
-      >
-        {continuousMode ? (
-          <Infinity className="h-6 w-6 text-white" />
-        ) : (
-          <Mic className="h-6 w-6 text-white" />
-        )}
+  const currentDisplayLevel = continuousMode ? continuousAudioLevel : audioLevel;
+  const visualLevel = Math.max(0, Math.min(1, currentDisplayLevel ?? 0));
 
-        {/* Subtle pulse ring when listening for speech */}
-        {isListening && (
-          <div className="absolute inset-0 rounded-full bg-white/30 animate-ping" />
-        )}
-      </button>
+  // Generate tooltip text based on state
+  const getTooltipText = () => {
+    if (isProcessing || isConfirming) return 'Processing...';
+    if (continuousMode) return 'Continuous mode active - Press ESC to stop';
+    return 'Click to activate continuous mode';
+  };
+
+  return (
+    <TooltipProvider>
+      <div className="relative flex flex-col items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="relative">
+              {/* Audio visualizer ring - scales based on audioLevel */}
+              {isListening && (
+                <motion.div
+                  className="absolute inset-0 rounded-full bg-gradient-to-br from-emerald-400/70 to-lime-400/30 pointer-events-none"
+                  animate={{
+                    scale: [1, 1 + visualLevel * 0.8, 1 + visualLevel * 0.6],
+                    opacity: [0.7, 0.35, 0.5],
+                  }}
+                  transition={{
+                    duration: 0.6,
+                    ease: 'easeInOut',
+                    repeat: Infinity,
+                    repeatType: 'reverse',
+                  }}
+                  style={{
+                    transform: 'translate(-50%, -50%)',
+                    left: '50%',
+                    top: '50%',
+                  }}
+                />
+              )}
+
+              {/* Main button with Framer Motion */}
+              <motion.button
+                type="button"
+                className={cn(
+                  'relative rounded-full p-6 transition-all duration-200',
+                  'focus:outline-none focus:ring-4 focus:ring-offset-2',
+                  'shadow-lg hover:shadow-xl',
+                  {
+                    'bg-blue-500 hover:bg-blue-600 focus:ring-blue-300': !continuousMode && !isError,
+                    'bg-green-500 hover:bg-green-600 focus:ring-green-300': 
+                      continuousMode && isListening,
+                    'bg-green-600': continuousMode && !isListening && !isError && !isProcessing && !isConfirming,
+                    'bg-gray-400 cursor-not-allowed': isProcessing || isConfirming,
+                    'bg-emerald-500': isCommitting || isAdvancing,
+                    'bg-red-600': isError,
+                  }
+                )}
+                onClick={handleToggle}
+                disabled={isProcessing || isConfirming}
+                aria-label={continuousMode ? 'Stop continuous mode' : 'Start continuous mode'}
+                whileHover={{ scale: isProcessing || isConfirming ? 1 : 1.05 }}
+                whileTap={{ scale: isProcessing || isConfirming ? 1 : 0.95 }}
+                animate={
+                  isListening 
+                    ? { scale: [1, 1.05, 1] }
+                    : { scale: 1 }
+                }
+                transition={{
+                  duration: 0.3,
+                  ease: 'easeInOut',
+                }}
+              >
+                {/* Show spinning loader when processing */}
+                {isProcessing || isConfirming ? (
+                  <Loader2 className="h-6 w-6 text-white animate-spin" />
+                ) : continuousMode ? (
+                  <InfinityIcon className="h-6 w-6 text-white" />
+                ) : (
+                  <Mic className="h-6 w-6 text-white" />
+                )}
+
+                {/* Subtle pulse ring when listening for speech */}
+                {isListening && (
+                  <motion.div
+                    className="absolute inset-0 rounded-full bg-white/30"
+                    animate={{
+                      scale: [1, 1.3],
+                      opacity: [0.5, 0],
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: 'easeOut',
+                    }}
+                  />
+                )}
+              </motion.button>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{getTooltipText()}</p>
+          </TooltipContent>
+        </Tooltip>
 
       {/* Visual progress bar when listening */}
       {isListening && (
         <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div className="h-full bg-green-500 animate-pulse" style={{ width: '100%' }} />
+          <motion.div
+            className="h-full bg-gradient-to-r from-emerald-500/80 to-lime-400 shadow-[0_0_20px_rgba(74,222,128,0.6)]"
+            animate={{
+              width: `${Math.max(40, visualLevel * 100)}%`,
+              opacity: [0.6, 1],
+            }}
+            transition={{
+              duration: 0.15,
+              ease: 'easeOut',
+            }}
+          />
         </div>
       )}
 
@@ -306,5 +387,6 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
