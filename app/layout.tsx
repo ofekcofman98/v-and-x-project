@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "./providers";
+import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default function RootLayout({
           <div className="relative flex min-h-screen flex-col">
             {children}
           </div>
+          <Toaster />
         </Providers>
       </body>
     </html>

@@ -2,6 +2,7 @@
  * VoiceButton Component
  * Toggle button for continuous mode or press-and-hold for manual mode
  * Based on: docs/05_VOICE_PIPELINE.md §2.2, §9 and docs/06_SMART_POINTER.md §9
+ * Error handling based on: docs/09_ERROR_HANDLING.md
  */ 
 
 'use client';
@@ -15,10 +16,14 @@ import { useVoiceActionHandler } from '@/lib/hooks/use-voice-action-handler';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { cn } from '@/lib/utils/cn';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { toast } from '@/components/ui/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import type { ParsedResult } from '@/lib/types/voice-pipeline';
 import type { TableSchema } from '@/lib/types/table-schema';
-import { VoiceErrors, VoiceInputError } from '@/lib/types/voice-errors';
+import { VoiceErrors, VoiceInputError, VocalGridError, ErrorCodes } from '@/lib/types/voice-errors';
+import { getErrorMessage } from '@/lib/errors/error-mapping';
 import { trackVoiceMetrics } from '@/lib/monitoring/voice-metrics';
+import { logger } from '@/lib/logging/client-logger';
 
 interface VoiceButtonProps {
   tableSchema: TableSchema;
@@ -126,14 +131,90 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
     } catch (error) {
       const totalDuration = Date.now() - totalStartTime;
       
-      if (error instanceof VoiceInputError) {
+      logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        { phase: 'voice-entry', duration: totalDuration }
+      );
+      
+      setRecordingState('error');
+      setPendingConfirmation(null);
+      
+      if (error instanceof VocalGridError) {
         trackVoiceMetrics({ phase: 'total', duration: totalDuration, success: false, error: error.code });
+        
+        const errorMapping = getErrorMessage(error.code);
+        
+        if (error.isRecoverable) {
+          toast({
+            title: errorMapping.title,
+            description: errorMapping.message,
+            variant: 'destructive',
+            duration: 5000,
+            action: (
+              <ToastAction altText="Try again" onClick={() => {
+                setRecordingState('idle');
+              }}>
+                {errorMapping.action || 'Try Again'}
+              </ToastAction>
+            ),
+          });
+        } else {
+          toast({
+            title: errorMapping.title,
+            description: errorMapping.message,
+            variant: 'destructive',
+            duration: 0,
+          });
+        }
+      } else if (error instanceof VoiceInputError) {
+        trackVoiceMetrics({ phase: 'total', duration: totalDuration, success: false, error: error.code });
+        
+        const errorMapping = getErrorMessage(error.code);
+        
+        if (error.recoverable) {
+          toast({
+            title: errorMapping.title,
+            description: error.message || errorMapping.message,
+            variant: 'destructive',
+            duration: 5000,
+            action: (
+              <ToastAction altText="Try again" onClick={() => {
+                setRecordingState('idle');
+              }}>
+                {errorMapping.action || 'Try Again'}
+              </ToastAction>
+            ),
+          });
+        } else {
+          toast({
+            title: errorMapping.title,
+            description: error.message || errorMapping.message,
+            variant: 'destructive',
+            duration: 0,
+          });
+        }
       } else {
         trackVoiceMetrics({ phase: 'total', duration: totalDuration, success: false, error: 'Unknown error' });
+        
+        const errorMapping = getErrorMessage(ErrorCodes.UNKNOWN);
+        toast({
+          title: errorMapping.title,
+          description: errorMapping.message,
+          variant: 'destructive',
+          duration: 5000,
+          action: (
+            <ToastAction altText="Try again" onClick={() => {
+              setRecordingState('idle');
+            }}>
+              {errorMapping.action || 'Try Again'}
+            </ToastAction>
+          ),
+        });
       }
       
-      setPendingConfirmation(null);
-      setError();
+      setTimeout(() => {
+        setRecordingState('idle');
+      }, 2000);
     }
   };
 
@@ -141,9 +222,84 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
    * Handle voice recording errors
    */
   const handleVoiceError = (error: unknown) => {
-    console.error('Recording error:', error);
+    logger.error(
+      error instanceof Error ? error : new Error(String(error)),
+      { phase: 'recording' }
+    );
+    
+    setRecordingState('error');
     setPendingConfirmation(null);
-    setError();
+    
+    if (error instanceof VocalGridError) {
+      const errorMapping = getErrorMessage(error.code);
+      
+      if (error.isRecoverable) {
+        toast({
+          title: errorMapping.title,
+          description: errorMapping.message,
+          variant: 'destructive',
+          duration: 5000,
+          action: (
+            <ToastAction altText="Try again" onClick={() => {
+              setRecordingState('idle');
+            }}>
+              {errorMapping.action || 'Try Again'}
+            </ToastAction>
+          ),
+        });
+      } else {
+        toast({
+          title: errorMapping.title,
+          description: errorMapping.message,
+          variant: 'destructive',
+          duration: 0,
+        });
+      }
+    } else if (error instanceof VoiceInputError) {
+      const errorMapping = getErrorMessage(error.code);
+      
+      if (error.recoverable) {
+        toast({
+          title: errorMapping.title,
+          description: error.message || errorMapping.message,
+          variant: 'destructive',
+          duration: 5000,
+          action: (
+            <ToastAction altText="Try again" onClick={() => {
+              setRecordingState('idle');
+            }}>
+              {errorMapping.action || 'Try Again'}
+            </ToastAction>
+          ),
+        });
+      } else {
+        toast({
+          title: errorMapping.title,
+          description: error.message || errorMapping.message,
+          variant: 'destructive',
+          duration: 0,
+        });
+      }
+    } else {
+      const errorMapping = getErrorMessage(ErrorCodes.UNKNOWN);
+      toast({
+        title: errorMapping.title,
+        description: errorMapping.message,
+        variant: 'destructive',
+        duration: 5000,
+        action: (
+          <ToastAction altText="Try again" onClick={() => {
+            setRecordingState('idle');
+          }}>
+            {errorMapping.action || 'Try Again'}
+          </ToastAction>
+        ),
+      });
+    }
+    
+    setTimeout(() => {
+      setRecordingState('idle');
+    }, 2000);
   };
 
   // Manual recording hook (press-and-hold)

@@ -12,4 +12,5 @@ VocalGrid Technical Documentation
 ├── 10_PERFORMANCE.md                 # Budgets, monitoring, optimization
 ├── 11_API_ROUTES.md                  # Backend endpoints, request/response
 ├── 12_IMPLEMENTATION_ROADMAP.md      # Week-by-week plan, milestones
-└── 13_TESTING_DEPLOYMENT.md          # Testing strategy, deployment guide
+├── 13_TESTING_DEPLOYMENT.md          # Testing strategy, deployment guide
+└── 14_PRODUCT_DATA_FLOW.md           # User journeys, CSV import & entity relationships

@@ -132,6 +132,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
           error: {
             code: 'OPENAI_KEY_MISSING',
             message: 'OpenAI API key is not configured.',
+            details: null,
           },
         },
         { status: 500 }
@@ -145,8 +146,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
         {
           success: false,
           error: {
-            code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Rate limit exceeded. Please wait a moment.',
+            code: 'STT_RATE_LIMIT',
+            message: 'Too many requests. Please wait a moment and try again.',
+            details: null,
           },
         },
         { status: 429 }
@@ -164,8 +166,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
         {
           success: false,
           error: {
-            code: 'NO_AUDIO_FILE',
+            code: 'REC_FAILED',
             message: 'No audio file provided',
+            details: null,
           },
         },
         { status: 400 }
@@ -177,8 +180,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
         {
           success: false,
           error: {
-            code: 'FILE_TOO_LARGE',
+            code: 'REC_TOO_LONG',
             message: 'Audio file too large (max 25MB)',
+            details: null,
           },
         },
         { status: 400 }
@@ -190,8 +194,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
         {
           success: false,
           error: {
-            code: 'MISSING_PARAMS',
+            code: 'VAL_REQUIRED_FIELD',
             message: 'Missing required parameters (tableSchema or activeCell)',
+            details: null,
           },
         },
         { status: 400 }
@@ -209,7 +214,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
         {
           success: false,
           error: {
-            code: 'INVALID_PARAMS',
+            code: 'VAL_INVALID_FORMAT',
             message: 'Invalid tableSchema or activeCell format',
             details: error,
           },
@@ -266,7 +271,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
               success: false,
               error: {
                 code: 'STT_RATE_LIMIT',
-                message: 'OpenAI rate limit exceeded. Please try again in a moment.',
+                message: 'Too many requests. Please wait a moment and try again.',
+                details: err,
               },
             },
             { status: 429 }
@@ -278,8 +284,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
             {
               success: false,
               error: {
-                code: 'INVALID_AUDIO',
+                code: 'STT_INVALID_AUDIO',
                 message: 'Invalid audio format. Please try recording again.',
+                details: err,
               },
             },
             { status: 400 }
@@ -325,8 +332,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
         {
           success: false,
           error: {
-            code: 'CELL_NOT_FOUND',
+            code: 'NO_CELL_SELECTED',
             message: 'Active cell cannot be resolved.',
+            details: null,
           },
         },
         { status: 400 }
@@ -585,8 +593,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
       {
         success: false,
         error: {
-          code: 'VOICE_ENTRY_FAILED',
+          code: 'NET_SERVER_ERROR',
           message: 'Failed to process voice entry. Please try again.',
+          details: error instanceof Error ? error.message : String(error),
         },
       },
       { status: 500 }

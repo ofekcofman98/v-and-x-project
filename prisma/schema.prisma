@@ -1,0 +1,218 @@
+// ═══════════════════════════════════════════════════════════
+// VocalGrid – Prisma Schema
+// Implements: docs/14_PRODUCT_DATA_FLOW.md §1–2
+// Database: Supabase (PostgreSQL)
+// ═══════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ───────────────────────────────────────────────────────────
+// BASE LIST
+// The entity registry. Holds WHO or WHAT is being tracked.
+// Does NOT own the representative column – that belongs to
+// each Table that uses this list, allowing the same list to
+// be referenced with different matching keys (name, ID, etc.)
+// ───────────────────────────────────────────────────────────
+model BaseList {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+
+  // Column metadata stored as JSONB.
+  // Shape: { columns: [{ id, label, type, validation? }] }
+  // Example: { columns: [{ id: "first_name", label: "First Name", type: "text" }] }
+  schema Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  entities ListEntity[]
+  tables   Table[]
+
+  @@map("base_lists")
+}
+
+// ───────────────────────────────────────────────────────────
+// LIST ENTITY
+// A single row inside a BaseList.
+// Values are stored as JSONB keyed by the column IDs defined
+// in BaseList.schema, e.g.:
+//   { "first_name": "Alice", "student_id": "001", "email": "alice@school.edu" }
+// GIN-indexed so lookups by any value key stay fast at scale.
+// ───────────────────────────────────────────────────────────
+model ListEntity {
+  id         String   @id @default(uuid()) @db.Uuid
+  baseListId String   @map("base_list_id") @db.Uuid
+  baseList   BaseList @relation(fields: [baseListId], references: [id], onDelete: Cascade)
+
+  // Flexible key-value store for entity data.
+  // Shape: { [columnId: string]: string | number | boolean }
+  values Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Each entity can appear as the identity row in many TableCells
+  tableCells TableCell[]
+
+  @@index([baseListId])
+  @@map("list_entities")
+}
+
+// ───────────────────────────────────────────────────────────
+// TABLE
+// The data-collection instance. May be linked to a BaseList
+// (rows are the list's entities) or standalone (rows created
+// inline from scratch).
+//
+// representativeColumnKey: the column ID from the entity's
+// values that the Voice Matching Engine uses to resolve
+// spoken names → entity rows.  Lives HERE, not on BaseList,
+// so the same BaseList can be matched differently per table.
+//
+// Example: Same "Class 10A" list →
+//   Math Exam:    representativeColumnKey = "first_name"
+//   Official:     representativeColumnKey = "student_id"
+// ───────────────────────────────────────────────────────────
+model Table {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+
+  // Nullable: NULL means the table was created from scratch
+  baseListId String?   @map("base_list_id") @db.Uuid
+  baseList   BaseList? @relation(fields: [baseListId], references: [id], onDelete: SetNull)
+
+  // The key inside ListEntity.values (or the inline entity schema)
+  // that the Voice Engine matches spoken words against.
+  // Must reference a valid column id in the active entity schema.
+  representativeColumnKey String @map("representative_column_key")
+
+  // Column definitions for new data being collected (e.g. "Grade", "Notes").
+  // Shape: { columns: [{ id, label, type, validation?, metadata? }] }
+  // Rows are NOT stored here – they come from ListEntity or TableCell.
+  schema Json
+
+  // Optional UI / Voice settings (input constraints, voice prompts, etc.)
+  // Shape: { voiceConfirmation?: boolean, inputMode?: "voice" | "manual" }
+  settings Json @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  columns TableColumn[]
+  cells   TableCell[]
+
+  @@index([baseListId])
+  @@map("tables")
+}
+
+// ───────────────────────────────────────────────────────────
+// TABLE COLUMN
+// Represents a single data-entry column defined on a Table
+// (e.g. "Score", "Notes", "Completion Date").
+// Column metadata (label, type, order) is stored here as a
+// first-class row so future features (reordering, hiding,
+// per-column settings) remain straightforward to implement.
+// ───────────────────────────────────────────────────────────
+model TableColumn {
+  id      String @id @default(uuid()) @db.Uuid
+  tableId String @map("table_id") @db.Uuid
+  table   Table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  // Column identifier used in TableCell.columnKey (e.g. "score")
+  key   String
+  // Human-readable label shown in UI (e.g. "Score")
+  label String
+  // Value type: drives UI input and voice parsing
+  type  ColumnType @default(TEXT)
+  // Display order within the table
+  order Int        @default(0)
+
+  // Optional per-column constraints / metadata as JSONB
+  // Shape: { required?: boolean, min?: number, max?: number, pattern?: string }
+  validation Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cells TableCell[]
+
+  @@unique([tableId, key])
+  @@index([tableId, order])
+  @@map("table_columns")
+}
+
+// ───────────────────────────────────────────────────────────
+// TABLE CELL
+// The atomic unit of data entry.
+// One record per (table, entity/row, column) intersection.
+// entityId is nullable to support standalone tables where
+// rows are created inline without a BaseList entity.
+// ───────────────────────────────────────────────────────────
+model TableCell {
+  id            String      @id @default(uuid()) @db.Uuid
+  tableId       String      @map("table_id") @db.Uuid
+  table         Table       @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableColumnId String      @map("table_column_id") @db.Uuid
+  tableColumn   TableColumn @relation(fields: [tableColumnId], references: [id], onDelete: Cascade)
+
+  // Nullable: NULL when the row was created inline (no BaseList)
+  entityId String?     @map("entity_id") @db.Uuid
+  entity   ListEntity? @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  // Stable row identifier used for grouping all cells in a logical row.
+  // For BaseList-backed tables: equals entityId.
+  // For standalone tables:      a client-generated UUID assigned at row creation.
+  rowKey String @map("row_key")
+
+  // The entered value. Stored as JSONB to support typed values (number,
+  // boolean, date ISO string, etc.) without separate nullable columns.
+  // Shape: { value: string | number | boolean | null }
+  value Json
+
+  // Source tracking for audit and UI state
+  entrySource EntrySource @default(MANUAL) @map("entry_source")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Each (table, row, column) triple must be unique
+  @@unique([tableId, rowKey, tableColumnId])
+  @@index([tableId, rowKey])
+  @@index([tableId, tableColumnId])
+  @@index([entityId])
+  @@map("table_cells")
+}
+
+// ───────────────────────────────────────────────────────────
+// ENUMS
+// ───────────────────────────────────────────────────────────
+
+enum ColumnType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+
+  @@map("column_type")
+}
+
+enum EntrySource {
+  VOICE
+  MANUAL
+  IMPORT
+
+  @@map("entry_source")
+}
