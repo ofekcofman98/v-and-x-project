@@ -117,9 +117,16 @@ Keep the three layers strictly separate — never let them bleed into each other
 
 ---
 
-## 5. Behaviour Defaults
+## 6. Behaviour Defaults
 
 - When generating new code, match the patterns already established in the codebase — do not introduce a second way of doing something that already has a convention.
 - When asked to implement a feature, cite the relevant `/docs` section that covers it.
 - When a task is ambiguous, ask one focused clarifying question rather than making assumptions and writing code.
 - Prefer editing the minimal surface area needed. Do not refactor unrelated code as a side effect.
+
+### 7. Documentation & File Creation Rules
+- **Source of Truth:** The `docs/` folder contains the project's core specifications (files 00-14). These are the absolute Source of Truth.
+- **No Junk Files:** Do not create new standalone `.md` files in the root directory or `docs/` folder for summaries, refactoring notes, or implementation checklists.
+- **Logging Changes:** If you need to provide a summary or log of your changes, place them ONLY in the `docs/logs/` directory.
+- **Spec Updates:** If a change impacts the project's architecture or logic, update the existing relevant specification file in `docs/` (e.g., `03_DATABASE.md` or `05_VOICE_PIPELINE.md`) instead of creating a new file, and always ask me for approvement before updating them.
+- **Conciseness:** Prefer providing summaries directly in the chat interface rather than generating documentation files, unless explicitly requested by the user.
