@@ -11,6 +11,7 @@
   },
   "description": "VocalGrid - Voice-first spreadsheet data entry",
   "dependencies": {
+    "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.6.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-toast": "^1.2.15",

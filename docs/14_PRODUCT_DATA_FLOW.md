@@ -136,27 +136,10 @@ Table = "The Data I'm Collecting About Them"
 interface BaseList {
   id: string;
   name: string;
+  descriptions?: string;
   entities: ListEntity[];       // The actual rows
 }
 
-interface Table {
-  id: string;
-  name: string;
-  base_list_id?: string | null;
-  representativeColumn: string;  // ← Defined at TABLE level, not BaseList
-  schema: TableSchema;
-}
-
-
-// Example:
-const classList: BaseList = {
-  id: 'list-123',
-  name: 'Class 10A',
-  entities: [
-    { id: 'e1', values: { 'Student Name': 'Alice Johnson', 'Student ID': '001' } },
-    { id: 'e2', values: { 'Student Name': 'Bob Smith', 'Student ID': '002' } },
-  ],
-};
 interface Table {
   id: string;
   name: string;
