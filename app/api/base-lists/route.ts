@@ -88,3 +88,10 @@ export async function POST(
 
   return NextResponse.json({ success: true, data: baseList }, { status: 201 });
 }
+
+export async function GET(
+  req: NextRequest
+): Promise<NextResponse> {
+  const baseLists = await prisma.baseList.findMany();
+  return NextResponse.json({ success: true, data: baseLists }, { status: 200 });
+}
