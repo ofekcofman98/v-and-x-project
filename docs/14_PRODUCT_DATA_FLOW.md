@@ -771,391 +771,243 @@ export interface ImportCSVRequest {
   data: Array<Record<string, any>>;
 }
 
+```
+
 ---
 
 ## 3. User Journey: Creating a Base List
 
-### 3.1 Method 1: Interactive UI Creation
+### 3.1 CreateBaseListDialog - 3-Step Wizard
 
-**User Flow:**
-```
-1. User clicks "Create Base List" button
-2. Modal opens: "New Base List"
-3. User enters:
-   - Name: "Class 10A"
-   - Description: "Math class, Spring 2025"
-4. User clicks "Add Column"
-   - Column 1: "Student Name" (type: text, required)
-   - Column 2: "Student ID" (type: text)
-   - Column 3: "Email" (type: text)
-5. User selects Representative Column: "Student Name" ⭐
-6. User clicks "Next: Add Entities"
-7. Dynamic table appears:
-   ┌─────────────────┬────────────┬─────────────────────┐
-   │ Student Name    │ Student ID │ Email               │
-   ├─────────────────┼────────────┼─────────────────────┤
-   │ [Empty]         │ [Empty]    │ [Empty]             │
-   └─────────────────┴────────────┴─────────────────────┘
-8. User fills first row:
-   - Student Name: "Alice Johnson"
-   - Student ID: "001"
-   - Email: "alice@school.edu"
-9. User clicks "+ Add Row" (appears below)
-10. User fills more rows...
-11. User clicks "Create List" (button)
-12. Success! Redirected to Base List detail page
-```
+**Purpose:** Separate schema definition from data entry to prevent cognitive overload.
 
-**Component Breakdown:**
+---
+
+#### Architecture
+
+**State Management:**
 ```typescript
-// components/CreateBaseListDialog.tsx
+// All state is component-local (NOT in UI Store)
+const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+const [name, setName] = useState('');
+const [description, setDescription] = useState('');
+const [columns, setColumns] = useState<BaseListColumn[]>([DEFAULT_COLUMN]);
+const [entities, setEntities] = useState<Record<string, any>[]>([{}]);
+```
 
-'use client';
+**Default Column (Required):**
+```typescript
+const DEFAULT_COLUMN: BaseListColumn = {
+  id: 'name',
+  label: 'Name',
+  type: 'text',
+  validation: { required: true },
+  metadata: { isDefault: true, locked: true },
+};
+```
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2, Star } from 'lucide-react';
-import { BaseListColumn, ListEntity } from '@/types/product-data';
+---
 
-export function CreateBaseListDialog({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const [step, setStep] = useState<'info' | 'columns' | 'entities'>('info');
-  
-  // Step 1: Basic info
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  
-  // Step 2: Columns
-  const [columns, setColumns] = useState<BaseListColumn[]>([
-    {
-      id: 'col_1',
-      label: '',
-      type: 'text',
-      validation: { required: true },
-    },
-  ]);
-  const [representativeColumn, setRepresentativeColumn] = useState<string>('');
-  
-  // Step 3: Entities
-  const [entities, setEntities] = useState<Array<Record<string, any>>>([{}]);
-  
-  const handleAddColumn = () => {
-    setColumns([
-      ...columns,
-      {
-        id: `col_${Date.now()}`,
-        label: '',
-        type: 'text',
-      },
-    ]);
-  };
-  
-  const handleRemoveColumn = (index: number) => {
-    const newColumns = columns.filter((_, i) => i !== index);
-    setColumns(newColumns);
-    
-    // Reset representative column if it was deleted
-    if (representativeColumn === columns[index].id) {
-      setRepresentativeColumn('');
-    }
-  };
-  
-  const handleAddEntity = () => {
-    setEntities([...entities, {}]);
-  };
-  
-  const handleUpdateEntity = (
-    entityIndex: number,
-    columnId: string,
-    value: any
-  ) => {
-    const newEntities = [...entities];
-    newEntities[entityIndex][columnId] = value;
-    setEntities(newEntities);
-  };
-  
-  const handleSubmit = async () => {
-    // Validate
-    if (!name || !representativeColumn || entities.length === 0) {
-      alert('Please fill all required fields');
-      return;
-    }
-    
-    // Create base list
-    const response = await fetch('/api/base-lists', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name,
-        description,
-        representative_column: representativeColumn,
-        schema: { columns },
-        entities,
-      }),
-    });
-    
-    if (response.ok) {
-      onClose();
-      // Redirect or refresh
-    }
-  };
-  
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Create Base List</DialogTitle>
-        </DialogHeader>
-        
-        {step === 'info' && (
-          <div className="space-y-4">
-            <div>
-              <Label>Name *</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Class 10A"
-              />
-            </div>
-            
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Optional description"
-              />
-            </div>
-            
-            <Button onClick={() => setStep('columns')}>
-              Next: Define Columns
-            </Button>
-          </div>
-        )}
-        
-        {step === 'columns' && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              {columns.map((column, index) => (
-                <div key={column.id} className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <Label>Column Name</Label>
-                    <Input
-                      value={column.label}
-                      onChange={(e) => {
-                        const newColumns = [...columns];
-                        newColumns[index].label = e.target.value;
-                        newColumns[index].id = e.target.value
-                          .toLowerCase()
-                          .replace(/\s+/g, '_');
-                        setColumns(newColumns);
-                      }}
-                      placeholder="e.g., Student Name"
-                    />
-                  </div>
-                  
-                  <div className="w-32">
-                    <Label>Type</Label>
-                    <select
-                      value={column.type}
-                      onChange={(e) => {
-                        const newColumns = [...columns];
-                        newColumns[index].type = e.target.value as any;
-                        setColumns(newColumns);
-                      }}
-                      className="w-full border rounded px-2 py-1"
-                    >
-                      <option value="text">Text</option>
-                      <option value="number">Number</option>
-                      <option value="date">Date</option>
-                      <option value="boolean">Boolean</option>
-                    </select>
-                  </div>
-                  
-                  <Button
-                    variant={
-                      representativeColumn === column.id ? 'default' : 'outline'
-                    }
-                    size="sm"
-                    onClick={() => setRepresentativeColumn(column.id)}
-                    title="Set as Representative Column"
-                  >
-                    <Star
-                      className={`h-4 w-4 ${
-                        representativeColumn === column.id ? 'fill-yellow-400' : ''
-                      }`}
-                    />
-                  </Button>
-                  
-                  {columns.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemoveColumn(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-            
-            <Button variant="outline" onClick={handleAddColumn}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Column
-            </Button>
-            
-            {representativeColumn && (
-              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm">
-                ⭐ Representative Column:{' '}
-                <strong>
-                  {columns.find((c) => c.id === representativeColumn)?.label}
-                </strong>
-                <p className="text-gray-600 mt-1">
-                  This will be used for voice matching
-                </p>
-              </div>
-            )}
-            
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep('info')}>
-                Back
-              </Button>
-              <Button
-                onClick={() => setStep('entities')}
-                disabled={!representativeColumn}
-              >
-                Next: Add Entities
-              </Button>
-            </div>
-          </div>
-        )}
-        
-        {step === 'entities' && (
-          <div className="space-y-4">
-            <div className="border rounded overflow-x-auto">
-              <table className="min-w-full divide-y">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {columns.map((column) => (
-                      <th
-                        key={column.id}
-                        className="px-4 py-2 text-left text-xs font-medium text-gray-700"
-                      >
-                        {column.label}
-                        {column.id === representativeColumn && (
-                          <Star className="inline h-3 w-3 ml-1 fill-yellow-400" />
-                        )}
-                      </th>
-                    ))}
-                    <th className="px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entities.map((entity, entityIndex) => (
-                    <tr key={entityIndex} className="border-t">
-                      {columns.map((column) => (
-                        <td key={column.id} className="px-4 py-2">
-                          <Input
-                            value={entity[column.id] || ''}
-                            onChange={(e) =>
-                              handleUpdateEntity(
-                                entityIndex,
-                                column.id,
-                                e.target.value
-                              )
-                            }
-                            placeholder={`Enter ${column.label}`}
-                            required={column.id === representativeColumn}
-                          />
-                        </td>
-                      ))}
-                      <td className="px-4 py-2">
-                        {entities.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEntities(entities.filter((_, i) => i !== entityIndex));
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            <Button variant="outline" onClick={handleAddEntity}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Row
-            </Button>
-            
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep('columns')}>
-                Back
-              </Button>
-              <Button onClick={handleSubmit}>Create List</Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+#### Step 1: Meta Data
+
+**Fields:**
+- `name` (Input) - Required, max 100 chars
+- `description` (Textarea) - Optional, max 500 chars
+
+**Validation:**
+```typescript
+// lib/validation/base-list-metadata.ts
+export const metadataSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+});
+```
+
+**Component:** `Step1MetaData.tsx`
+
+---
+
+#### Step 2: Schema Builder
+
+**State:**
+```typescript
+// columns array - starts with DEFAULT_COLUMN
+// User can add/remove columns (except default "Name" column)
+```
+
+**Column Types:**
+- `text` 📝
+- `number` 🔢
+- `date` 📅
+- `boolean` ✓
+
+**UI:**
+- Table with 3 columns: Column Name | Type | Actions
+- Default "Name" column is locked (can't delete)
+- Add Column button
+- Delete button (disabled for default column)
+
+**Validation:**
+```typescript
+// lib/validation/base-list-schema.ts
+export const schemaValidation = z.object({
+  columns: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string().min(1),
+      type: z.enum(['text', 'number', 'date', 'boolean']),
+    })
+  ).min(1),
+}).refine(
+  (data) => data.columns.some((c) => c.id === 'name'),
+  { message: 'Default "Name" column is required' }
+).refine(
+  (data) => {
+    const labels = data.columns.map((c) => c.label.toLowerCase());
+    return new Set(labels).size === labels.length;
+  },
+  { message: 'Column names must be unique' }
+);
+```
+
+**Component:** `Step2SchemaBuilder.tsx`
+
+---
+
+#### Step 3: Data Entry
+
+**State:**
+```typescript
+// entities array - dynamically typed based on columns from Step 2
+// Each entity is a Record<columnId, value>
+```
+
+**Dynamic Table:**
+- Headers generated from `columns.map(c => c.label)`
+- Cells rendered based on column type:
+  - `text` → `<Input type="text" />`
+  - `number` → `<Input type="number" />`
+  - `date` → `<Input type="date" />`
+  - `boolean` → `<Select>` (Yes/No)
+
+**UI:**
+- Add Row button
+- Delete Row button (disabled if only 1 row)
+
+**Validation:**
+```typescript
+// lib/validation/base-list-entities.ts
+export function validateEntities(
+  entities: Record<string, any>[],
+  columns: BaseListColumn[]
+) {
+  // 1. At least 1 entity required
+  // 2. Required fields must have values
+  // 3. Type validation (number, date, etc.)
+  // 4. "Name" values must be unique
 }
 ```
+
+**Component:** `Step3DataEntry.tsx` + `EntityCell.tsx` (type-aware cell renderer)
+
+---
+
+#### Navigation Flow
+Step 1 → Validate metadata → Step 2
+Step 2 → Validate schema → Step 3
+Step 3 → Validate entities → Submit
+
+**Submit:**
+```typescript
+POST /api/base-lists
+Body: {
+  name: string,
+  description?: string,
+  schema: { columns: BaseListColumn[] },
+  entities: Record<string, any>[]
+}
+```
+
+**Success:** Redirect to `/base-lists/{id}`
+
+---
+
+#### Components Breakdown
+CreateBaseListDialog/
+├── index.tsx              - Main wizard container, step navigation
+├── Stepper.tsx            - Progress indicator (① → ② → ③)
+├── Step1MetaData.tsx      - Name + Description inputs
+├── Step2SchemaBuilder.tsx - Column definition table
+├── Step3DataEntry.tsx     - Entity data grid
+└── EntityCell.tsx         - Renders input based on column.type
+
+---
+
+#### Key Rules
+
+1. **Default "Name" column:** Always present, always locked, always type: text
+2. **No representative column selection:** Deferred to Table creation
+3. **Component-local state only:** Do NOT use UI Store for wizard state
+4. **Progressive validation:** Validate at each step before advancing
+5. **Minimum 1 entity:** At least one row required in Step 3
+6. **Unique "Name" values:** Enforced in validation
+
+---
+
+#### Integration Notes
+
+- Uses shadcn/ui components: `Dialog`, `Input`, `Textarea`, `Table`, `Select`, `Button`
+- All validation functions use Zod schemas
+- No API calls until final submit
+- Toast notifications for validation errors
+- Auto-focus first input on step change (accessibility)
 
 ### 3.2 Method 2: CSV Import
 
 **User Flow:**
-```
-1. User clicks "Import CSV" button
-2. CSV Import Wizard opens
-3. STEP 1: Upload File
-   - Drag & drop or file picker
-   - File validation (size, type)
-4. STEP 2: Configure Import
-   - Has headers? [✓] Yes [ ] No
-   - Delimiter: [,] Comma [ ] Semicolon [ ] Tab
-   - Preview first 5 rows
-5. STEP 3: Map Columns
-   ┌────────────────────────────────────────────┐
-   │ CSV Column    →  Target Column             │
-   ├────────────────────────────────────────────┤
-   │ Name          →  [Student Name] (text)     │
-   │ ID            →  [Student ID] (text)       │
-   │ Email         →  [Email] (text)            │
-   │ (ignore)      →  [Skip]                    │
-   └────────────────────────────────────────────┘
-6. STEP 4: Select Representative Column
-   - Radio buttons: Which column identifies entities?
-     ( ) Student Name  ⭐ SELECTED
-     ( ) Student ID
-     ( ) Email
-7. STEP 5: Review & Import
-   - Preview: "25 entities will be imported"
-   - List name: "Class 10A" (auto-filled from filename or editable)
-   - [Import] button
-8. Import executes (progress bar)
-9. Success! Redirected to Base List detail
-```
+
+User clicks "Import CSV" button
+CSV Import Wizard opens
+STEP 1: Upload File
+
+Drag & drop or file picker
+File validation (size, type)
+
+
+STEP 2: Configure Import
+
+Has headers? [✓] Yes [ ] No
+Delimiter: [,] Comma [ ] Semicolon [ ] Tab
+Preview first 5 rows
+
+
+STEP 3: Map Columns
+┌────────────────────────────────────────────┐
+│ CSV Column    →  Target Column             │
+├────────────────────────────────────────────┤
+│ Name          →  [Student Name] (text)     │
+│ ID            →  [Student ID] (text)       │
+│ Email         →  [Email] (text)            │
+│ (ignore)      →  [Skip]                    │
+└────────────────────────────────────────────┘
+STEP 4: Select Representative Column
+
+Radio buttons: Which column identifies entities?
+( ) Student Name  ⭐ SELECTED
+( ) Student ID
+( ) Email
+
+
+STEP 5: Review & Import
+
+Preview: "25 entities will be imported"
+List name: "Class 10A" (auto-filled from filename or editable)
+[Import] button
+
+
+Import executes (progress bar)
+Success! Redirected to Base List detail
+
 
 **See Section 5 for detailed CSV Import Pipeline implementation.**
 
@@ -1278,6 +1130,7 @@ export function validateRepresentativeColumn(
   
   return { valid: true };
 }
+
 ```
 
 ---

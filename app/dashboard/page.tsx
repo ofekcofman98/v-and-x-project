@@ -5,13 +5,14 @@
  * Implements: docs/14_PRODUCT_DATA_FLOW.md §1
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
+import { CreateListWizard } from '@/components/base-lists/create-list-wizard';
 
 /**
  * Loading skeleton for list cards
@@ -33,7 +34,7 @@ function ListCardSkeleton() {
 /**
  * Empty state when no lists exist
  */
-function EmptyState() {
+function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
       <div className="rounded-full bg-muted p-6 mb-4">
@@ -55,12 +56,9 @@ function EmptyState() {
       <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
         Get started by creating your first base list. Base lists define the entities you want to track across multiple tables.
       </p>
-      <Link
-        href="/lists/new"
-        className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2"
-      >
+      <Button onClick={onCreateClick}>
         Create Your First List
-      </Link>
+      </Button>
     </div>
   );
 }
@@ -95,6 +93,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 
 export default function DashboardPage() {
   const { lists, isLoading, error, fetchLists } = useBaseListStore();
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   useEffect(() => {
     fetchLists();
@@ -113,12 +112,9 @@ export default function DashboardPage() {
                   Manage your entity lists and track data across tables
                 </p>
               </div>
-              <Link
-                href="/lists/new"
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2"
-              >
+              <Button onClick={() => setIsWizardOpen(true)}>
                 Create New List
-              </Link>
+              </Button>
             </div>
           </div>
 
@@ -131,7 +127,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : lists.length === 0 ? (
-            <EmptyState />
+            <EmptyState onCreateClick={() => setIsWizardOpen(true)} />
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {lists.map((list) => (
@@ -180,6 +176,11 @@ export default function DashboardPage() {
           )}
         </section>
       </main>
+
+      <CreateListWizard
+        open={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+      />
     </>
   );
 }
