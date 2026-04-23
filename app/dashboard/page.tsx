@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
 import { CreateListWizard } from '@/components/base-lists/create-list-wizard';
+import { CreateTableDialog } from '@/components/tables/create-table-dialog';
+import { Plus } from 'lucide-react';
 
 /**
  * Loading skeleton for list cards
@@ -94,6 +96,8 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 export default function DashboardPage() {
   const { lists, isLoading, error, fetchLists } = useBaseListStore();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [isCreateSubTableOpen, setIsCreateSubTableOpen] = useState(false);
+  const [selectedBaseListId, setSelectedBaseListId] = useState<string | undefined>();
 
   useEffect(() => {
     fetchLists();
@@ -162,13 +166,25 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </CardContent>
-                  <CardFooter>
+                  <CardFooter className="flex gap-2">
                     <Link
                       href={`/lists/${list.id}`}
-                      className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2 w-full"
+                      className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2 flex-1"
                     >
                       View List
                     </Link>
+                    <Button
+                      variant="outline"
+                      size="default"
+                      onClick={() => {
+                        setSelectedBaseListId(list.id);
+                        setIsCreateSubTableOpen(true);
+                      }}
+                      className="flex-1"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Table
+                    </Button>
                   </CardFooter>
                 </Card>
               ))}
@@ -180,6 +196,17 @@ export default function DashboardPage() {
       <CreateListWizard
         open={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
+      />
+
+      <CreateTableDialog
+        open={isCreateSubTableOpen}
+        onOpenChange={(open) => {
+          setIsCreateSubTableOpen(open);
+          if (!open) {
+            setSelectedBaseListId(undefined);
+          }
+        }}
+        defaultBaseListId={selectedBaseListId}
       />
     </>
   );

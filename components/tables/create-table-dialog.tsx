@@ -57,9 +57,10 @@ type FormData = z.infer<typeof formSchema>;
 interface CreateTableDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultBaseListId?: string;
 }
 
-export function CreateTableDialog({ open, onOpenChange }: CreateTableDialogProps) {
+export function CreateTableDialog({ open, onOpenChange, defaultBaseListId }: CreateTableDialogProps) {
   const { lists, fetchLists } = useBaseListStore();
   const { addTable, fetchTables } = useTableStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,6 +74,7 @@ export function CreateTableDialog({ open, onOpenChange }: CreateTableDialogProps
     watch,
     setValue,
     reset,
+    control,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -85,6 +87,7 @@ export function CreateTableDialog({ open, onOpenChange }: CreateTableDialogProps
   });
 
   const { fields, append, remove } = useFieldArray({
+    control,
     name: 'columns',
   });
 
@@ -112,6 +115,16 @@ export function CreateTableDialog({ open, onOpenChange }: CreateTableDialogProps
       setValue('representativeColumnKey', '');
     }
   }, [selectedBaseListId, lists, setValue]);
+
+  // Initialize form with defaultBaseListId when dialog opens
+  useEffect(() => {
+    if (open && defaultBaseListId && lists.length > 0) {
+      const listExists = lists.find((list) => list.id === defaultBaseListId);
+      if (listExists) {
+        setValue('baseListId', defaultBaseListId);
+      }
+    }
+  }, [open, defaultBaseListId, lists, setValue]);
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
