@@ -3,11 +3,12 @@
  */
 
 import { z } from 'zod';
+import { ColumnType } from '@/lib/types/column-types';
 
 export const columnSchema = z.object({
   id: z.string(),
   label: z.string().min(1, 'Column name is required'),
-  type: z.enum(['text', 'number', 'date', 'boolean']),
+  type: z.nativeEnum(ColumnType),
   validation: z.object({
     required: z.boolean().optional(),
   }).optional(),

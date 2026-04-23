@@ -8,6 +8,7 @@
 import { UseFormReturn, useFieldArray } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ColumnType } from '@/lib/types/column-types';
 import type { CreateBaseListFormData } from './types.ts';
 
 interface Step3DataEntryProps {
@@ -79,9 +80,9 @@ export function Step3DataEntry({ form }: Step3DataEntryProps) {
                               `entities.${rowIndex}.values.${col.id}`
                             )}
                             type={
-                              col.type === 'number'
+                              col.type === ColumnType.NUMBER
                                 ? 'number'
-                                : col.type === 'date'
+                                : col.type === ColumnType.DATE
                                 ? 'date'
                                 : 'text'
                             }

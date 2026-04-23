@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
+import { ColumnType } from '@/lib/types/column-types';
 import { Step1Info } from './Step1Info';
 import { Step2Schema } from './Step2Schema';
 import { Step3DataEntry } from './Step3DataEntry';
@@ -45,7 +46,7 @@ export function CreateListWizard({ open, onClose }: CreateListWizardProps) {
         {
           id: 'name',
           label: 'Name',
-          type: 'text',
+          type: ColumnType.TEXT,
           validation: { required: true },
         },
       ],

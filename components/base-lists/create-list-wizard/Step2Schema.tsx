@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ColumnType } from '@/lib/types/column-types';
 import type { CreateBaseListFormData } from './types.ts';
 
 interface Step2SchemaProps {
@@ -34,7 +35,7 @@ export function Step2Schema({ form }: Step2SchemaProps) {
     append({
       id: `col_${Date.now()}`,
       label: '',
-      type: 'text',
+      type: ColumnType.TEXT,
     });
   };
 
@@ -104,7 +105,7 @@ export function Step2Schema({ form }: Step2SchemaProps) {
                     <Select
                       value={watch(`columns.${index}.type`)}
                       onValueChange={(value) =>
-                        setValue(`columns.${index}.type`, value as 'text' | 'number' | 'date' | 'boolean')
+                        setValue(`columns.${index}.type`, value as ColumnType)
                       }
                       disabled={index === 0}
                     >
@@ -112,10 +113,10 @@ export function Step2Schema({ form }: Step2SchemaProps) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="text">Text</SelectItem>
-                        <SelectItem value="number">Number</SelectItem>
-                        <SelectItem value="date">Date</SelectItem>
-                        <SelectItem value="boolean">Yes/No</SelectItem>
+                        <SelectItem value={ColumnType.TEXT}>Text</SelectItem>
+                        <SelectItem value={ColumnType.NUMBER}>Number</SelectItem>
+                        <SelectItem value={ColumnType.DATE}>Date</SelectItem>
+                        <SelectItem value={ColumnType.BOOLEAN}>Yes/No</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

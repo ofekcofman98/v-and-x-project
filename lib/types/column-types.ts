@@ -8,10 +8,10 @@
  * Column types supported by VocalGrid tables
  */
 export enum ColumnType {
-  TEXT = 'text',
-  NUMBER = 'number',
-  BOOLEAN = 'boolean',
-  DATE = 'date',
+  TEXT = 'TEXT',
+  NUMBER = 'NUMBER',
+  BOOLEAN = 'BOOLEAN',
+  DATE = 'DATE',
 }
 
 /**

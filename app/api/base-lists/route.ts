@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/generated/prisma/client";
+import { apiSuccess, apiError, apiInternalError, withErrorHandler, parseBody } from "@/lib/utils/api";
+import { ColumnTypeSchema } from "@/lib/utils/schemas";
 
 export const runtime = "nodejs";
 
@@ -18,7 +20,7 @@ export const runtime = "nodejs";
 const EntityFieldSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
-  type: z.enum(["text", "number", "date", "boolean"]),
+  type: ColumnTypeSchema,
   validation: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -42,56 +44,40 @@ const CreateBaseListBody = z.object({
 // POST /api/base-lists
 // ─────────────────────────────────────────────────────────
 
-export async function POST(
-  req: NextRequest
-): Promise<NextResponse> {
-  let body: unknown;
 
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid JSON body" },
-      { status: 400 }
-    );
-  }
+export const POST = withErrorHandler(
+  async (req) => {
+    const body = await parseBody(req, CreateBaseListBody);
+    if (!body.success) return body.errorResponse;
 
-  const parsed = CreateBaseListBody.safeParse(body);
+    const { name, description, schema, entities } = body.data;
 
-  if (!parsed.success) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: parsed.error.issues
-          .map((i) => i.message)
-          .join(", "),
+    const baseList = await prisma.baseList.create({
+      data: {
+        name,
+        description,
+        schema: schema as Prisma.InputJsonValue,
+        entities: {
+          create: entities.map((e) => ({
+            values: e.values as Prisma.InputJsonValue,
+          })),
+        },
       },
-      { status: 400 }
-    );
+      include: { entities: true },
+    });
+  
+    return apiSuccess(baseList, 201);
   }
+);
 
-  const { name, description, schema, entities } = parsed.data;
+// ─────────────────────────────────────────────────────────
+// GET /api/base-lists
+// Fetch all base-lists
+// ─────────────────────────────────────────────────────────
 
-  const baseList = await prisma.baseList.create({
-    data: {
-      name,
-      description,
-      schema: schema as Prisma.InputJsonValue,
-      entities: {
-        create: entities.map((e) => ({
-          values: e.values as Prisma.InputJsonValue,
-        })),
-      },
-    },
-    include: { entities: true },
-  });
-
-  return NextResponse.json({ success: true, data: baseList }, { status: 201 });
-}
-
-export async function GET(
-  req: NextRequest
-): Promise<NextResponse> {
-  const baseLists = await prisma.baseList.findMany();
-  return NextResponse.json({ success: true, data: baseLists }, { status: 200 });
-}
+export const GET = withErrorHandler(
+  async (req) => {
+    const baseLists = await prisma.baseList.findMany();
+    return apiSuccess(baseLists, 200);
+  }
+);

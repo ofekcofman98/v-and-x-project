@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/generated/prisma/client";
+import { withErrorHandler, parseBody, apiSuccess, apiError, apiInternalError } from "@/lib/utils/api";
+import { ColumnTypeSchema } from "@/lib/utils/schemas";
 
 export const runtime = "nodejs";
 
@@ -21,7 +23,7 @@ export const runtime = "nodejs";
  */
 const ColumnSchema = z.object({
   label: z.string().min(1, "Column label is required"),
-  type: z.enum(["TEXT", "NUMBER", "DATE", "BOOLEAN"]),
+  type: ColumnTypeSchema,
   validation: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -41,153 +43,99 @@ const CreateTableBody = z.object({
 // Create a new table with its columns in a transaction
 // ─────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  let body: unknown;
 
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid JSON body" },
-      { status: 400 }
-    );
-  }
+export const POST = withErrorHandler(
+  async (req) => {
+    const body = await parseBody(req, CreateTableBody);
+    if (!body.success) return body.errorResponse;
+    
+    const { name, description, baseListId, representativeColumnKey, columns } = body.data;
 
-  // Validate request body
-  const parsed = CreateTableBody.safeParse(body);
-
-  if (!parsed.success) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: parsed.error.issues.map((i) => i.message).join(", "),
-      },
-      { status: 400 }
-    );
-  }
-
-  const { name, description, baseListId, representativeColumnKey, columns } =
-    parsed.data;
-
-  try {
-    // STEP 1: Validate that the baseListId exists (if provided)
     if (baseListId) {
-      const baseList = await prisma.baseList.findUnique({
-        where: { id: baseListId },
-        select: { id: true, schema: true },
-      });
+        const baseList = await prisma.baseList.findUnique({
+            where: { id: baseListId },
+            select: { id: true, schema: true },
+        });
+        
+        if (!baseList) {
+            return apiError(`BaseList with id '${baseListId}' not found`, 404);
+        }
 
-      if (!baseList) {
-        return NextResponse.json(
-          { success: false, error: `BaseList with id '${baseListId}' not found` },
-          { status: 404 }
+        const baseListSchema = baseList.schema as { columns: Array<{ id: string }> };
+        const hasRepColumn = baseListSchema.columns.some(
+            (col) => col.id === representativeColumnKey
         );
-      }
 
-      // STEP 2: Validate that representativeColumnKey exists in BaseList schema
-      const baseListSchema = baseList.schema as { columns: Array<{ id: string }> };
-      const hasRepColumn = baseListSchema.columns.some(
-        (col) => col.id === representativeColumnKey
-      );
-
-      if (!hasRepColumn) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Representative column '${representativeColumnKey}' not found in BaseList schema`,
-          },
-          { status: 400 }
-        );
-      }
+        if (!hasRepColumn) {
+            return apiError(`Representative column '${representativeColumnKey}' not found in BaseList schema`, 400);
+        }
     }
 
-    // STEP 3: Use Prisma transaction to create Table + TableColumns atomically
     const result = await prisma.$transaction(async (tx) => {
-      // Create the Table
-      const table = await tx.table.create({
-        data: {
-          name,
-          description,
-          baseListId,
-          representativeColumnKey,
-          schema: { columns: [] } as Prisma.InputJsonValue,
-          settings: {} as Prisma.InputJsonValue,
-        },
-      });
-
-      // Create TableColumn records for each data column
-      const tableColumns = await Promise.all(
-        columns.map((col, index) =>
-          tx.tableColumn.create({
+        const table = await tx.table.create({
             data: {
-              tableId: table.id,
-              key: col.label.toLowerCase().replace(/\s+/g, "_"),
-              label: col.label,
-              type: col.type,
-              order: index,
-              validation: col.validation
-                ? (col.validation as Prisma.InputJsonValue)
-                : Prisma.JsonNull,
+                name,
+                description,
+                baseListId,
+                representativeColumnKey,
+                schema: { columns: [] } as Prisma.InputJsonValue,
+                settings: {} as Prisma.InputJsonValue,
             },
-          })
-        )
-      );
-
-      // Return table with its columns
-      return {
-        ...table,
-        columns: tableColumns,
-      };
+        });
+        
+        const tableColumns = await Promise.all(
+            columns.map((col, index) =>
+                tx.tableColumn.create({
+                    data: {
+                        tableId: table.id,
+                        key: col.label.toLowerCase().replace(/\s+/g, "_"),
+                        label: col.label,
+                        type: col.type,
+                        order: index,
+                        validation: col.validation
+                            ? (col.validation as Prisma.InputJsonValue)
+                            : Prisma.JsonNull,
+                    },
+                })
+            )
+        );
+        
+        return {
+            ...table,
+            columns: tableColumns,
+        };
     });
 
-    return NextResponse.json({ success: true, data: result }, { status: 201 });
-  } catch (error) {
-    console.error("Error creating table:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to create table",
-      },
-      { status: 500 }
-    );
+    return apiSuccess(result, 201);
   }
-}
+);
 
 // ─────────────────────────────────────────────────────────
 // GET /api/tables
 // Fetch all tables with baseList name and column count
 // ─────────────────────────────────────────────────────────
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
-  try {
-    const tables = await prisma.table.findMany({
-      include: {
-        baseList: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            columns: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
 
-    return NextResponse.json({ success: true, data: tables }, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching tables:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to fetch tables",
-      },
-      { status: 500 }
-    );
-  }
-}
+export const GET = withErrorHandler(
+    async (req) => {
+        const tables = await prisma.table.findMany({
+            include: {
+                baseList: {
+                    select: {
+                        id: true,
+                        name: true 
+                    },
+                },
+                _count: { 
+                    select: { 
+                        columns: true,
+                    } 
+                },
+            },
+            orderBy: { 
+                createdAt: "desc" 
+            },
+        });
+        return apiSuccess(tables, 200);
+    }
+);

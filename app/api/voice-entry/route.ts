@@ -657,7 +657,7 @@ function buildParsePrompt(params: {
 }) {
   const { transcript, tableSchema, activeCell, navigationMode } = params;
   const currentColumn = tableSchema.columns.find((col) => col.id === activeCell.columnId);
-  const columnType = currentColumn?.type ?? 'text';
+  const columnType = currentColumn?.type ?? ColumnType.TEXT;
 
   // Context Diet: We deliberately DO NOT pass the rows/entities array here!
   // We only tell it what column it's currently on to help parse the value.

@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { apiSuccess, apiError, withErrorHandler, uuidSchema } from "@/lib/utils/api";
 
 export const runtime = "nodejs";
 
@@ -17,122 +18,56 @@ export const runtime = "nodejs";
 // Fetch a single table with its columns and parent BaseList entities
 // ─────────────────────────────────────────────────────────
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
-): Promise<NextResponse> {
-  // Await params if it's a Promise (Next.js 15+)
-  const resolvedParams = await Promise.resolve(params);
-  const { id } = resolvedParams;
 
-  // Validate UUID format
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(id)) {
-    return NextResponse.json(
-      { success: false, error: "Invalid table ID format" },
-      { status: 400 }
-    );
-  }
+export const GET = withErrorHandler(async (
+    req: NextRequest, 
+    {params}: { params: Promise<{ id: string }> }
+) => {
+  const { id } = await params;
+  const parsedId = uuidSchema.safeParse(id);
+  if (!parsedId.success) return apiError(`Invalid table ID format: ${id}`, 400);
 
-  try {
-    const table = await prisma.table.findUnique({
-      where: { id },
-      include: {
-        // Include all table columns, ordered by their display order
-        columns: {
-          orderBy: { order: "asc" },
-        },
-        // Include the parent BaseList with ALL its entities
-        // This is CRITICAL for Grid UI: we need the entity names (rows)
-        baseList: {
-          include: {
-            entities: {
-              orderBy: { createdAt: "asc" },
-            },
-          },
+  const table = await prisma.table.findUnique({
+    where: { id: parsedId.data },
+    include: {
+      columns: true,
+      baseList: {
+        include: {
+          entities: { orderBy: { createdAt: "asc" } },
         },
       },
-    });
+    },
+  });
 
-    if (!table) {
-      return NextResponse.json(
-        { success: false, error: `Table with id '${id}' not found` },
-        { status: 404 }
-      );
-    }
+  if (!table) return apiError(`Table with ID ${parsedId.data} not found`, 404);
 
-    return NextResponse.json({ success: true, data: table }, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching table:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to fetch table",
-      },
-      { status: 500 }
-    );
-  }
-}
+  return apiSuccess(table, 200);
+});
+
 
 // ─────────────────────────────────────────────────────────
 // DELETE /api/tables/[id]
 // Delete a table and all its associated records
 // ─────────────────────────────────────────────────────────
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
-): Promise<NextResponse> {
-  // Await params if it's a Promise (Next.js 15+)
-  const resolvedParams = await Promise.resolve(params);
-  const { id } = resolvedParams;
 
-  // Validate UUID format
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(id)) {
-    return NextResponse.json(
-      { success: false, error: "Invalid table ID format" },
-      { status: 400 }
-    );
-  }
+export const DELETE = withErrorHandler(async (
+  req: NextRequest, 
+  {params}: { params: Promise<{ id: string }> }
+) => {
+  const { id } = await params;
 
-  try {
-    // Check if table exists first
-    const existingTable = await prisma.table.findUnique({
-      where: { id },
-      select: { id: true, name: true },
-    });
+  const parsedId = uuidSchema.safeParse(id);
+  if (!parsedId.success) return apiError(`Invalid table ID format: ${id}`, 400);
 
-    if (!existingTable) {
-      return NextResponse.json(
-        { success: false, error: `Table with id '${id}' not found` },
-        { status: 404 }
-      );
-    }
+  const existingTable = await prisma.table.findUnique({
+    where: { id: parsedId.data },
+    select: { id: true, name: true },
+  });
 
-    // Delete the table (CASCADE will handle related records)
-    // Per schema: TableColumn and TableCell will be deleted automatically
-    await prisma.table.delete({
-      where: { id },
-    });
+  if (!existingTable) return apiError(`Table with ID ${parsedId.data} not found`, 404);
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: `Table '${existingTable.name}' deleted successfully`,
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error("Error deleting table:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to delete table",
-      },
-      { status: 500 }
-    );
-  }
-}
+  await prisma.table.delete({ where: { id: parsedId.data } });
+
+  return apiSuccess(`Table '${existingTable.name}' deleted successfully`, 200);
+});

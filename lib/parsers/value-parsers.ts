@@ -1,4 +1,5 @@
 import { parse as parseDate } from 'chrono-node';
+import { ColumnType } from '@/lib/types/column-types';
 
 // ═══════════════════════════════════════════════════════════
 // NUMBER PARSER
@@ -86,7 +87,7 @@ export function parseNaturalDate(input: string): Date | null {
 // ═══════════════════════════════════════════════════════════
 export function validateValue(
   value: any,
-  columnType: string,
+  columnType: ColumnType | string,
   validation?: {
     min?: number;
     max?: number;
@@ -104,6 +105,7 @@ export function validateValue(
   }
 
   switch (columnType) {
+    case ColumnType.NUMBER:
     case 'number':
       if (typeof value !== 'number') {
         return { valid: false, error: 'Must be a number' };
@@ -116,6 +118,7 @@ export function validateValue(
       }
       break;
 
+    case ColumnType.TEXT:
     case 'text':
       if (typeof value !== 'string') {
         return { valid: false, error: 'Must be text' };
@@ -134,12 +137,14 @@ export function validateValue(
       }
       break;
 
+    case ColumnType.BOOLEAN:
     case 'boolean':
       if (typeof value !== 'boolean') {
         return { valid: false, error: 'Must be yes/no' };
       }
       break;
 
+    case ColumnType.DATE:
     case 'date':
       if (typeof value !== 'string' && !(value instanceof Date)) {
         return { valid: false, error: 'Must be a date' };
