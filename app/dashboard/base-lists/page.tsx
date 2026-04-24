@@ -168,7 +168,7 @@ export default function DashboardPage() {
                   </CardContent>
                   <CardFooter className="flex gap-2">
                     <Link
-                      href={`/lists/${list.id}`}
+                      href={`/dashboard/base-lists/${list.id}`}
                       className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2 flex-1"
                     >
                       View List

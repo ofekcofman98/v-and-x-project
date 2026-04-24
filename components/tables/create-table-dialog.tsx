@@ -31,6 +31,7 @@ import { useBaseListStore } from '@/lib/stores/base-list-store';
 import { useTableStore } from '@/lib/stores/table-store';
 import { toast } from '@/components/ui/use-toast';
 import type { BaseListColumn } from '@/lib/types/models';
+import { ColumnType } from '@/lib/types/column-types';
 
 // ─────────────────────────────────────────────────────────
 // Form Schema
@@ -281,17 +282,17 @@ export function CreateTableDialog({ open, onOpenChange, defaultBaseListId }: Cre
                   <Select
                     value={watch(`columns.${index}.type`)}
                     onValueChange={(value) =>
-                      setValue(`columns.${index}.type` as any, value)
+                      setValue(`columns.${index}.type`, value as ColumnType)
                     }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="TEXT">Text</SelectItem>
-                      <SelectItem value="NUMBER">Number</SelectItem>
-                      <SelectItem value="DATE">Date</SelectItem>
-                      <SelectItem value="BOOLEAN">Boolean</SelectItem>
+                      <SelectItem value={ColumnType.TEXT}>Text</SelectItem>
+                      <SelectItem value={ColumnType.NUMBER}>Number</SelectItem>
+                      <SelectItem value={ColumnType.DATE}>Date</SelectItem>
+                      <SelectItem value={ColumnType.BOOLEAN}>Boolean</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
