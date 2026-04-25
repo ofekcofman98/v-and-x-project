@@ -14,6 +14,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { BaseListWithEntities, BaseListSchema, ListEntity } from '@/lib/types/models';
+import { LoadingSkeleton } from '@/components/states/loading-skeleton';
+import { NotFoundState } from '@/components/states/not-found-state';
+import { ErrorState } from '@/components/states/error-state';
+import { EmptyEntitiesState } from '@/components/states/empty-state';
 
 interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {
   createdAt: string;
@@ -26,136 +30,6 @@ interface BaseListWithEntitiesDTO extends Omit<BaseListWithEntities, 'createdAt'
   entities: ListEntityDTO[];
 }
 
-function LoadingSkeleton() {
-  return (
-    <>
-      <AppHeader />
-      <main className="flex flex-1 flex-col">
-        <section className="container py-8 md:py-12">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <Skeleton className="h-9 w-64" />
-                <Skeleton className="h-5 w-96" />
-              </div>
-              <Skeleton className="h-10 w-32" />
-            </div>
-
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-48" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-      </main>
-    </>
-  );
-}
-
-function NotFoundState() {
-  return (
-    <>
-      <AppHeader />
-      <main className="flex flex-1 flex-col">
-        <section className="container py-8 md:py-12">
-          <div className="flex flex-col items-center justify-center py-12 px-4">
-            <div className="rounded-full bg-red-50 p-6 mb-4">
-              <svg
-                className="h-12 w-12 text-red-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold mb-2">List Not Found</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-              The list you're looking for doesn't exist or has been deleted.
-            </p>
-            <Link
-              href="/dashboard/base-lists"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2"
-            >
-              Back to Dashboard
-            </Link>
-          </div>
-        </section>
-      </main>
-    </>
-  );
-}
-
-function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
-  return (
-    <>
-      <AppHeader />
-      <main className="flex flex-1 flex-col">
-        <section className="container py-8 md:py-12">
-          <div className="flex flex-col items-center justify-center py-12 px-4">
-            <div className="rounded-full bg-red-50 p-6 mb-4">
-              <svg
-                className="h-12 w-12 text-red-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Failed to Load List</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">{error}</p>
-            <Button onClick={onRetry}>Try Again</Button>
-          </div>
-        </section>
-      </main>
-    </>
-  );
-}
-
-function EmptyEntitiesState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 px-4">
-      <div className="rounded-full bg-muted p-6 mb-4">
-        <svg
-          className="h-12 w-12 text-muted-foreground"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
-        </svg>
-      </div>
-      <h3 className="text-lg font-semibold mb-2">No Entities Yet</h3>
-      <p className="text-sm text-muted-foreground text-center max-w-md">
-        This list doesn't have any entities yet. Add entities to start tracking data.
-      </p>
-    </div>
-  );
-}
 
 export default function BaseListDetailsPage() {
   const params = useParams();
@@ -206,16 +80,21 @@ export default function BaseListDetailsPage() {
     return <LoadingSkeleton />;
   }
 
-  if (notFound) {
-    return <NotFoundState />;
+  if (notFound || !baseList) {
+    return <NotFoundState 
+    title='List Not Found'
+    description="The list you're looking for doesn't exist or has been deleted."
+    backLink='/dashboard/base-lists'
+    backLabel='Back to Lists'
+    />;
   }
 
   if (error) {
-    return <ErrorState error={error} onRetry={fetchBaseList} />;
-  }
-
-  if (!baseList) {
-    return <NotFoundState />;
+    return <ErrorState 
+    title='Failed to Load List'
+    error={error} 
+    onRetry={fetchBaseList} 
+    />;
   }
 
   const schema = baseList.schema as BaseListSchema;
@@ -302,7 +181,10 @@ export default function BaseListDetailsPage() {
               </CardHeader>
               <CardContent>
                 {entities.length === 0 ? (
-                  <EmptyEntitiesState />
+                  <EmptyEntitiesState 
+                  title='No Entities Yet'
+                  description="This list doesn't have any entities yet. Add entities to start tracking data."
+                  />
                 ) : (
                   <div className="border rounded-lg overflow-hidden">
                     <div className="overflow-x-auto">

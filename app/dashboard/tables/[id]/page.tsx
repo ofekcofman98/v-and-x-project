@@ -7,353 +7,323 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { TableWithRelations, TableColumnDTO, TableCellDTO } from '@/lib/types/models';
+import type { 
+  TableWithRelations, 
+  TableCell, 
+  TableColumn, 
+  ListEntity, 
+  BaseListWithEntities,
+  BaseListSchema 
+} from '@/lib/types/models';
+import { formatCellValue } from '@/lib/types/column-types';
+import { prismaColumnTypeToColumnType } from '@/lib/types/models'; 
+import { LoadingSkeleton } from '@/components/states/loading-skeleton';
+import { NotFoundState } from '@/components/states/not-found-state';
+import { ErrorState } from '@/components/states/error-state';
+import { EmptyEntitiesState } from '@/components/states/empty-state';
 
-interface TableDTO {
-  id: string;
-  name: string;
-  description: string | null;
-  baseListId: string | null;
-  representativeColumnKey: string;
-  createdAt: string;
-  updatedAt: string;
-  columns: TableColumnDTO[];
-  cells: TableCellDTO[];
+interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {
+    createdAt: string;
+    updatedAt: string;
 }
 
-function LoadingSkeleton() {
-  return (
-    <>
-      <AppHeader />
-      <main className="flex flex-1 flex-col">
-        <section className="container py-8 md:py-12">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <Skeleton className="h-9 w-64" />
-                <Skeleton className="h-5 w-96" />
-              </div>
-              <Skeleton className="h-10 w-32" />
-            </div>
-
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-48" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-      </main>
-    </>
-  );
+interface BaseListWithEntitiesDTO extends Omit<BaseListWithEntities, 'createdAt' | 'updatedAt' | 'entities'> {
+    createdAt: string;
+    updatedAt: string;
+    entities: ListEntityDTO[];
 }
 
-function NotFoundState() {
-  return (
-    <>
-      <AppHeader />
-      <main className="flex flex-1 flex-col">
-        <section className="container py-8 md:py-12">
-          <div className="flex flex-col items-center justify-center py-12 px-4">
-            <div className="rounded-full bg-red-50 p-6 mb-4">
-              <svg
-                className="h-12 w-12 text-red-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Table Not Found</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-              The table you're looking for doesn't exist or has been deleted.
-            </p>
-            <Link
-              href="/dashboard/tables"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2"
-            >
-              Back to Dashboard
-            </Link>
-          </div>
-        </section>
-      </main>
-    </>
-  );
+interface TableCellDTO extends Omit<TableCell, 'createdAt' | 'updatedAt'> {
+    createdAt: string;
+    updatedAt: string;
 }
 
-function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
-  return (
-    <>
-      <AppHeader />
-      <main className="flex flex-1 flex-col">
-        <section className="container py-8 md:py-12">
-          <div className="flex flex-col items-center justify-center py-12 px-4">
-            <div className="rounded-full bg-red-50 p-6 mb-4">
-              <svg
-                className="h-12 w-12 text-red-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Failed to Load Table</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">{error}</p>
-            <Button onClick={onRetry}>Try Again</Button>
-          </div>
-        </section>
-      </main>
-    </>
-  );
+interface TableColumnDTO extends Omit<TableColumn, 'createdAt' | 'updatedAt'> {
+    createdAt: string;
+    updatedAt: string;
 }
 
-function EmptyDataState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 px-4">
-      <div className="rounded-full bg-muted p-6 mb-4">
-        <svg
-          className="h-12 w-12 text-muted-foreground"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
-        </svg>
-      </div>
-      <h3 className="text-lg font-semibold mb-2">No Data Yet</h3>
-      <p className="text-sm text-muted-foreground text-center max-w-md">
-        This table doesn't have any data yet. Start adding data to populate the table.
-      </p>
-    </div>
-  );
+interface TableWithRelationsDTO extends Omit<TableWithRelations, 'createdAt' | 'updatedAt' | 'columns' | 'cells' | 'baseList'> {
+    createdAt: string;
+    updatedAt: string;
+    columns: TableColumnDTO[];
+    cells?: TableCellDTO[];
+    baseList?: BaseListWithEntitiesDTO | null;
 }
+
+      
 
 export default function TableDetailsPage() {
-  const params = useParams();
-  const router = useRouter();
-  const id = params?.id as string;
+    const params = useParams();
+    const id = params?.id as string;
 
-  const [table, setTable] = useState<TableDTO | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [notFound, setNotFound] = useState(false);
+    const [table, setTable] = useState<TableWithRelationsDTO | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [notFound, setNotFound] = useState(false);
 
-  const fetchTable = async () => {
-    if (!id) return;
+    const fetchTable = async () => {
+        if (!id) return;
 
-    setIsLoading(true);
-    setError(null);
-    setNotFound(false);
+        setIsLoading(true);
+        setError(null);
+        setNotFound(false);
 
-    try {
-      const response = await fetch(`/api/tables/${id}`);
+        try {
+            const response = await fetch(`/api/tables/${id}`);
 
-      if (response.status === 404) {
-        setNotFound(true);
-        setIsLoading(false);
-        return;
-      }
+            if (response.status === 404) {
+                setNotFound(true);
+                setIsLoading(false);
+                return;
+            }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch table' }));
-        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch table`);
-      }
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Failed to fetch table' }));
+                throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch table`);
+            }
 
-      const result = await response.json();
-      setTable(result.data);
-      setIsLoading(false);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(errorMessage);
-      setIsLoading(false);
+            const result = await response.json();
+            setTable(result.data);
+            setIsLoading(false);
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+            setError(errorMessage);
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchTable();
+    }, [id]);
+
+    if (isLoading){
+        return <LoadingSkeleton />;
     }
-  };
 
-  useEffect(() => {
-    fetchTable();
-  }, [id]);
+    if (notFound || !table) {
+        return <NotFoundState 
+        title='Table Not Found'
+        description="The table you're looking for doesn't exist or has been deleted."
+        backLink='/dashboard/tables'
+        backLabel='Back to Tables'
+        />;
+    }
 
-  if (isLoading) {
-    return <LoadingSkeleton />;
-  }
+    if (error) {
+        return <ErrorState
+        title='Failed to Load Table'
+        error={error} 
+        onRetry={fetchTable} 
+        />;
+    }
 
-  if (notFound) {
-    return <NotFoundState />;
-  }
+    const baseList = table.baseList;
+    const entities = baseList?.entities || [];
+    const baseListColumns = (baseList?.schema as BaseListSchema)?.columns || [];
+    const tableColumns = table.columns || [];
+    const cells = table.cells || [];
 
-  if (error) {
-    return <ErrorState error={error} onRetry={fetchTable} />;
-  }
+    const totalRows = entities.length;
+    const totalDataColumns = tableColumns.length;
+    const hasData = entities.length > 0 && (baseListColumns.length > 0 || tableColumns.length > 0);
 
-  if (!table) {
-    return <NotFoundState />;
-  }
+    return (
+        <>
+            <AppHeader />
+            <main className="flex flex-1 flex-col">
+                <section className="container py-8 md:py-12">
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold tracking-tight">{table.name}</h1>
+                                {table.description && (
+                                    <p className="text-muted-foreground mt-2">{table.description}</p>
+                                )}
+                            </div>
+                            <Link
+                                href="/dashboard/tables"
+                                className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2"
+                            >
+                                <svg
+                                    className="h-4 w-4 mr-2"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                                    />
+                                </svg>
+                                Back to Tables
+                            </Link>
+                        </div>
 
-  const columns = table.columns.sort((a, b) => a.order - b.order);
-  const cells = table.cells;
-  
-  const rowKeys = Array.from(new Set(cells.map(cell => cell.rowKey))).sort();
-  
-  const getCellValue = (rowKey: string, columnId: string) => {
-    const cell = cells.find(c => c.rowKey === rowKey && c.tableColumnId === columnId);
-    return cell?.value ?? null;
-  };
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                                        Total Rows
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">{totalRows}</div>
+                                </CardContent>
+                            </Card>
 
-  return (
-    <>
-      <AppHeader />
-      <main className="flex flex-1 flex-col">
-        <section className="container py-8 md:py-12">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">{table.name}</h1>
-                {table.description && (
-                  <p className="text-muted-foreground mt-2">{table.description}</p>
-                )}
-              </div>
-              <Link
-                href="/dashboard/tables"
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2"
-              >
-                <svg
-                  className="h-4 w-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-                Back to Dashboard
-              </Link>
-            </div>
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                                        Data Columns
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">{totalDataColumns}</div>
+                                </CardContent>
+                            </Card>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Rows
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{rowKeys.length}</div>
-                </CardContent>
-              </Card>
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                                        Created
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">
+                                        {new Date(table.createdAt).toLocaleDateString()}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Columns
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{columns.length}</div>
-                </CardContent>
-              </Card>
+                        {baseList && (
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-sm font-medium">Linked Base List</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <Link
+                                        href={`/dashboard/base-lists/${baseList.id}`}
+                                        className="text-blue-600 hover:underline font-medium"
+                                    >
+                                        {baseList.name}
+                                    </Link>
+                                    {baseList.description && (
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            {baseList.description}
+                                        </p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Created
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {new Date(table.createdAt).toLocaleDateString()}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Table Data</CardTitle>
-                <CardDescription>
-                  All rows in this table ({rowKeys.length} total)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {rowKeys.length === 0 ? (
-                  <EmptyDataState />
-                ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-muted">
-                          <tr>
-                            {columns.map((col) => (
-                              <th
-                                key={col.id}
-                                className="px-4 py-3 text-left text-sm font-medium"
-                              >
-                                {col.label}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {rowKeys.map((rowKey) => (
-                            <tr key={rowKey} className="hover:bg-muted/50">
-                              {columns.map((col) => {
-                                const value = getCellValue(rowKey, col.id);
-                                return (
-                                  <td
-                                    key={`${rowKey}-${col.id}`}
-                                    className="px-4 py-3 text-sm"
-                                  >
-                                    {value !== null && value !== undefined
-                                      ? String(value)
-                                      : '-'}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Data Grid</CardTitle>
+                                <CardDescription>
+                                    Integrated view combining Base List entities and Table data columns
+                                    {hasData && ` (${totalRows} ${totalRows === 1 ? 'row' : 'rows'})`}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {!hasData ? (
+                                    <EmptyEntitiesState 
+                                    title='No Data Yet'
+                                    description="This table doesn't have any entities or columns yet. Add a Base List or create columns to get started."
+                                    />
+                                ) : (
+                                    <div className="border rounded-lg overflow-hidden">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                                <thead className="bg-muted">
+                                                    <tr>
+                                                        {baseListColumns.map((col) => (
+                                                            <th
+                                                                key={`base-${col.id}`}
+                                                                className="px-4 py-3 text-left text-sm font-medium"
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    {col.label}
+                                                                    <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                                                        Base
+                                                                    </span>
+                                                                </div>
+                                                            </th>
+                                                        ))}
+                                                        {tableColumns.map((col) => (
+                                                            <th
+                                                                key={`table-${col.id}`}
+                                                                className="px-4 py-3 text-left text-sm font-medium"
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    {col.label}
+                                                                    <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                                                                        Data
+                                                                    </span>
+                                                                </div>
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y">
+                                                    {entities.map((entity) => (
+                                                        <tr key={entity.id} className="hover:bg-muted/50">
+                                                            {baseListColumns.map((col) => {
+                                                                const value = entity.values[col.id];
+                                                                return (
+                                                                    <td
+                                                                        key={`${entity.id}-base-${col.id}`}
+                                                                        className="px-4 py-3 text-sm"
+                                                                    >
+                                                                        {value !== null && value !== undefined
+                                                                            ? formatCellValue(value, col.type)
+                                                                            : '-'}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            {tableColumns.map((col) => {
+                                                                const cell = cells.find(
+                                                                    (c) =>
+                                                                        c.entityId === entity.id &&
+                                                                        c.tableColumnId === col.id
+                                                                );
+                                                                const value = cell?.value?.value;
+                                                                const columnType = prismaColumnTypeToColumnType(col.type);
+                                                                return (
+                                                                    <td
+                                                                        key={`${entity.id}-table-${col.id}`}
+                                                                        className="px-4 py-3 text-sm"
+                                                                    >
+                                                                        {value !== null && value !== undefined
+                                                                            ? formatCellValue(value, columnType)
+                                                                            : '-'}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-      </main>
-    </>
-  );
+                </section>
+            </main>
+        </>
+    );
 }
+
+
+
