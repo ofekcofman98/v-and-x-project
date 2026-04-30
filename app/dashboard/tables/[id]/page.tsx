@@ -11,8 +11,6 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import type { 
   TableWithRelations, 
   TableCell, 
