@@ -14,12 +14,12 @@ interface TableCellState {
   cellData: CellData[];
   
   // Last updated cell (for triggering success animation)
-  lastUpdatedCell: { rowId: string; columnId: string } | null;
+  lastUpdatedCell: { rowKey: string; tableColumnId: string } | null;
   
   // Actions
   setCellData: (data: CellData[]) => void;
-  updateCell: (rowId: string, columnId: string, value: string | number | boolean | null) => void;
-  getCellValue: (rowId: string, columnId: string) => string | number | boolean | null | undefined;
+  updateCell: (rowKey: string, tableColumnId: string, value: string | number | boolean | null) => void;
+  getCellValue: (rowKey: string, tableColumnId: string) => string | number | boolean | null | undefined;
   clearLastUpdated: () => void;
 }
 
@@ -35,10 +35,10 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
   setCellData: (data) => set({ cellData: data }),
   
   // Update a single cell
-  updateCell: (rowId, columnId, value) => {
+  updateCell: (rowKey, tableColumnId, value) => {
     set((state) => {
       const existingIndex = state.cellData.findIndex(
-        (cell) => cell.rowId === rowId && cell.columnId === columnId
+        (cell) => cell.rowKey === rowKey && cell.tableColumnId === tableColumnId
       );
       
       let newCellData: CellData[];
@@ -54,13 +54,13 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
         // Add new cell
         newCellData = [
           ...state.cellData,
-          { rowId, columnId, value },
+          { rowKey, tableColumnId, value },
         ];
       }
       
       return {
         cellData: newCellData,
-        lastUpdatedCell: { rowId, columnId },
+        lastUpdatedCell: { rowKey, tableColumnId },
       };
     });
     
@@ -71,9 +71,9 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
   },
   
   // Get a cell value
-  getCellValue: (rowId, columnId) => {
+  getCellValue: (rowKey, tableColumnId) => {
     const cell = get().cellData.find(
-      (d) => d.rowId === rowId && d.columnId === columnId
+      (d) => d.rowKey === rowKey && d.tableColumnId === tableColumnId
     );
     return cell?.value;
   },

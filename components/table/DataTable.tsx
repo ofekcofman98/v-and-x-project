@@ -44,9 +44,9 @@ export const DataTable = memo(function DataTable({
    * Get cell value from data array (use store data if available, otherwise fallback to props)
    */
   const getCellValue = useCallback((rowId: string, columnId: string) => {
-    // Try store first
+    // Try store first - map rowId/columnId to rowKey/tableColumnId
     const storeCell = cellData.find(
-      (d) => d.rowId === rowId && d.columnId === columnId
+      (d) => d.rowKey === rowId && d.tableColumnId === columnId
     );
     if (storeCell !== undefined) {
       return storeCell.value;
@@ -54,7 +54,7 @@ export const DataTable = memo(function DataTable({
     
     // Fallback to prop data
     const cell = data.find(
-      (d) => d.rowId === rowId && d.columnId === columnId
+      (d) => d.rowKey === rowId && d.tableColumnId === columnId
     );
     return cell?.value;
   }, [cellData, data]);

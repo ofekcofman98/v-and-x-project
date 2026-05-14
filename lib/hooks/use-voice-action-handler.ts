@@ -152,9 +152,10 @@ export function useVoiceActionHandler({
         };
 
         // Update the cell value at the matched location
+        // Map UI position to data fields: rowId->rowKey, columnId->tableColumnId
         updateCell(
-          matchedCell.rowId,
-          matchedCell.columnId,
+          matchedCell.rowId,        // rowKey in the store
+          matchedCell.columnId,      // tableColumnId in the store
           parsed.value as string | number | boolean | null
         );
         console.log('[VoiceActionHandler] Updated matched cell:', matchedCell);

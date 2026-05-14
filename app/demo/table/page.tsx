@@ -49,25 +49,25 @@ const rows: RowDefinition[] = [
 ];
 
 const mockData: CellData[] = [
-  { rowId: 'row1', columnId: 'entity', value: 'Alice Smith' },
-  { rowId: 'row1', columnId: 'value', value: 95 },
-  { rowId: 'row1', columnId: 'status', value: 'Complete' },
+  { rowKey: 'row1', tableColumnId: 'entity', value: 'Alice Smith' },
+  { rowKey: 'row1', tableColumnId: 'value', value: 95 },
+  { rowKey: 'row1', tableColumnId: 'status', value: 'Complete' },
   
-  { rowId: 'row2', columnId: 'entity', value: 'Bob Johnson' },
-  { rowId: 'row2', columnId: 'value', value: 87 },
-  { rowId: 'row2', columnId: 'status', value: 'Complete' },
+  { rowKey: 'row2', tableColumnId: 'entity', value: 'Bob Johnson' },
+  { rowKey: 'row2', tableColumnId: 'value', value: 87 },
+  { rowKey: 'row2', tableColumnId: 'status', value: 'Complete' },
   
-  { rowId: 'row3', columnId: 'entity', value: 'Charlie Brown' },
-  { rowId: 'row3', columnId: 'value', value: 92 },
-  { rowId: 'row3', columnId: 'status', value: 'Pending' },
+  { rowKey: 'row3', tableColumnId: 'entity', value: 'Charlie Brown' },
+  { rowKey: 'row3', tableColumnId: 'value', value: 92 },
+  { rowKey: 'row3', tableColumnId: 'status', value: 'Pending' },
   
-  { rowId: 'row4', columnId: 'entity', value: 'Diana Prince' },
-  { rowId: 'row4', columnId: 'value', value: 88 },
-  { rowId: 'row4', columnId: 'status', value: 'Complete' },
+  { rowKey: 'row4', tableColumnId: 'entity', value: 'Diana Prince' },
+  { rowKey: 'row4', tableColumnId: 'value', value: 88 },
+  { rowKey: 'row4', tableColumnId: 'status', value: 'Complete' },
   
-  { rowId: 'row5', columnId: 'entity', value: 'Eve Wilson' },
-  { rowId: 'row5', columnId: 'value', value: 91 },
-  { rowId: 'row5', columnId: 'status', value: 'Pending' },
+  { rowKey: 'row5', tableColumnId: 'entity', value: 'Eve Wilson' },
+  { rowKey: 'row5', tableColumnId: 'value', value: 91 },
+  { rowKey: 'row5', tableColumnId: 'status', value: 'Pending' },
 ];
 
 export default function DataTableDemoPage() {

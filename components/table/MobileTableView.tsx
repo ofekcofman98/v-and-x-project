@@ -33,7 +33,7 @@ export const MobileTableView = memo(function MobileTableView({
   
   const getCellValue = useCallback((rowId: string, columnId: string) => {
     const cell = data.find(
-      (d) => d.rowId === rowId && d.columnId === columnId
+      (d) => d.rowKey === rowId && d.tableColumnId === columnId
     );
     return cell?.value;
   }, [data]);

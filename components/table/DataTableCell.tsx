@@ -43,7 +43,7 @@ export const DataTableCell = memo(
     
     // Similarly, only check lastUpdatedCell for this specific cell
     const isJustUpdated = useTableCellStore((state) =>
-      state.lastUpdatedCell?.rowId === rowId && state.lastUpdatedCell?.columnId === columnId
+      state.lastUpdatedCell?.rowKey === rowId && state.lastUpdatedCell?.tableColumnId === columnId
     );
   
     const formattedValue = formatCellValue(value, columnType);
