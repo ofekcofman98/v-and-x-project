@@ -12,7 +12,7 @@ import { MobileTableView } from '@/components/table/MobileTableView';
 import { NavigationModeToggle } from '@/components/table/NavigationModeToggle';
 import { ConfirmationDialog, VoiceButton } from '@/components/voice';
 import { useUIStore } from '@/lib/stores/ui-store';
-import { useTableDataStore } from '@/lib/stores/table-data-store';
+import { useTableCellStore } from '@/lib/stores/table-cell-store';
 import { ColumnType } from '@/lib/types/column-types';
 import type {
   ColumnDefinition,
@@ -76,7 +76,7 @@ export default function DataTableDemoPage() {
   const pendingConfirmation = useUIStore((state) => state.pendingConfirmation);
   const setActiveCell = useUIStore((state) => state.setActiveCell);
   const setRecordingState = useUIStore((state) => state.setRecordingState);
-  const setCellData = useTableDataStore((state) => state.setCellData);
+  const setCellData = useTableCellStore((state) => state.setCellData);
   const tableSchema: TableSchema = { columns, rows };
   
   // Initialize the table data store with mock data

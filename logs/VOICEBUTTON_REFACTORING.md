@@ -31,7 +31,7 @@ Successfully refactored the VoiceButton component to eliminate the "God Object" 
 - ❌ `performFuzzyMatch` function (used Fuse.js directly)
 - ❌ `handleParsedResult` logic (100+ lines)
 - ❌ `calculateNextCell` logic
-- ❌ Direct imports: `Fuse`, `getNextCellColumnFirst`, `getNextCellRowFirst`, `useTableDataStore`
+- ❌ Direct imports: `Fuse`, `getNextCellColumnFirst`, `getNextCellRowFirst`, `useTableCellStore`
 
 #### Added (New Approach):
 - ✅ Import `useVoiceActionHandler` hook

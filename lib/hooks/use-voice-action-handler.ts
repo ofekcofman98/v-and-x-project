@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo } from 'react';
 import { useUIStore } from '@/lib/stores/ui-store';
-import { useTableDataStore } from '@/lib/stores/table-data-store';
+import { useTableCellStore } from '@/lib/stores/table-cell-store';
 import { match } from '@/lib/matching/matcher';
 import { detectAmbiguity } from '@/lib/matching/ambiguity';
 import { VoiceInputError } from '@/lib/types/voice-errors';
@@ -43,7 +43,7 @@ export function useVoiceActionHandler({
   const continuousMode = useUIStore((state) => state.continuousMode);
   const setContinuousMode = useUIStore((state) => state.setContinuousMode);
   
-  const updateCell = useTableDataStore((state) => state.updateCell);
+  const updateCell = useTableCellStore((state) => state.updateCell);
 
   /**
    * Proactive Cache Warming

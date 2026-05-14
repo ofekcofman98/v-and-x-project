@@ -9,7 +9,7 @@
 
 import { memo } from 'react';
 import { useUIStore } from '@/lib/stores/ui-store';
-import { useTableDataStore } from '@/lib/stores/table-data-store';
+import { useTableCellStore } from '@/lib/stores/table-cell-store';
 import { cn } from '@/lib/utils/cn';
 import { ColumnType, formatCellValue } from '@/lib/types/column-types';
 
@@ -42,7 +42,7 @@ export const DataTableCell = memo(
     );
     
     // Similarly, only check lastUpdatedCell for this specific cell
-    const isJustUpdated = useTableDataStore((state) =>
+    const isJustUpdated = useTableCellStore((state) =>
       state.lastUpdatedCell?.rowId === rowId && state.lastUpdatedCell?.columnId === columnId
     );
   

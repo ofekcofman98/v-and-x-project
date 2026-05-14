@@ -1,5 +1,5 @@
 /**
- * Table Data Store - Manages cell data for tables
+ * Table Cell Store - Manages cell data for tables
  * Based on: docs/04_STATE_MANAGEMENT.md §2.1
  */
 
@@ -7,9 +7,9 @@ import { create } from 'zustand';
 import type { CellData } from '@/lib/types/table-schema';
 
 /**
- * Table Data Store State
+ * Table Cell Store State
  */
-interface TableDataState {
+interface TableCellState {
   // Cell data for the current table
   cellData: CellData[];
   
@@ -24,9 +24,9 @@ interface TableDataState {
 }
 
 /**
- * Create the Table Data Store
+ * Create the Table Cell Store
  */
-export const useTableDataStore = create<TableDataState>((set, get) => ({
+export const useTableCellStore = create<TableCellState>((set, get) => ({
   // Initial state
   cellData: [],
   lastUpdatedCell: null,

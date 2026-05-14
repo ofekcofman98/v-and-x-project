@@ -5,7 +5,7 @@ Connected the voice parsing results to the Zustand store with automatic cell upd
 
 ## Changes Made
 
-### 1. Created Table Data Store (`lib/stores/table-data-store.ts`)
+### 1. Created Table Cell Store (`lib/stores/table-cell-store.ts`)
 - **Purpose**: Centralized state management for table cell data
 - **Key Features**:
   - `cellData`: Array of all cell values
@@ -28,7 +28,7 @@ Connected the voice parsing results to the Zustand store with automatic cell upd
   3. Waits for user to confirm via ConfirmationDialog (to be implemented)
 
 ### 3. Updated DataTable (`components/table/DataTable.tsx`)
-- Now reads from `useTableDataStore` in addition to props
+- Now reads from `useTableCellStore` in addition to props
 - Prioritizes store data over prop data for cell values
 - Enables real-time updates when voice entries are processed
 
@@ -79,7 +79,7 @@ User speaks → Voice API parses → Fuzzy match (≤0.8 confidence)
 ```
 
 ## State Consistency
-- **Single Source of Truth**: `useTableDataStore.cellData` is the canonical state
+- **Single Source of Truth**: `useTableCellStore.cellData` is the canonical state
 - **Prop Data as Fallback**: DataTable uses prop data if store is empty
 - **Optimistic Updates**: Updates happen immediately in the store
 - **Visual Feedback**: Multiple animation layers provide clear user feedback

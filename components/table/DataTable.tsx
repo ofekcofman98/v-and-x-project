@@ -9,7 +9,7 @@
 
 import { memo, useCallback } from 'react';
 import { useUIStore } from '@/lib/stores/ui-store';
-import { useTableDataStore } from '@/lib/stores/table-data-store';
+import { useTableCellStore } from '@/lib/stores/table-cell-store';
 import {
   Table,
   TableBody,
@@ -38,7 +38,7 @@ export const DataTable = memo(function DataTable({
 }: DataTableProps) {
   // Optimized state subscriptions - only subscribe to specific values (§3.2)
   const setActiveCell = useUIStore((state) => state.setActiveCell);
-  const cellData = useTableDataStore((state) => state.cellData);
+  const cellData = useTableCellStore((state) => state.cellData);
   
   /**
    * Get cell value from data array (use store data if available, otherwise fallback to props)

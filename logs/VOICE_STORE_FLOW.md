@@ -8,7 +8,7 @@ sequenceDiagram
     participant VoiceButton
     participant API as /api/voice-entry
     participant FuzzyMatch
-    participant TableStore as useTableDataStore
+    participant TableStore as useTableCellStore
     participant UIStore as useUIStore
     participant DataTableCell
 
@@ -53,7 +53,7 @@ sequenceDiagram
     participant FuzzyMatch
     participant UIStore as useUIStore
     participant ConfirmDialog as ConfirmationDialog
-    participant TableStore as useTableDataStore
+    participant TableStore as useTableCellStore
 
     User->>VoiceButton: Speaks "Studnt B 95" (typo)
     VoiceButton->>API: POST audio + schema
@@ -79,7 +79,7 @@ sequenceDiagram
 ## Store Structure
 
 ```typescript
-// useTableDataStore
+// useTableCellStore
 {
   cellData: [
     { rowId: 'row1', columnId: 'value', value: 95 },
