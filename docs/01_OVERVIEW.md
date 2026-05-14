@@ -59,10 +59,11 @@
 
 ### 1.1 Product Vision
 
-VocalGrid is a **voice-first data entry platform** that enables hands-free population of structured tables through natural language. The system uses multimodal AI to understand context and semantically map spoken input to grid structures.
+VocalGrid is a **voice-first data entry platform and table management platform** that enables hands-free population of structured tables through natural language. The system uses multimodal AI to understand context and semantically map spoken input to grid structures.
 
 **Core Value Proposition:**
 > "Say it, it's logged. No typing, no clicking, no screen-staring required."
+Beyond simple entry, VocalGrid allows you to dynamically build and modify your table structures on the fly, entirely hands-free.
 
 ### 1.2 The Problem We're Solving
 
@@ -88,6 +89,11 @@ Traditional data entry into structured formats (spreadsheets, CRMs, databases) i
    - Manual transcription is time-consuming
    - Double data entry (paper → computer)
    - High error rates
+
+5. **Rigid Structure Maintenance**
+   - Modifying table schemas (e.g., adding a new column for unexpected data) disrupts the workflow.
+   - Forces users to break their "hands-free" context to interact with complex UI menus.
+   - Creates friction when dealing with dynamic real-world data collection.
 
 ### 1.3 Primary Use Case (MVP)
 
