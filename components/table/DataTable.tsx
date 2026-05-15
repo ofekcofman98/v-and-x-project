@@ -7,7 +7,7 @@
 
 'use client';
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useTableCellStore } from '@/lib/stores/table-cell-store';
 import {
@@ -24,71 +24,73 @@ import type { ColumnDefinition, RowDefinition, CellData } from '@/lib/types/tabl
  * DataTable Props
  */
 interface DataTableProps {
+  tableId: string;
   columns: ColumnDefinition[];
   rows: RowDefinition[];
-  data: CellData[];
-  onCellClick?: (rowId: string, columnId: string) => void;
+  // data: CellData[];
+  onCellClick?: (rowKey: string, tableColumnId: string) => void;
 }
 
 export const DataTable = memo(function DataTable({
+  tableId,
   columns,
   rows,
-  data,
   onCellClick,
 }: DataTableProps) {
-  // Optimized state subscriptions - only subscribe to specific values (§3.2)
+  const isLoading = useTableCellStore((state) => state.isLoading);
+  const error = useTableCellStore((state) => state.error);
+  const fetchCells = useTableCellStore((state) => state.fetchCells);
+
+  useEffect(() => {
+    fetchCells(tableId);
+  }, [tableId, fetchCells]);
+
+
   const setActiveCell = useUIStore((state) => state.setActiveCell);
-  const cellData = useTableCellStore((state) => state.cellData);
-  
-  /**
-   * Get cell value from data array (use store data if available, otherwise fallback to props)
-   */
-  const getCellValue = useCallback((rowId: string, columnId: string) => {
-    // Try store first - map rowId/columnId to rowKey/tableColumnId
-    const storeCell = cellData.find(
-      (d) => d.rowKey === rowId && d.tableColumnId === columnId
-    );
-    if (storeCell !== undefined) {
-      return storeCell.value;
-    }
-    
-    // Fallback to prop data
-    const cell = data.find(
-      (d) => d.rowKey === rowId && d.tableColumnId === columnId
-    );
-    return cell?.value;
-  }, [cellData, data]);
+  const getCellValue = useTableCellStore((state) => state.getCellValue);
   
   /**
    * Handle cell click - update Smart Pointer
    */
-  const handleCellClick = useCallback((rowId: string, columnId: string) => {
-    setActiveCell({ rowId, columnId });
-    onCellClick?.(rowId, columnId);
+  const handleCellClick = useCallback((rowKey: string, tableColumnId: string) => {
+    setActiveCell({ rowKey, tableColumnId });
+    onCellClick?.(rowKey, tableColumnId);
   }, [setActiveCell, onCellClick]);
   
   return (
     <div className="w-full overflow-auto rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm">
-      <Table>
-        {/* Header Row */}
-        <TableHeader className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
-          <TableRow>
-            {/* Empty corner cell */}
-            <TableHead className="w-[150px] font-semibold text-gray-900 dark:text-gray-100">
-              {/* Row labels column header */}
-            </TableHead>
-            
-            {/* Column headers */}
-            {columns.map((column) => (
-              <TableHead
-                key={column.id}
-                className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider"
-              >
-                {column.label}
+      {isLoading && (
+        <div className="flex items-center justify-center p-8">
+          <div className="text-sm text-gray-500">Loading table data...</div>
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-center justify-center p-8">
+          <div className="text-sm text-red-500">Error loading table data: {error}</div>
+        </div>
+      )}
+      {!isLoading && !error && (
+        <Table>
+          {/* Header Row */}
+          <TableHeader className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
+            <TableRow>
+              {/* Empty corner cell */}
+              <TableHead className="w-[150px] font-semibold text-gray-900 dark:text-gray-100">
+                {/* Row labels column header */}
               </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
+              
+              {/* Column headers */}
+              {columns.map((column) => (
+                <TableHead
+                  key={column.id}
+                  className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider"
+                >
+                  {column.label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
         
         {/* Body Rows */}
         <TableBody className="bg-white dark:bg-gray-950">
@@ -103,8 +105,9 @@ export const DataTable = memo(function DataTable({
               {columns.map((column) => (
                 <DataTableCell
                   key={`${row.id}-${column.id}`}
-                  rowId={row.id}
-                  columnId={column.id}
+                  tableId={tableId}
+                  rowKey={row.id}
+                  tableColumnId={column.id}
                   columnType={column.type}
                   value={getCellValue(row.id, column.id)}
                   onClick={() => handleCellClick(row.id, column.id)}
@@ -114,6 +117,7 @@ export const DataTable = memo(function DataTable({
           ))}
         </TableBody>
       </Table>
+      )}
     </div>
   );
 });

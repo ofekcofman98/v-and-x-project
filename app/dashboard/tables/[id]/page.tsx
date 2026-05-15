@@ -25,6 +25,9 @@ import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
+import { DataTable } from '@/components/table/DataTable';
+import { useTableCellStore } from '@/lib/stores/table-cell-store';
+import type { ColumnDefinition, RowDefinition } from '@/lib/types/table-schema';
 
 interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {
     createdAt: string;
@@ -66,6 +69,9 @@ export default function TableDetailsPage() {
     const [error, setError] = useState<string | null>(null);
     const [notFound, setNotFound] = useState(false);
 
+    // Use the table cell store for cell data
+    const fetchCells = useTableCellStore((state) => state.fetchCells);
+
     const fetchTable = async () => {
         if (!id) return;
 
@@ -101,6 +107,13 @@ export default function TableDetailsPage() {
         fetchTable();
     }, [id]);
 
+    // Fetch cell data using the store
+    useEffect(() => {
+        if (id) {
+            fetchCells(id);
+        }
+    }, [id, fetchCells]);
+
     if (isLoading){
         return <LoadingSkeleton />;
     }
@@ -131,6 +144,25 @@ export default function TableDetailsPage() {
     const totalRows = entities.length;
     const totalDataColumns = tableColumns.length;
     const hasData = entities.length > 0 && (baseListColumns.length > 0 || tableColumns.length > 0);
+
+    // Transform data for DataTable component
+    const columns: ColumnDefinition[] = [
+        ...baseListColumns.map((col) => ({
+            id: col.id,
+            label: col.label,
+            type: col.type,
+        })),
+        ...tableColumns.map((col) => ({
+            id: col.id,
+            label: col.label,
+            type: prismaColumnTypeToColumnType(col.type),
+        })),
+    ];
+
+    const rows: RowDefinition[] = entities.map((entity) => ({
+        id: entity.id,
+        label: entity.values[baseListColumns[0]?.id]?.toString() || entity.id,
+    }));
 
     return (
         <>
@@ -239,80 +271,11 @@ export default function TableDetailsPage() {
                                     description="This table doesn't have any entities or columns yet. Add a Base List or create columns to get started."
                                     />
                                 ) : (
-                                    <div className="border rounded-lg overflow-hidden">
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full">
-                                                <thead className="bg-muted">
-                                                    <tr>
-                                                        {baseListColumns.map((col) => (
-                                                            <th
-                                                                key={`base-${col.id}`}
-                                                                className="px-4 py-3 text-left text-sm font-medium"
-                                                            >
-                                                                <div className="flex items-center gap-2">
-                                                                    {col.label}
-                                                                    <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                                                                        Base
-                                                                    </span>
-                                                                </div>
-                                                            </th>
-                                                        ))}
-                                                        {tableColumns.map((col) => (
-                                                            <th
-                                                                key={`table-${col.id}`}
-                                                                className="px-4 py-3 text-left text-sm font-medium"
-                                                            >
-                                                                <div className="flex items-center gap-2">
-                                                                    {col.label}
-                                                                    <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                                                                        Data
-                                                                    </span>
-                                                                </div>
-                                                            </th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y">
-                                                    {entities.map((entity) => (
-                                                        <tr key={entity.id} className="hover:bg-muted/50">
-                                                            {baseListColumns.map((col) => {
-                                                                const value = entity.values[col.id];
-                                                                return (
-                                                                    <td
-                                                                        key={`${entity.id}-base-${col.id}`}
-                                                                        className="px-4 py-3 text-sm"
-                                                                    >
-                                                                        {value !== null && value !== undefined
-                                                                            ? formatCellValue(value, col.type)
-                                                                            : '-'}
-                                                                    </td>
-                                                                );
-                                                            })}
-                                                            {tableColumns.map((col) => {
-                                                                const cell = cells.find(
-                                                                    (c) =>
-                                                                        c.entityId === entity.id &&
-                                                                        c.tableColumnId === col.id
-                                                                );
-                                                                const value = cell?.value?.value;
-                                                                const columnType = prismaColumnTypeToColumnType(col.type);
-                                                                return (
-                                                                    <td
-                                                                        key={`${entity.id}-table-${col.id}`}
-                                                                        className="px-4 py-3 text-sm"
-                                                                    >
-                                                                        {value !== null && value !== undefined
-                                                                            ? formatCellValue(value, columnType)
-                                                                            : '-'}
-                                                                    </td>
-                                                                );
-                                                            })}
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                                    <DataTable
+                                        tableId={id}
+                                        columns={columns}
+                                        rows={rows}
+                                    />
                                 )}
                             </CardContent>
                         </Card>
