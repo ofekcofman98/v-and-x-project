@@ -7,15 +7,16 @@
 
 'use client';
 
-import { memo } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useTableCellStore } from '@/lib/stores/table-cell-store';
 import { cn } from '@/lib/utils/cn';
 import { ColumnType, formatCellValue } from '@/lib/types/column-types';
 
 interface DataTableCellProps {
-  rowId: string;
-  columnId: string;
+  tableId: string;
+  rowKey: string;
+  tableColumnId: string;
   columnType: ColumnType;
   value: string | number | boolean | null | undefined;
   onClick: () => void;
@@ -23,34 +24,91 @@ interface DataTableCellProps {
 
 export const DataTableCell = memo(
   function DataTableCell({
-    rowId,
-    columnId,
+    tableId,
+    rowKey,
+    tableColumnId,
     columnType,
     value,
     onClick,
   }: DataTableCellProps) {
-    // CRITICAL OPTIMIZATION (§3.2): Selective subscription to prevent unnecessary re-renders
-    // We check if THIS specific cell is active, so each cell only re-renders when its own state changes
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedValue, setEditedValue] = useState(value?.toString() || '');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Update store subscriptions to use correct keys
     const isActive = useUIStore(
-      (state) => state.activeCell?.rowId === rowId && state.activeCell?.columnId === columnId
+      (state) => state.activeCell?.rowKey === rowKey &&
+                 state.activeCell?.tableColumnId === tableColumnId
     );
+
+    // Similarly, only check lastUpdatedCell for this specific cell
+    const isJustUpdated = useTableCellStore((state) =>
+      state.lastUpdatedCell?.rowKey === rowKey && 
+      state.lastUpdatedCell?.tableColumnId === tableColumnId
+    );
+    
+    // Focus input when entering edit mode
+    useEffect(() => {
+      if (isEditing && inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.select();
+      }
+    }, [isEditing]);
+
+    const handleDoubleClick = () => {
+      setIsEditing(true);
+      setEditedValue(value?.toString() || '');
+    };
+
+    // Enter edit mode on Enter key (when active)
+    useEffect(() => {
+      if (!isActive || isEditing) return;
+  
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Enter') {
+          setIsEditing(true);
+          setEditedValue(value?.toString() || '');
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isActive, isEditing, value]);
+
+    // Save on blur or Enter
+    const handleSave = async () => {
+      setIsEditing(false);
+      
+      if (editedValue !== value?.toString()) {
+        await useTableCellStore.getState().updateCell(
+          tableId,
+          rowKey,
+          tableColumnId,
+          editedValue
+        );
+      }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        handleSave();
+      } else if (e.key === 'Escape') {
+        setIsEditing(false);
+        setEditedValue(value?.toString() || '');
+      }
+    };
     
     // Only subscribe to recordingState if this cell is active
     // This prevents inactive cells from re-rendering when recordingState changes
     const recordingState = useUIStore((state) => 
       isActive ? state.recordingState : 'idle'
     );
-    
-    // Similarly, only check lastUpdatedCell for this specific cell
-    const isJustUpdated = useTableCellStore((state) =>
-      state.lastUpdatedCell?.rowKey === rowId && state.lastUpdatedCell?.tableColumnId === columnId
-    );
-  
+      
     const formattedValue = formatCellValue(value, columnType);
     
     return (
       <td
         onClick={onClick}
+        onDoubleClick={handleDoubleClick}
         className={cn(
           'px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100',
           'cursor-pointer transition-all duration-200 relative',
@@ -72,8 +130,20 @@ export const DataTableCell = memo(
           isJustUpdated && 'animate-[flash_0.5s_ease-in-out]'
         )}
       >
-        {/* Value */}
-        <span className="relative z-10">{formattedValue || '—'}</span>
+        {/* Edit mode input or display value */}
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editedValue}
+            onChange={(e) => setEditedValue(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            className="w-full bg-transparent border-none outline-none focus:ring-0 p-0 text-sm text-gray-900 dark:text-gray-100"
+          />
+        ) : (
+          <span className="relative z-10">{formattedValue || '—'}</span>
+        )}
         
         {/* Active indicator (blue corner triangle) */}
         {isActive && (
@@ -101,8 +171,8 @@ export const DataTableCell = memo(
   (prevProps, nextProps) => {
     return (
       prevProps.value === nextProps.value &&
-      prevProps.rowId === nextProps.rowId &&
-      prevProps.columnId === nextProps.columnId &&
+      prevProps.rowKey === nextProps.rowKey &&
+      prevProps.tableColumnId === nextProps.tableColumnId &&
       prevProps.columnType === nextProps.columnType
     );
   }

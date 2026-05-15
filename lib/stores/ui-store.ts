@@ -11,8 +11,8 @@ import { devtools, persist } from 'zustand/middleware';
  * Represents a cell position in the table
  */
 export interface CellPosition {
-  rowId: string;
-  columnId: string;
+  rowKey: string;
+  tableColumnId: string;
 }
 
 /**
