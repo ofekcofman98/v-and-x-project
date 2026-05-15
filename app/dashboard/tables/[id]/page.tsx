@@ -151,17 +151,20 @@ export default function TableDetailsPage() {
             id: col.id,
             label: col.label,
             type: col.type,
+            isBaseColumn: true,
         })),
         ...tableColumns.map((col) => ({
             id: col.id,
             label: col.label,
             type: prismaColumnTypeToColumnType(col.type),
+            isBaseColumn: false,
         })),
     ];
 
     const rows: RowDefinition[] = entities.map((entity) => ({
         id: entity.id,
         label: entity.values[baseListColumns[0]?.id]?.toString() || entity.id,
+        values: entity.values,
     }));
 
     return (

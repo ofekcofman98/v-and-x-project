@@ -28,6 +28,7 @@ export interface ColumnDefinition {
 export interface RowDefinition {
   id: string;
   label: string;
+  values?: Record<string, any>;  
 }
 
 /**

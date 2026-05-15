@@ -37,21 +37,31 @@ export const DataTable = memo(function DataTable({
   rows,
   onCellClick,
 }: DataTableProps) {
+  const setActiveCell = useUIStore((state) => state.setActiveCell);
   const isLoading = useTableCellStore((state) => state.isLoading);
   const error = useTableCellStore((state) => state.error);
   const fetchCells = useTableCellStore((state) => state.fetchCells);
+  const storeCellValue = useTableCellStore((state) => state.getCellValue);
 
+  // Fetch data on mount
   useEffect(() => {
     fetchCells(tableId);
   }, [tableId, fetchCells]);
 
-
-  const setActiveCell = useUIStore((state) => state.setActiveCell);
-  const getCellValue = useTableCellStore((state) => state.getCellValue);
-  
   /**
-   * Handle cell click - update Smart Pointer
+   * Get cell value - handles both base columns (from entity values) and table columns (from store)
    */
+  const getCellValue = useCallback((row: RowDefinition, column: ColumnDefinition) => {
+    // If it's a base column, get value from entity values
+    if (column.isBaseColumn && row.values) {
+      return row.values[column.id];
+    }
+    
+    // Otherwise, get from store (table cells)
+    return storeCellValue(row.id, column.id);
+  }, [storeCellValue]);
+
+  // Handlers
   const handleCellClick = useCallback((rowKey: string, tableColumnId: string) => {
     setActiveCell({ rowKey, tableColumnId });
     onCellClick?.(rowKey, tableColumnId);
@@ -109,7 +119,7 @@ export const DataTable = memo(function DataTable({
                   rowKey={row.id}
                   tableColumnId={column.id}
                   columnType={column.type}
-                  value={getCellValue(row.id, column.id)}
+                  value={getCellValue(row, column)}
                   onClick={() => handleCellClick(row.id, column.id)}
                 />
               ))}
