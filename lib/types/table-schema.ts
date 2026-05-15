@@ -33,10 +33,20 @@ export interface RowDefinition {
 /**
  * Cell value payload
  */
+
+//Old 
+// export interface CellData {
+//   rowId: string;
+//   columnId: string;
+//   value: string | number | boolean | null;
+// }
+
 export interface CellData {
-  rowId: string;
-  columnId: string;
+  rowKey: string;          // Changed from rowId
+  tableColumnId: string;   // Changed from columnId
   value: string | number | boolean | null;
+  entityId?: string | null;  // Optional: link to ListEntity
+  entrySource?: string;      // Optional: how this data was entered
 }
 
 /**
