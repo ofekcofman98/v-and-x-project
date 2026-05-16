@@ -20,6 +20,7 @@ export interface ColumnDefinition {
   label: string;
   type: ColumnType;
   validation?: ColumnValidation;
+  isBaseColumn?: boolean;  
 }
 
 /**
