@@ -18,7 +18,9 @@ interface DataTableCellProps {
   rowKey: string;
   tableColumnId: string;
   columnType: ColumnType;
-  value: string | number | boolean | null | undefined;
+  isBaseColumn?: boolean;
+  baseValue?: string | number | boolean | null | undefined;
+  isReadOnly?: boolean;
   onClick: () => void;
 }
 
@@ -28,12 +30,24 @@ export const DataTableCell = memo(
     rowKey,
     tableColumnId,
     columnType,
-    value,
+    isBaseColumn,
+    baseValue,
+    isReadOnly,
     onClick,
   }: DataTableCellProps) {
     const [isEditing, setIsEditing] = useState(false);
-    const [editedValue, setEditedValue] = useState(value?.toString() || '');
     const inputRef = useRef<HTMLInputElement>(null);
+
+    // Subscribe to store value for table columns (reactive!)
+    const storeCellValue = useTableCellStore((state) => 
+      state.getCellValue(rowKey, tableColumnId)
+    );
+    
+    // Determine the actual value to display
+    const value = isBaseColumn ? baseValue : storeCellValue;
+    
+    // Local state for editing
+    const [editedValue, setEditedValue] = useState(value?.toString() || '');
 
     // Update store subscriptions to use correct keys
     const isActive = useUIStore(
@@ -56,23 +70,20 @@ export const DataTableCell = memo(
     }, [isEditing]);
 
     const handleDoubleClick = () => {
+      if (isReadOnly) return;
       setIsEditing(true);
       setEditedValue(value?.toString() || '');
     };
 
-    // Enter edit mode on Enter key (when active)
-    useEffect(() => {
-      if (!isActive || isEditing) return;
-  
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Enter') {
-          setIsEditing(true);
-          setEditedValue(value?.toString() || '');
-        }
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isActive, isEditing, value]);
+    // Handle key down on the cell (local event, no global listener)
+    const handleCellKeyDown = (e: React.KeyboardEvent<HTMLTableCellElement>) => {
+      if (isReadOnly || isEditing) return;
+      
+      if (e.key === 'Enter') {
+        setIsEditing(true);
+        setEditedValue(value?.toString() || '');
+      }
+    };
 
     // Save on blur or Enter
     const handleSave = async () => {
@@ -109,10 +120,13 @@ export const DataTableCell = memo(
       <td
         onClick={onClick}
         onDoubleClick={handleDoubleClick}
+        onKeyDown={handleCellKeyDown}
+        tabIndex={isActive ? 0 : -1}
         className={cn(
           'px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100',
-          'cursor-pointer transition-all duration-200 relative',
-          'hover:bg-gray-50 dark:hover:bg-gray-800',
+          'transition-all duration-200 relative',
+          isReadOnly ? 'cursor-default' : 'cursor-pointer',
+          !isReadOnly && 'hover:bg-gray-50 dark:hover:bg-gray-800',
           
           // Active cell styles - Smart Pointer highlight
           isActive && [
@@ -167,13 +181,15 @@ export const DataTableCell = memo(
     );
   },
   // Custom comparison function (§3.1)
-  // Only re-render if value, rowId, or columnId changes
+  // Only re-render if key props change (store subscription handles value updates)
   (prevProps, nextProps) => {
     return (
-      prevProps.value === nextProps.value &&
       prevProps.rowKey === nextProps.rowKey &&
       prevProps.tableColumnId === nextProps.tableColumnId &&
-      prevProps.columnType === nextProps.columnType
+      prevProps.columnType === nextProps.columnType &&
+      prevProps.isBaseColumn === nextProps.isBaseColumn &&
+      prevProps.baseValue === nextProps.baseValue &&
+      prevProps.isReadOnly === nextProps.isReadOnly
     );
   }
 );

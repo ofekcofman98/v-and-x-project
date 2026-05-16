@@ -10,7 +10,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+import { StatCard } from '@/components/shared/StatCard';
+import { RelationCard } from '@/components/shared/RelationCard';
+import { TableGridSection } from '@/components/table/TableGridSection';
+
 import type { 
   TableWithRelations, 
   TableCell, 
@@ -168,123 +172,67 @@ export default function TableDetailsPage() {
     }));
 
     return (
-        <>
-            <AppHeader />
-            <main className="flex flex-1 flex-col">
-                <section className="container py-8 md:py-12">
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h1 className="text-3xl font-bold tracking-tight">{table.name}</h1>
-                                {table.description && (
-                                    <p className="text-muted-foreground mt-2">{table.description}</p>
-                                )}
-                            </div>
-                            <Link
-                                href="/dashboard/tables"
-                                className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2"
-                            >
-                                <svg
-                                    className="h-4 w-4 mr-2"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                                    />
-                                </svg>
-                                Back to Tables
-                            </Link>
-                        </div>
+      <>
+        <AppHeader />
+        <main className="flex flex-1 flex-col">
+          <section className="container py-8 md:py-12">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight">{table.name}</h1>
+                  
+                  {table.description && (
+                    <p className="text-muted-foreground mt-2">{table.description}</p>
+                  )}
+                </div>
+                            
+                <Link
+                  href="/dashboard/tables"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2"
+                >
+                  <svg
+                    className="h-4 w-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                    />
+                  </svg>
+                  
+                  Back to Tables
+                </Link>
+              </div>
 
-                        <div className="grid gap-4 sm:grid-cols-3">
-                            <Card>
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                                        Total Rows
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{totalRows}</div>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                                        Data Columns
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{totalDataColumns}</div>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                                        Created
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">
-                                        {new Date(table.createdAt).toLocaleDateString()}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {baseList && (
-                            <Card>
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-sm font-medium">Linked Base List</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <Link
-                                        href={`/dashboard/base-lists/${baseList.id}`}
-                                        className="text-blue-600 hover:underline font-medium"
-                                    >
-                                        {baseList.name}
-                                    </Link>
-                                    {baseList.description && (
-                                        <p className="text-sm text-muted-foreground mt-1">
-                                            {baseList.description}
-                                        </p>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Data Grid</CardTitle>
-                                <CardDescription>
-                                    Integrated view combining Base List entities and Table data columns
-                                    {hasData && ` (${totalRows} ${totalRows === 1 ? 'row' : 'rows'})`}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {!hasData ? (
-                                    <EmptyEntitiesState 
-                                    title='No Data Yet'
-                                    description="This table doesn't have any entities or columns yet. Add a Base List or create columns to get started."
-                                    />
-                                ) : (
-                                    <DataTable
-                                        tableId={id}
-                                        columns={columns}
-                                        rows={rows}
-                                    />
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-                </section>
-            </main>
+              <div className="grid gap-4 sm:grid-cols-3">
+                  <StatCard title="Total Rows" value={totalRows.toString()} />
+                  <StatCard title="Data Columns" value={totalDataColumns.toString()} />
+                  <StatCard title="Created" value={new Date(table.createdAt).toLocaleDateString()} />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {baseList && ( 
+                  <RelationCard 
+                    title="Linked Base List"
+                    linkHref={`/dashboard/base-lists/${baseList.id}`}
+                    linkLabel={baseList.name}
+                    description={baseList.description}
+                  />
+                )}
+              </div>
+                <TableGridSection
+                    tableId={id}
+                    columns={columns}
+                    rows={rows}
+                    hasData={hasData}
+                    totalRows={totalRows}
+                />
+              </div>
+            </section>
+          </main>
         </>
     );
 }

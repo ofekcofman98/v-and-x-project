@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { DataTableCell } from './DataTableCell';
-import type { ColumnDefinition, RowDefinition, CellData } from '@/lib/types/table-schema';
+import type { ColumnDefinition, RowDefinition } from '@/lib/types/table-schema';
 
 /**
  * DataTable Props
@@ -41,25 +41,11 @@ export const DataTable = memo(function DataTable({
   const isLoading = useTableCellStore((state) => state.isLoading);
   const error = useTableCellStore((state) => state.error);
   const fetchCells = useTableCellStore((state) => state.fetchCells);
-  const storeCellValue = useTableCellStore((state) => state.getCellValue);
 
   // Fetch data on mount
   useEffect(() => {
     fetchCells(tableId);
   }, [tableId, fetchCells]);
-
-  /**
-   * Get cell value - handles both base columns (from entity values) and table columns (from store)
-   */
-  const getCellValue = useCallback((row: RowDefinition, column: ColumnDefinition) => {
-    // If it's a base column, get value from entity values
-    if (column.isBaseColumn && row.values) {
-      return row.values[column.id];
-    }
-    
-    // Otherwise, get from store (table cells)
-    return storeCellValue(row.id, column.id);
-  }, [storeCellValue]);
 
   // Handlers
   const handleCellClick = useCallback((rowKey: string, tableColumnId: string) => {
@@ -119,7 +105,9 @@ export const DataTable = memo(function DataTable({
                   rowKey={row.id}
                   tableColumnId={column.id}
                   columnType={column.type}
-                  value={getCellValue(row, column)}
+                  isBaseColumn={column.isBaseColumn}
+                  baseValue={row.values?.[column.id]}
+                  isReadOnly={column.isBaseColumn === true}
                   onClick={() => handleCellClick(row.id, column.id)}
                 />
               ))}

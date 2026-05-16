@@ -18,6 +18,8 @@ import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
+import { StatCard } from '@/components/shared/StatCard';
+import { RelationCard } from '@/components/shared/RelationCard';
 
 interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {
   createdAt: string;
@@ -136,40 +138,9 @@ export default function BaseListDetailsPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Entities
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{entities.length}</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Columns
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{columns.length}</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Created
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {new Date(baseList.createdAt).toLocaleDateString()}
-                  </div>
-                </CardContent>
-              </Card>
+              <StatCard title="Total Entities" value={entities.length.toString()} />
+              <StatCard title="Columns" value={columns.length.toString()} />
+              <StatCard title="Created" value={new Date(baseList.createdAt).toLocaleDateString()} />
             </div>
 
             <Card>
