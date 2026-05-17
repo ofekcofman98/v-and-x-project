@@ -23,7 +23,7 @@ import type {
   BaseListWithEntities,
   BaseListSchema 
 } from '@/lib/types/models';
-import { formatCellValue } from '@/lib/types/column-types';
+import { formatCellValue, ColumnType } from '@/lib/types/column-types';
 import { prismaColumnTypeToColumnType } from '@/lib/types/models'; 
 import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
@@ -31,7 +31,8 @@ import { ErrorState } from '@/components/states/error-state';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
 import { DataTable } from '@/components/table/DataTable';
 import { useTableCellStore } from '@/lib/stores/table-cell-store';
-import type { ColumnDefinition, RowDefinition } from '@/lib/types/table-schema';
+import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/types/table-schema';
+import { VoiceButton } from '@/components/voice/VoiceButton';
 
 interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {
     createdAt: string;
@@ -154,7 +155,7 @@ export default function TableDetailsPage() {
         ...baseListColumns.map((col) => ({
             id: col.id,
             label: col.label,
-            type: col.type,
+            type: (col.type as string).toUpperCase() as ColumnType,
             isBaseColumn: true,
         })),
         ...tableColumns.map((col) => ({
@@ -170,6 +171,12 @@ export default function TableDetailsPage() {
         label: entity.values[baseListColumns[0]?.id]?.toString() || entity.id,
         values: entity.values,
     }));
+
+    // Construct TableSchema for VoiceButton
+    const tableSchema: TableSchema = {
+        columns,
+        rows,
+    };
 
     return (
       <>
@@ -233,6 +240,13 @@ export default function TableDetailsPage() {
               </div>
             </section>
           </main>
+
+          {/* Voice Input Button - Fixed Position */}
+          {hasData && (
+            <div className="fixed bottom-8 right-8 z-50">
+              <VoiceButton tableId={id} tableSchema={tableSchema} />
+            </div>
+          )}
         </>
     );
 }

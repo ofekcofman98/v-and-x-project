@@ -26,10 +26,11 @@ import { trackVoiceMetrics } from '@/lib/monitoring/voice-metrics';
 import { logger } from '@/lib/logging/client-logger';
 
 interface VoiceButtonProps {
+  tableId: string;
   tableSchema: TableSchema;
 }
 
-export function VoiceButton({ tableSchema }: VoiceButtonProps) {
+export function VoiceButton({ tableId, tableSchema }: VoiceButtonProps) {
   const setRecordingState = useUIStore((state) => state.setRecordingState);
   const setPendingConfirmation = useUIStore((state) => state.setPendingConfirmation);
   const setError = useUIStore((state) => state.setError);
@@ -45,6 +46,7 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
 
   // Use the new voice action handler hook
   const { handleParsedResult } = useVoiceActionHandler({
+    tableId,
     tableSchema,
     onEndOfTable: () => {
       // Stop continuous mode when end of table is reached
@@ -388,6 +390,17 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
       stopContinuous();
       setContinuousMode(false);
     } else {
+      // Check if a cell is selected before starting continuous mode
+      if (!activeCell) {
+        toast({
+          title: 'No Cell Selected',
+          description: 'Please click on a cell in the table before activating voice input.',
+          variant: 'destructive',
+          duration: 3000,
+        });
+        return;
+      }
+
       setContinuousMode(true);
       await startContinuous();
     }
@@ -407,6 +420,7 @@ export function VoiceButton({ tableSchema }: VoiceButtonProps) {
   const getTooltipText = () => {
     if (isProcessing || isConfirming) return 'Processing...';
     if (continuousMode) return 'Continuous mode active - Press ESC to stop';
+    if (!activeCell) return 'Select a cell first, then click to activate voice input';
     return 'Click to activate continuous mode';
   };
 

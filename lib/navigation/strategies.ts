@@ -1,38 +1,33 @@
 // lib/navigation/strategies.ts
 import { TableSchema } from '@/lib/types/table-schema';
-import { NavigationMode } from '../stores/ui-store';
-
-export interface ActiveCell {
-    rowId: string;
-    columnId: string;
-  }
+import { NavigationMode, CellPosition } from '../stores/ui-store';
 
   export interface NavigationStrategy {
     getNext: (
-        current: ActiveCell,
+        current: CellPosition,
         schema: TableSchema,
         rowIndexMap: Map<string, number>,
         colIndexMap: Map<string, number>
-    ) => ActiveCell | null;
+    ) => CellPosition | null;
 
     getPrevious: (
-        current: ActiveCell,
+        current: CellPosition,
         schema: TableSchema,
         rowIndexMap: Map<string, number>,
         colIndexMap: Map<string, number>
-    ) => ActiveCell | null;
+    ) => CellPosition | null;
   }
 
   function navigate(
-    current: ActiveCell,
+    current: CellPosition,
     schema: TableSchema,
     isRowFirst: boolean,
     rowIndexMap: Map<string, number>,
     colIndexMap: Map<string, number>,
     step: 1 | -1
-  ): ActiveCell | null {
-    const rowIndex = rowIndexMap.get(current.rowId);
-    const colIndex = colIndexMap.get(current.columnId);
+  ): CellPosition | null {
+    const rowIndex = rowIndexMap.get(current.rowKey);
+    const colIndex = colIndexMap.get(current.tableColumnId);
 
     if (rowIndex === undefined || colIndex === undefined) return null;
 
@@ -58,8 +53,8 @@ export interface ActiveCell {
     const finalRowIndex = isRowFirst ? nextSecondaryIndex : nextPrimaryIndex;
     const finalColIndex = isRowFirst ? nextPrimaryIndex : nextSecondaryIndex;
     return {
-        rowId: schema.rows[finalRowIndex].id,
-        columnId: schema.columns[finalColIndex].id,
+        rowKey: schema.rows[finalRowIndex].id,
+        tableColumnId: schema.columns[finalColIndex].id,
     };
   }
   

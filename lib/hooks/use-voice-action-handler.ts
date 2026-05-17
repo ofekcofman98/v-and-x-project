@@ -18,6 +18,7 @@ import type { CellPosition } from '@/lib/stores/ui-store';
 import { navigationStrategies } from '../navigation/strategies';
 
 interface UseVoiceActionHandlerOptions {
+  tableId: string;
   tableSchema: TableSchema;
   onEndOfTable?: () => void;
 }
@@ -32,6 +33,7 @@ interface VoiceActionHandlerResult {
  * Separates business logic from UI component
  */
 export function useVoiceActionHandler({
+  tableId,
   tableSchema,
   onEndOfTable,
 }: UseVoiceActionHandlerOptions): VoiceActionHandlerResult {
@@ -147,15 +149,16 @@ export function useVoiceActionHandler({
 
         // Determine where the data should land before mutating state
         const matchedCell: CellPosition = {
-          rowId: matchedRow.id,
-          columnId: activeCell.columnId,
+          rowKey: matchedRow.id,
+          tableColumnId: activeCell.tableColumnId,
         };
 
         // Update the cell value at the matched location
-        // Map UI position to data fields: rowId->rowKey, columnId->tableColumnId
-        updateCell(
-          matchedCell.rowId,        // rowKey in the store
-          matchedCell.columnId,      // tableColumnId in the store
+        // Pass tableId, rowKey, tableColumnId, and value to the store
+        await updateCell(
+          tableId,
+          matchedCell.rowKey,
+          matchedCell.tableColumnId,
           parsed.value as string | number | boolean | null
         );
         console.log('[VoiceActionHandler] Updated matched cell:', matchedCell);
@@ -215,6 +218,7 @@ export function useVoiceActionHandler({
       }
     },
     [
+      tableId,
       activeCell,
       tableSchema,
       calculateNextCell,

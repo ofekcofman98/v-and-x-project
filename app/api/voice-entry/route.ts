@@ -190,6 +190,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
     }
 
     if (!tableSchemaJson || !activeCellJson) {
+      console.error('[VoiceEntry] Missing parameters:', { 
+        hasTableSchema: !!tableSchemaJson, 
+        hasActiveCell: !!activeCellJson 
+      });
       return NextResponse.json(
         {
           success: false,
@@ -204,12 +208,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
     }
 
     let tableSchema: TableSchema;
-    let activeCell: { rowId: string; columnId: string };
+    let activeCell: { rowKey: string; tableColumnId: string };
 
     try {
       tableSchema = TableSchemaInput.parse(JSON.parse(tableSchemaJson));
       activeCell = JSON.parse(activeCellJson);
+      console.log('[VoiceEntry] Parsed activeCell:', activeCell);
     } catch (error) {
+      console.error('[VoiceEntry] Parse error:', error);
       return NextResponse.json(
         {
           success: false,
@@ -324,8 +330,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
     console.log('[VoiceEntry] Starting parsing with cache check...');
     const parsingStartTime = Date.now();
 
-    const activeColumn = tableSchema.columns.find((col) => col.id === activeCell.columnId);
-    const activeRow = tableSchema.rows.find((row) => row.id === activeCell.rowId);
+    const activeColumn = tableSchema.columns.find((col) => col.id === activeCell.tableColumnId);
+    const activeRow = tableSchema.rows.find((row) => row.id === activeCell.rowKey);
 
     if (!activeColumn || !activeRow) {
       return NextResponse.json(
@@ -652,11 +658,11 @@ function normalizeValue(value: unknown, column: ColumnDefinition) {
 function buildParsePrompt(params: {
   transcript: string;
   tableSchema: TableSchema;
-  activeCell: { rowId: string; columnId: string };
+  activeCell: { rowKey: string; tableColumnId: string };
   navigationMode: 'column-first' | 'row-first';
 }) {
   const { transcript, tableSchema, activeCell, navigationMode } = params;
-  const currentColumn = tableSchema.columns.find((col) => col.id === activeCell.columnId);
+  const currentColumn = tableSchema.columns.find((col) => col.id === activeCell.tableColumnId);
   const columnType = currentColumn?.type ?? ColumnType.TEXT;
 
   // Context Diet: We deliberately DO NOT pass the rows/entities array here!

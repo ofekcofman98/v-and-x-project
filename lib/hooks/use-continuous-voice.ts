@@ -53,6 +53,13 @@ export function useContinuousVoice({
     async (audioBlob: Blob) => {
       if (!isContinuousRef.current) return;
 
+      // Check if activeCell is selected before processing
+      if (!activeCell) {
+        console.warn('[useContinuousVoice] No active cell selected, skipping processing');
+        setRecordingState('listening');
+        return;
+      }
+
       try {
         setRecordingState('processing');
 
