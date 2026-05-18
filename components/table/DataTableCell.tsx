@@ -121,15 +121,16 @@ export const DataTableCell = memo(
         onClick={onClick}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleCellKeyDown}
-        tabIndex={isActive ? 0 : -1}
+        tabIndex={isActive && !isReadOnly ? 0 : -1}
         className={cn(
           'px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100',
           'transition-all duration-200 relative',
-          isReadOnly ? 'cursor-default' : 'cursor-pointer',
+          // isReadOnly ? 'cursor-default' : 'cursor-pointer',
+          // !isReadOnly && 'hover:bg-gray-50 dark:hover:bg-gray-800',
+          isReadOnly ? 'bg-gray-50/60 dark:bg-gray-900/40 text-gray-500 dark:text-gray-400 cursor-default select-none' : 'cursor-pointer text-gray-900 dark:text-gray-100',          
           !isReadOnly && 'hover:bg-gray-50 dark:hover:bg-gray-800',
-          
           // Active cell styles - Smart Pointer highlight
-          isActive && [
+          isActive && !isReadOnly && [
             'ring-2 ring-blue-500 ring-inset',
             'bg-blue-50 dark:bg-blue-950',
             'font-medium',
@@ -141,7 +142,7 @@ export const DataTableCell = memo(
           ],
           
           // Success animation (green flash)
-          isJustUpdated && 'animate-[flash_0.5s_ease-in-out]'
+          isJustUpdated && !isReadOnly && 'animate-[flash_0.5s_ease-in-out]' 
         )}
       >
         {/* Edit mode input or display value */}

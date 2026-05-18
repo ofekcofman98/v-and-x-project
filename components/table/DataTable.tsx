@@ -83,6 +83,7 @@ export const DataTable = memo(function DataTable({
                   className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider"
                 >
                   {column.label}
+                  <span className="ml-2 text-[12px] text-gray-400 dark:text-gray-500 lowercase font-normal align-middle">{column.type}</span>
                 </TableHead>
               ))}
             </TableRow>
@@ -90,11 +91,11 @@ export const DataTable = memo(function DataTable({
         
         {/* Body Rows */}
         <TableBody className="bg-white dark:bg-gray-950">
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <TableRow key={row.id}>
               {/* Row header (sticky on scroll) */}
-              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900 sticky left-0 z-[5]">
-                {row.label}
+              <td className="px-1 py-3 text-center whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900 sticky left-0 z-[5]">
+                {index + 1}
               </td>
               
               {/* Data cells */}
