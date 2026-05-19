@@ -7,13 +7,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
-import { CreateListWizard } from '@/components/base-lists/create-list-wizard';
-import { CreateTableDialog } from '@/components/tables/create-table-dialog';
+import { DynamicListCreator } from '@/components/base-lists/DynamicListCreator';
+import { DynamicTableCreator } from '@/components/tables/DynamicTableCreator';
 import { Plus } from 'lucide-react';
 
 /**
@@ -94,10 +95,10 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { lists, isLoading, error, fetchLists } = useBaseListStore();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [isCreateSubTableOpen, setIsCreateSubTableOpen] = useState(false);
-  const [selectedBaseListId, setSelectedBaseListId] = useState<string | undefined>();
+  const [isCreatingTable, setIsCreatingTable] = useState(false);
 
   useEffect(() => {
     fetchLists();
@@ -176,10 +177,7 @@ export default function DashboardPage() {
                     <Button
                       variant="outline"
                       size="default"
-                      onClick={() => {
-                        setSelectedBaseListId(list.id);
-                        setIsCreateSubTableOpen(true);
-                      }}
+                      onClick={() => setIsCreatingTable(true)}
                       className="flex-1"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -193,20 +191,18 @@ export default function DashboardPage() {
         </section>
       </main>
 
-      <CreateListWizard
+      <DynamicListCreator
         open={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
       />
 
-      <CreateTableDialog
-        open={isCreateSubTableOpen}
-        onOpenChange={(open) => {
-          setIsCreateSubTableOpen(open);
-          if (!open) {
-            setSelectedBaseListId(undefined);
-          }
+      <DynamicTableCreator
+        open={isCreatingTable}
+        onClose={() => setIsCreatingTable(false)}
+        onSuccess={(tableId) => {
+          setIsCreatingTable(false);
+          router.push(`/dashboard/tables/${tableId}`);
         }}
-        defaultBaseListId={selectedBaseListId}
       />
     </>
   );

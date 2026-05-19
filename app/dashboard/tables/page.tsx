@@ -7,13 +7,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTableStore } from '@/lib/stores/table-store';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
-import { CreateTableDialog } from '@/components/tables/create-table-dialog';
+import { DynamicTableCreator } from '@/components/tables/DynamicTableCreator';
 import { Plus, Table as TableIcon } from 'lucide-react';
 
 /**
@@ -86,9 +87,10 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 }
 
 export default function TablesDashboardPage() {
+  const router = useRouter();
   const { tables, isLoading, error, fetchTables } = useTableStore();
   const { lists, fetchLists } = useBaseListStore();
-  const [isCreateTableOpen, setIsCreateTableOpen] = useState(false);
+  const [isCreatingTable, setIsCreatingTable] = useState(false);
 
   useEffect(() => {
     fetchTables();
@@ -114,7 +116,7 @@ export default function TablesDashboardPage() {
                   View and manage all your data tables
                 </p>
               </div>
-              <Button onClick={() => setIsCreateTableOpen(true)}>
+              <Button onClick={() => setIsCreatingTable(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Create New Table
               </Button>
@@ -130,7 +132,7 @@ export default function TablesDashboardPage() {
               ))}
             </div>
           ) : tables.length === 0 ? (
-            <EmptyState onCreateClick={() => setIsCreateTableOpen(true)} />
+            <EmptyState onCreateClick={() => setIsCreatingTable(true)} />
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {tables.map((table) => (
@@ -196,9 +198,14 @@ export default function TablesDashboardPage() {
         </section>
       </main>
 
-      <CreateTableDialog
-        open={isCreateTableOpen}
-        onOpenChange={setIsCreateTableOpen}
+      <DynamicTableCreator
+        open={isCreatingTable}
+        onClose={() => setIsCreatingTable(false)}
+        onSuccess={(tableId) => {
+          setIsCreatingTable(false);
+          fetchTables();
+          router.push(`/dashboard/tables/${tableId}`);
+        }}
       />
     </>
   );
