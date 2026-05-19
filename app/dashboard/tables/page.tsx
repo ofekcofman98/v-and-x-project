@@ -5,16 +5,14 @@
  * Implements: docs/14_PRODUCT_DATA_FLOW.md §4
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useTableStore } from '@/lib/stores/table-store';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
-import { DynamicTableCreator } from '@/components/tables/DynamicTableCreator';
 import { Plus, Table as TableIcon } from 'lucide-react';
 
 /**
@@ -50,10 +48,12 @@ function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
       <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
         Create your first table to start collecting and organizing data. Tables are linked to base lists and contain custom data columns.
       </p>
-      <Button onClick={onCreateClick}>
-        <Plus className="w-4 h-4 mr-2" />
-        Create Your First Table
-      </Button>
+      <Link href="/dashboard/tables/new">
+        <Button>
+          <Plus className="w-4 h-4 mr-2" />
+          Create Your First Table
+        </Button>
+      </Link>
     </div>
   );
 }
@@ -87,10 +87,8 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 }
 
 export default function TablesDashboardPage() {
-  const router = useRouter();
   const { tables, isLoading, error, fetchTables } = useTableStore();
   const { lists, fetchLists } = useBaseListStore();
-  const [isCreatingTable, setIsCreatingTable] = useState(false);
 
   useEffect(() => {
     fetchTables();
@@ -116,10 +114,12 @@ export default function TablesDashboardPage() {
                   View and manage all your data tables
                 </p>
               </div>
-              <Button onClick={() => setIsCreatingTable(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create New Table
-              </Button>
+              <Link href="/dashboard/tables/new">
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New Table
+                </Button>
+              </Link>
             </div>
           </div>
 
@@ -132,7 +132,7 @@ export default function TablesDashboardPage() {
               ))}
             </div>
           ) : tables.length === 0 ? (
-            <EmptyState onCreateClick={() => setIsCreatingTable(true)} />
+            <EmptyState onCreateClick={() => {}} />
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {tables.map((table) => (
@@ -197,16 +197,6 @@ export default function TablesDashboardPage() {
           )}
         </section>
       </main>
-
-      <DynamicTableCreator
-        open={isCreatingTable}
-        onClose={() => setIsCreatingTable(false)}
-        onSuccess={(tableId) => {
-          setIsCreatingTable(false);
-          fetchTables();
-          router.push(`/dashboard/tables/${tableId}`);
-        }}
-      />
     </>
   );
 }

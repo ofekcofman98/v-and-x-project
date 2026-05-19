@@ -1,21 +1,18 @@
 /**
- * Example Usage: Dynamic Table Creator
+ * Example Usage: Table Creator Page Route
  * 
- * This shows how to integrate the DynamicTableCreator into your app.
+ * This shows how to integrate table creation using dedicated page routes.
  */
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { DynamicTableCreator } from '@/components/tables/DynamicTableCreator';
 import { useTableStore } from '@/lib/stores/table-store';
 import { Plus } from 'lucide-react';
 
 export function TablesPage() {
-  const router = useRouter();
-  const [isCreatingTable, setIsCreatingTable] = useState(false);
   const { tables, isLoading, fetchTables } = useTableStore();
 
   // Load tables on mount
@@ -27,10 +24,12 @@ export function TablesPage() {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Tables</h1>
-        <Button onClick={() => setIsCreatingTable(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Table
-        </Button>
+        <Link href="/dashboard/tables/new">
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Table
+          </Button>
+        </Link>
       </div>
 
       {/* Table List */}
@@ -49,16 +48,8 @@ export function TablesPage() {
         </div>
       )}
 
-      {/* Dynamic Table Creator */}
-      <DynamicTableCreator
-        open={isCreatingTable}
-        onClose={() => setIsCreatingTable(false)}
-        onSuccess={(tableId) => {
-          setIsCreatingTable(false);
-          fetchTables();
-          router.push(`/dashboard/tables/${tableId}`);
-        }}
-      />
+      {/* Note: Table creation now happens at /dashboard/tables/new route */}
+      {/* The DynamicTableCreator component is rendered on that dedicated page */}
     </div>
   );
 }

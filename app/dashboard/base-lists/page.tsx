@@ -7,14 +7,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
 import { DynamicListCreator } from '@/components/base-lists/DynamicListCreator';
-import { DynamicTableCreator } from '@/components/tables/DynamicTableCreator';
 import { Plus } from 'lucide-react';
 
 /**
@@ -95,10 +93,8 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
   const { lists, isLoading, error, fetchLists } = useBaseListStore();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [isCreatingTable, setIsCreatingTable] = useState(false);
 
   useEffect(() => {
     fetchLists();
@@ -174,15 +170,16 @@ export default function DashboardPage() {
                     >
                       View List
                     </Link>
-                    <Button
-                      variant="outline"
-                      size="default"
-                      onClick={() => setIsCreatingTable(true)}
-                      className="flex-1"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Table
-                    </Button>
+                    <Link href="/dashboard/tables/new" className="flex-1">
+                      <Button
+                        variant="outline"
+                        size="default"
+                        className="w-full"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Table
+                      </Button>
+                    </Link>
                   </CardFooter>
                 </Card>
               ))}
@@ -194,15 +191,6 @@ export default function DashboardPage() {
       <DynamicListCreator
         open={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
-      />
-
-      <DynamicTableCreator
-        open={isCreatingTable}
-        onClose={() => setIsCreatingTable(false)}
-        onSuccess={(tableId) => {
-          setIsCreatingTable(false);
-          router.push(`/dashboard/tables/${tableId}`);
-        }}
       />
     </>
   );

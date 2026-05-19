@@ -27,12 +27,11 @@ import { BaseListSidebar } from './BaseListSidebar';
 import { Database, X, Plus, Trash2 } from 'lucide-react';
 
 interface DynamicTableCreatorProps {
-  open: boolean;
   onClose: () => void;
   onSuccess?: (tableId: string) => void;
 }
 
-export function DynamicTableCreator({ open, onClose, onSuccess }: DynamicTableCreatorProps) {
+export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorProps) {
   const [tableName, setTableName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedBaseListId, setSelectedBaseListId] = useState<string | null>(null);
@@ -43,8 +42,6 @@ export function DynamicTableCreator({ open, onClose, onSuccess }: DynamicTableCr
   
   const { columns, setColumns, addColumn, updateColumn, removeColumn } = useColumnManager([]);
   const { rows, setRows, addRow, updateCell, removeRow } = useRowManager([], columns);
-
-  if (!open) return null;
 
   /**
    * Handle Base List selection - Inject columns and rows
@@ -119,16 +116,16 @@ export function DynamicTableCreator({ open, onClose, onSuccess }: DynamicTableCr
   };
 
   /**
-   * Handle close - Reset state
+   * Handle cancel - Navigate back with confirmation
    */
-  const handleClose = () => {
-    setTableName('');
-    setDescription('');
-    setColumns([]);
-    setRows([{ id: 'row_1', values: {}, metadata: { source: 'inline' } }]);
-    setTableMetadata({});
-    setSelectedBaseListId(null);
-    onClose();
+  const handleCancel = () => {
+    if (columns.length > 0 || tableName.trim()) {
+      if (window.confirm('Are you sure you want to cancel? All unsaved changes will be lost.')) {
+        onClose();
+      }
+    } else {
+      onClose();
+    }
   };
 
   /**
@@ -298,7 +295,6 @@ export function DynamicTableCreator({ open, onClose, onSuccess }: DynamicTableCr
       });
 
       onSuccess?.(data.id);
-      handleClose();
     } catch (error) {
       toast({
         title: 'Error',
@@ -472,7 +468,7 @@ export function DynamicTableCreator({ open, onClose, onSuccess }: DynamicTableCr
 
         {/* Bottom Actions */}
         <div className="border-t p-4 flex justify-between">
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleCancel}>
             <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
