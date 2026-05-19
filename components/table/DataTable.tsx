@@ -94,7 +94,7 @@ export const DataTable = memo(function DataTable({
           {rows.map((row, index) => (
             <TableRow key={row.id}>
               {/* Row header (sticky on scroll) */}
-              <td className="px-1 py-3 text-center whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900 sticky left-0 z-[5]">
+              <td className="px-4 py-3 text-center whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900 sticky left-0 z-[5]">
                 {index + 1}
               </td>
               

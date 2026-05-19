@@ -23,13 +23,11 @@ import type {
   BaseListWithEntities,
   BaseListSchema 
 } from '@/lib/types/models';
-import { formatCellValue, ColumnType } from '@/lib/types/column-types';
+import { ColumnType } from '@/lib/types/column-types';
 import { prismaColumnTypeToColumnType } from '@/lib/types/models'; 
 import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
-import { EmptyEntitiesState } from '@/components/states/empty-state';
-import { DataTable } from '@/components/table/DataTable';
 import { useTableCellStore } from '@/lib/stores/table-cell-store';
 import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/types/table-schema';
 import { VoiceButton } from '@/components/voice/VoiceButton';

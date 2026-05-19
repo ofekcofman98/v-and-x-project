@@ -415,7 +415,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
         useCache: true,
         usePhonetic: true,
         useFuzzy: true,
-        fuzzyThreshold: 2,
+        fuzzyThreshold: 4,
       });
       
       if (matchResult.matched && matchResult.confidence >= 0.85 && matchResult.matchType !== 'none') {
@@ -523,7 +523,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
       useCache: true,
       usePhonetic: true,
       useFuzzy: true,
-      fuzzyThreshold: 2,
+      fuzzyThreshold: 4,
     });
 
     const matchedEntity = finalMatch.matched || parsedResult.entity;

@@ -11,15 +11,12 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import type { BaseListWithEntities, BaseListSchema, ListEntity } from '@/lib/types/models';
 import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
 import { StatCard } from '@/components/shared/StatCard';
-import { RelationCard } from '@/components/shared/RelationCard';
 
 interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {
   createdAt: string;
@@ -157,6 +154,8 @@ export default function BaseListDetailsPage() {
                   description="This list doesn't have any entities yet. Add entities to start tracking data."
                   />
                 ) : (
+
+
                   <div className="border rounded-lg overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full">
@@ -194,6 +193,8 @@ export default function BaseListDetailsPage() {
                       </table>
                     </div>
                   </div>
+
+                  
                 )}
               </CardContent>
             </Card>
