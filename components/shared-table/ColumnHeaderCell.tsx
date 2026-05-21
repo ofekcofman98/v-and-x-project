@@ -1,14 +1,6 @@
 'use client';
 
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Trash2, Lock } from 'lucide-react';
 import type { ColumnDef } from './types';
 
@@ -23,9 +15,7 @@ interface ColumnHeaderCellProps {
 export function ColumnHeaderCell({
   column,
   onNameChange,
-  onTypeChange,
   onDelete,
-  showTypeSelector = true,
 }: ColumnHeaderCellProps) {
   const isLocked = column.metadata?.locked || false;
   const isFromBaseList = column.metadata?.source === 'base_list';

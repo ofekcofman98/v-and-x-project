@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ColumnHeaderCell } from './ColumnHeaderCell';
 import { DataCell } from './DataCell';
 import { Plus, X, Trash2 } from 'lucide-react';
+import { GridSelect } from './GridSelect';
 import type { ColumnDef, RowData } from './types';
 import {
   Select,
@@ -85,21 +86,17 @@ export function SharedBuilderGrid({
             <tr className="border-b border-slate-200 bg-slate-50/50">
               {columns.map((col) => (
                 <th key={col.id} className="border-l first:border-l-0 border-slate-200 p-1">
-                  <Select
+                  <GridSelect
                     value={col.type}
-                    onValueChange={(value) => onUpdateColumn(col.id, { type: value as ColumnDef['type'] })}
+                    onChange={(value) => onUpdateColumn(col.id, { type: value as ColumnDef['type'] })}
                     disabled={col.metadata?.locked}
-                  >
-                    <SelectTrigger className="h-7 text-xs border bg-white hover:bg-slate-50 border-slate-200 focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="text">Text</SelectItem>
-                      <SelectItem value="number">Number</SelectItem>
-                      <SelectItem value="boolean">Boolean</SelectItem>
-                      <SelectItem value="date">Date</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    options={[
+                      { label: 'Text', value: 'text' },
+                      { label: 'Number', value: 'number' },
+                      { label: 'Boolean', value: 'boolean' },
+                      { label: 'Date', value: 'date' },
+                    ]}
+                  />
                 </th>
               ))}
               <th className="border-l border-slate-200"></th>
@@ -118,7 +115,7 @@ export function SharedBuilderGrid({
                     column={col}
                     value={row.values[col.id] || ''}
                     onChange={(val) => onUpdateCell(row.id, col.id, val)}
-                    disabled={row.metadata?.locked}
+                    disabled={col.metadata?.locked}
                   />
                 ))}
                 <td className="border-l border-slate-200 p-1 bg-slate-50/30">

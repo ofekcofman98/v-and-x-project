@@ -7,15 +7,13 @@
  * Refactored to use shared-table components (Phase 1)
  */
 
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
-import { useColumnManager } from '@/components/shared-table/hooks/useColumnManager';
-import { useRowManager } from '@/components/shared-table/hooks/useRowManager';
 import type { ColumnDef } from '@/components/shared-table/types';
 import { validateGridSchema } from '@/lib/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
+import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
 import { Save, X, ArrowLeft } from 'lucide-react';
 
 /**
@@ -41,95 +39,16 @@ const DEFAULT_COLUMN: ColumnDef = {
 };
 
 export function DynamicListCreator({ open, onClose, onSuccess }: DynamicListCreatorProps) {
-  const [listName, setListName] = useState('');
-  const [description, setDescription] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
   const { toast } = useToast();
   const { fetchLists } = useBaseListStore();
 
-  const { columns, setColumns, addColumn, updateColumn, removeColumn } = useColumnManager([DEFAULT_COLUMN]);
-  const { rows, setRows, addRow, updateCell, removeRow, clearColumn } = useRowManager([{ id: 'row_1', values: {}, metadata: { source: 'inline' } }], columns);
-
+  const {
+    state: { name: listName, description, isSubmitting, columns, rows },
+    setters: { setName: setListName, setDescription, setIsSubmitting, setColumns, setRows },
+    gridActions
+  } = useGridBuilder(DEFAULT_COLUMN);
+  
   if (!open) return null;
-
-  /**
-   * Add a new column
-   */
-  const handleAddColumn = () => {
-    addColumn({
-      id: `col_${Date.now()}`,
-      name: '',
-      type: 'text',
-      metadata: {
-        source: 'user_defined',
-        locked: false,
-      },
-    });
-  };
-
-  /**
-   * Remove a column with validation
-   */
-  const handleRemoveColumn = (colId: string) => {
-    if (columns.length === 1) {
-      toast({
-        title: 'Cannot Delete',
-        description: 'At least one column is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const success = removeColumn(colId);
-    if (!success) {
-      toast({
-        title: 'Cannot Delete',
-        description: 'This column is locked.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    clearColumn(colId);
-  };
-
-  /**
-   * Add a new row
-   */
-  const handleAddRow = () => {
-    addRow({
-      id: `row_${Date.now()}`,
-      values: {},
-      metadata: {
-        source: 'inline',
-      },
-    });
-  };
-
-  /**
-   * Remove a row with validation
-   */
-  const handleRemoveRow = (rowId: string) => {
-    if (rows.length === 1) {
-      toast({
-        title: 'Cannot Delete',
-        description: 'At least one row must be present.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    const success = removeRow(rowId);
-    if (!success) {
-      toast({
-        title: 'Cannot Delete',
-        description: 'This row is locked.',
-        variant: 'destructive',
-      });
-    }
-  };
-
 
   /**
    * Handle save - Transform to API format and submit
@@ -259,12 +178,7 @@ export function DynamicListCreator({ open, onClose, onSuccess }: DynamicListCrea
           <SharedBuilderGrid
             columns={columns}
             rows={rows}
-            onAddColumn={handleAddColumn}
-            onRemoveColumn={handleRemoveColumn}
-            onUpdateColumn={updateColumn}
-            onAddRow={handleAddRow}
-            onRemoveRow={handleRemoveRow}
-            onUpdateCell={updateCell}
+            {...gridActions}
           />
         </div>
       </div>

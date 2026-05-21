@@ -11,11 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { useColumnManager } from '@/components/shared-table/hooks/useColumnManager';
-import { useRowManager } from '@/components/shared-table/hooks/useRowManager';
 import type { ColumnDef, RowData, TableMetadata } from '@/components/shared-table/types';
 import { validateGridSchema } from '@/lib/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
+import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
 import { BaseListSidebar } from './BaseListSidebar';
 import { Database, X } from 'lucide-react';
 
@@ -25,20 +24,21 @@ interface DynamicTableCreatorProps {
 }
 
 export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorProps) {
-  const [tableName, setTableName] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedBaseListId, setSelectedBaseListId] = useState<string | null>(null);
-  const [tableMetadata, setTableMetadata] = useState<TableMetadata>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const { toast } = useToast();
   
-  const { columns, setColumns, addColumn, updateColumn, removeColumn } = useColumnManager([]);
-  const { rows, setRows, addRow, updateCell, removeRow } = useRowManager([], columns);
+  const {
+    state: { name: tableName, description, isSubmitting, columns, rows },
+    setters: { setName: setTableName, setDescription, setIsSubmitting, setColumns, setRows },
+    gridActions
+  } = useGridBuilder();
+
+  const [selectedBaseListId, setSelectedBaseListId] = useState<string | null>(null);
+  const [tableMetadata, setTableMetadata] = useState<TableMetadata>({});
 
   /**
    * Handle Base List selection - Inject columns and rows
-   */
+  */
+
   const handleBaseListSelect = async (baseListId: string) => {
     try {
       const response = await fetch(`/api/base-lists/${baseListId}`);
@@ -120,94 +120,6 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
       onClose();
     }
   };
-
-  /**
-   * Add a new column
-   */
-  const handleAddColumn = () => {
-    addColumn({
-      id: `col_${Date.now()}`,
-      name: '',
-      type: 'text',
-      metadata: {
-        source: 'user_defined',
-        locked: false,
-      },
-    });
-  };
-
-  /**
-   * Remove a column with validation
-   */
-  const handleRemoveColumn = (colId: string) => {
-    if (columns.length === 1) {
-      toast({
-        title: 'Cannot Delete',
-        description: 'At least one column is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const col = columns.find((c) => c.id === colId);
-    if (col?.metadata?.locked) {
-      toast({
-        title: 'Cannot Delete',
-        description: 'This column is locked from the Base List.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const success = removeColumn(colId);
-    if (success) {
-      // Clear column data from all rows
-      setRows(rows.map((row) => {
-        const { [colId]: _, ...rest } = row.values;
-        return { ...row, values: rest };
-      }));
-    }
-  };
-
-  /**
-   * Add a new row
-   */
-  const handleAddRow = () => {
-    addRow({
-      id: `row_${Date.now()}`,
-      values: {},
-      metadata: {
-        source: 'inline',
-      },
-    });
-  };
-
-  /**
-   * Remove a row with validation
-   */
-  const handleRemoveRow = (rowId: string) => {
-    if (rows.length === 1) {
-      toast({
-        title: 'Cannot Delete',
-        description: 'At least one row must be present.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const row = rows.find((r) => r.id === rowId);
-    if (row?.metadata?.locked) {
-      toast({
-        title: 'Cannot Delete',
-        description: 'This row is locked from the Base List.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    removeRow(rowId);
-  };
-
 
   /**
    * Handle save - Transform to API format and submit
@@ -313,30 +225,24 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
         </div>
 
         {/* Grid Container */}
-
         <div className="flex-1 overflow-auto bg-slate-50">
           <div className="container max-w-7xl mx-auto px-6 py-8">
             <SharedBuilderGrid
               columns={columns}
               rows={rows}
-              onAddColumn={handleAddColumn}
-              onRemoveColumn={handleRemoveColumn}
-              onUpdateColumn={updateColumn}
-              onAddRow={handleAddRow}
-              onRemoveRow={handleRemoveRow}
-              onUpdateCell={updateCell}
+              {...gridActions}
             />
           </div>
         </div>
 
-        {/* Bottom Actions */}
-        <div className="border-t p-4 flex justify-between">
+        {/* Bottom Actions (This was the part that got cut off!) */}
+        <div className="border-t p-4 flex justify-between bg-white">
           <Button variant="outline" onClick={handleCancel}>
             <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isSubmitting}>
-            Save Table
+            {isSubmitting ? 'Saving...' : 'Save Table'}
           </Button>
         </div>
       </div>

@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/select';
 import type { ColumnDef } from './types';
 import { useState } from 'react';
+import { GridSelect } from './GridSelect';
 
 interface DataCellProps {
   column: ColumnDef;
@@ -23,15 +24,16 @@ export function DataCell({ column, value, onChange, disabled }: DataCellProps) {
   if (column.type === 'boolean') {
     return (
       <td className="border-l first:border-l-0 border-slate-200 p-1">
-        <Select value={value} onValueChange={onChange} disabled={disabled}>
-          <SelectTrigger className="h-8 border-none bg-transparent hover:bg-slate-50 focus:bg-white focus:border-slate-200 focus:ring-1 focus:ring-blue-500 transition-all text-sm">
-            <SelectValue placeholder="Select..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">Yes</SelectItem>
-            <SelectItem value="false">No</SelectItem>
-          </SelectContent>
-        </Select>
+        <GridSelect
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          className="h-8 text-sm"
+          options={[
+            { label: 'Yes', value: 'true' },
+            { label: 'No', value: 'false' }
+          ]}
+        />
       </td>
     );
   }
