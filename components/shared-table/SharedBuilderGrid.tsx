@@ -3,16 +3,9 @@
 import { Button } from '@/components/ui/button';
 import { ColumnHeaderCell } from './ColumnHeaderCell';
 import { DataCell } from './DataCell';
-import { Plus, X, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { GridSelect } from './GridSelect';
 import type { ColumnDef, RowData } from './types';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 interface SharedBuilderGridProps {
   columns: ColumnDef[];

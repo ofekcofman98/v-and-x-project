@@ -139,10 +139,12 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
 
     try {
       // Use first column as representative column
-      const representativeColumnKey = columns[0].name.toLowerCase().replace(/\s+/g, '_');
+      const representativeColumnKey = columns[0].id;
 
       // Transform columns to API format
-      const apiColumns = columns.map((col) => ({
+      const apiColumns = columns
+      .filter((col) => col.metadata?.source !== 'base_list')
+      .map((col) => ({
         label: col.name,
         type: col.type.toUpperCase() as 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'DATE',
         validation: col.metadata?.source === 'base_list' ? {} : undefined,
