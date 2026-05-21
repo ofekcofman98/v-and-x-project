@@ -13,18 +13,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { useColumnManager } from '@/components/shared-table/hooks/useColumnManager';
 import { useRowManager } from '@/components/shared-table/hooks/useRowManager';
-import { ColumnHeaderCell } from '@/components/shared-table/ColumnHeaderCell';
-import { DataCell } from '@/components/shared-table/DataCell';
 import type { ColumnDef, RowData, TableMetadata } from '@/components/shared-table/types';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { validateGridSchema } from '@/lib/utils/table-validation';
+import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { BaseListSidebar } from './BaseListSidebar';
-import { Database, X, Plus, Trash2 } from 'lucide-react';
+import { Database, X } from 'lucide-react';
 
 interface DynamicTableCreatorProps {
   onClose: () => void;
@@ -215,36 +208,12 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
     removeRow(rowId);
   };
 
-  /**
-   * Validate before submitting
-   */
-  const validate = (): string | null => {
-    if (!tableName.trim()) {
-      return 'Table name is required';
-    }
-
-    if (columns.length === 0) {
-      return 'At least one column is required';
-    }
-
-    const emptyColumns = columns.filter((col) => !col.name.trim());
-    if (emptyColumns.length > 0) {
-      return `${emptyColumns.length} column(s) missing a name`;
-    }
-
-    const names = columns.map((col) => col.name.toLowerCase().trim());
-    if (new Set(names).size !== names.length) {
-      return 'Column names must be unique';
-    }
-
-    return null;
-  };
 
   /**
    * Handle save - Transform to API format and submit
    */
   const handleSave = async () => {
-    const validationError = validate();
+    const validationError = validateGridSchema(tableName, columns);
     if (validationError) {
       toast({
         title: 'Validation Error',
@@ -344,125 +313,19 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
         </div>
 
         {/* Grid Container */}
+
         <div className="flex-1 overflow-auto bg-slate-50">
           <div className="container max-w-7xl mx-auto px-6 py-8">
-            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-              {columns.length === 0 ? (
-                <div className="p-12 text-center">
-                  <p className="text-lg font-medium text-slate-700 mb-2">No columns defined</p>
-                  <p className="text-sm text-slate-500 mb-6">
-                    Select a Base List from the sidebar or add custom columns to begin
-                  </p>
-                  <Button onClick={handleAddColumn} variant="outline">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add First Column
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="border-collapse">
-                      <thead>
-                        {/* Row 1: Column Names */}
-                        <tr className="border-b border-slate-200">
-                          {columns.map((col) => (
-                            <ColumnHeaderCell
-                              key={col.id}
-                              column={col}
-                              onNameChange={(name) => updateColumn(col.id, { name })}
-                              onTypeChange={(type) => updateColumn(col.id, { type })}
-                              onDelete={() => handleRemoveColumn(col.id)}
-                              showTypeSelector={false}
-                            />
-                          ))}
-                          <th className="w-12 bg-slate-50 border-l border-slate-200">
-                            <div className="flex items-center justify-center p-2">
-                              <Button
-                                onClick={handleAddColumn}
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 hover:bg-slate-100"
-                              >
-                                <Plus className="h-4 w-4 text-slate-400" />
-                              </Button>
-                            </div>
-                          </th>
-                        </tr>
-
-                        {/* Row 2: Column Types */}
-                        <tr className="border-b border-slate-200 bg-slate-50/50">
-                          {columns.map((col) => (
-                            <th key={col.id} className="border-l first:border-l-0 border-slate-200 p-1">
-                              <Select
-                                value={col.type}
-                                onValueChange={(value) => updateColumn(col.id, { type: value as ColumnDef['type'] })}
-                                disabled={col.metadata?.locked}
-                              >
-                                <SelectTrigger className="h-7 text-xs border bg-white hover:bg-slate-50 border-slate-200 focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="text">Text</SelectItem>
-                                  <SelectItem value="number">Number</SelectItem>
-                                  <SelectItem value="boolean">Boolean</SelectItem>
-                                  <SelectItem value="date">Date</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </th>
-                          ))}
-                          <th className="border-l border-slate-200"></th>
-                        </tr>
-                      </thead>
-
-                      {/* Data Rows */}
-                      <tbody>
-                        {rows.map((row) => (
-                          <tr
-                            key={row.id}
-                            className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors group"
-                          >
-                            {columns.map((col) => (
-                              <DataCell
-                                key={col.id}
-                                column={col}
-                                value={row.values[col.id] || ''}
-                                onChange={(val) => updateCell(row.id, col.id, val)}
-                                disabled={row.metadata?.locked}
-                              />
-                            ))}
-                            <td className="border-l border-slate-200 p-1 bg-slate-50/30">
-                              <div className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button
-                                  onClick={() => handleRemoveRow(row.id)}
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7 hover:bg-red-50 hover:text-red-600"
-                                  disabled={row.metadata?.locked}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Add Row Button */}
-                  <div className="border-t border-slate-200 bg-slate-50/30 p-2">
-                    <Button
-                      onClick={handleAddRow}
-                      variant="ghost"
-                      className="w-full justify-start text-slate-600 hover:bg-slate-50 hover:text-slate-900 h-8"
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-2" />
-                      Add Row
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
+            <SharedBuilderGrid
+              columns={columns}
+              rows={rows}
+              onAddColumn={handleAddColumn}
+              onRemoveColumn={handleRemoveColumn}
+              onUpdateColumn={updateColumn}
+              onAddRow={handleAddRow}
+              onRemoveRow={handleRemoveRow}
+              onUpdateCell={updateCell}
+            />
           </div>
         </div>
 

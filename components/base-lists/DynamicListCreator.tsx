@@ -13,18 +13,10 @@ import { useToast } from '@/components/ui/use-toast';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
 import { useColumnManager } from '@/components/shared-table/hooks/useColumnManager';
 import { useRowManager } from '@/components/shared-table/hooks/useRowManager';
-import { ColumnHeaderCell } from '@/components/shared-table/ColumnHeaderCell';
-import { DataCell } from '@/components/shared-table/DataCell';
 import type { ColumnDef } from '@/components/shared-table/types';
 import { validateGridSchema } from '@/lib/utils/table-validation';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Plus, Save, X, ArrowLeft } from 'lucide-react';
+import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
+import { Save, X, ArrowLeft } from 'lucide-react';
 
 /**
  * Component Props
@@ -249,19 +241,11 @@ export function DynamicListCreator({ open, onClose, onSuccess }: DynamicListCrea
             </div>
             
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                onClick={handleClose}
-                className="h-9"
-              >
+              <Button variant="ghost" onClick={handleClose} className="h-9">
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
-              <Button
-                onClick={handleSave}
-                disabled={isSubmitting}
-                className="h-9"
-              >
+              <Button onClick={handleSave} disabled={isSubmitting} className="h-9">
                 <Save className="h-4 w-4 mr-2" />
                 {isSubmitting ? 'Saving...' : 'Save List'}
               </Button>
@@ -270,109 +254,18 @@ export function DynamicListCreator({ open, onClose, onSuccess }: DynamicListCrea
         </div>
       </div>
 
-      {/* Main Grid Area - Notion/Excel style */}
       <div className="flex-1 overflow-auto bg-slate-50">
         <div className="container max-w-7xl mx-auto px-6 py-8">
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="border-collapse">
-                <thead>
-                  {/* Row 1: Column Names */}
-                  <tr className="border-b border-slate-200">
-                    {columns.map((col) => (
-                      <ColumnHeaderCell
-                        key={col.id}
-                        column={col}
-                        onNameChange={(name) => updateColumn(col.id, { name })}
-                        onTypeChange={(type) => updateColumn(col.id, { type })}
-                        onDelete={() => handleRemoveColumn(col.id)}
-                        showTypeSelector={false}
-                      />
-                    ))}
-                    <th className="w-12 bg-slate-50 border-l border-slate-200">
-                      <div className="flex items-center justify-center p-2">
-                        <Button
-                          onClick={handleAddColumn}
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 hover:bg-slate-100"
-                        >
-                          <Plus className="h-4 w-4 text-slate-400" />
-                        </Button>
-                      </div>
-                    </th>
-                  </tr>
-
-                  {/* Row 2: Column Types */}
-                  <tr className="border-b border-slate-200 bg-slate-50/50">
-                    {columns.map((col) => (
-                      <th key={col.id} className="border-l first:border-l-0 border-slate-200 p-1">
-                        <Select
-                          value={col.type}
-                          onValueChange={(value) => updateColumn(col.id, { type: value as ColumnDef['type'] })}
-                          disabled={col.metadata?.locked}
-                        >
-                          <SelectTrigger className="h-7 text-xs border bg-white hover:bg-slate-50 border-slate-200 focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="text">Text</SelectItem>
-                            <SelectItem value="number">Number</SelectItem>
-                            <SelectItem value="boolean">Boolean</SelectItem>
-                            <SelectItem value="date">Date</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </th>
-                    ))}
-                    <th className="border-l border-slate-200"></th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {rows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors group"
-                    >
-                      {columns.map((col) => (
-                        <DataCell
-                          key={col.id}
-                          column={col}
-                          value={row.values[col.id] || ''}
-                          onChange={(val) => updateCell(row.id, col.id, val)}
-                          disabled={row.metadata?.locked}
-                        />
-                      ))}
-                      <td className="border-l border-slate-200 p-1 bg-slate-50/30">
-                        <div className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            onClick={() => handleRemoveRow(row.id)}
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 hover:bg-red-50 hover:text-red-600"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Add Row Button - Clean footer */}
-            <div className="border-t border-slate-200 bg-slate-50/30 p-2">
-              <Button
-                onClick={handleAddRow}
-                variant="ghost"
-                className="w-full justify-start text-slate-600 hover:bg-slate-50 hover:text-slate-900 h-8"
-              >
-                <Plus className="h-3.5 w-3.5 mr-2" />
-                Add Row
-              </Button>
-            </div>
-          </div>
+          <SharedBuilderGrid
+            columns={columns}
+            rows={rows}
+            onAddColumn={handleAddColumn}
+            onRemoveColumn={handleRemoveColumn}
+            onUpdateColumn={updateColumn}
+            onAddRow={handleAddRow}
+            onRemoveRow={handleRemoveRow}
+            onUpdateCell={updateCell}
+          />
         </div>
       </div>
     </div>
