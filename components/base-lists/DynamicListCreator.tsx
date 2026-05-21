@@ -16,6 +16,7 @@ import { useRowManager } from '@/components/shared-table/hooks/useRowManager';
 import { ColumnHeaderCell } from '@/components/shared-table/ColumnHeaderCell';
 import { DataCell } from '@/components/shared-table/DataCell';
 import type { ColumnDef } from '@/components/shared-table/types';
+import { validateGridSchema } from '@/lib/utils/table-validation';
 import {
   Select,
   SelectContent,
@@ -137,36 +138,12 @@ export function DynamicListCreator({ open, onClose, onSuccess }: DynamicListCrea
     }
   };
 
-  /**
-   * Validate before submitting
-   */
-  const validate = (): string | null => {
-    if (!listName.trim()) {
-      return 'List name is required';
-    }
-
-    if (columns.length === 0) {
-      return 'At least one column is required';
-    }
-
-    const emptyColumns = columns.filter((col) => !col.name.trim());
-    if (emptyColumns.length > 0) {
-      return `${emptyColumns.length} column(s) missing a name`;
-    }
-
-    const names = columns.map((col) => col.name.toLowerCase().trim());
-    if (new Set(names).size !== names.length) {
-      return 'Column names must be unique';
-    }
-
-    return null;
-  };
 
   /**
    * Handle save - Transform to API format and submit
    */
   const handleSave = async () => {
-    const validationError = validate();
+    const validationError = validateGridSchema(listName, columns);
     if (validationError) {
       toast({
         title: 'Validation Error',
