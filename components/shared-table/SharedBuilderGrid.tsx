@@ -10,6 +10,8 @@ import type { ColumnDef, RowData } from './types';
 interface SharedBuilderGridProps {
   columns: ColumnDef[];
   rows: RowData[];
+  representativeColumnId: string | null;
+  onRepresentativeColumnChange: (columnId: string) => void;
   onAddColumn: () => void;
   onRemoveColumn: (colId: string) => void;
   onUpdateColumn: (colId: string, updates: Partial<ColumnDef>) => void;
@@ -21,6 +23,8 @@ interface SharedBuilderGridProps {
 export function SharedBuilderGrid({
   columns,
   rows,
+  representativeColumnId,
+  onRepresentativeColumnChange,
   onAddColumn,
   onRemoveColumn,
   onUpdateColumn,
@@ -59,6 +63,8 @@ export function SharedBuilderGrid({
                   onTypeChange={(type) => onUpdateColumn(col.id, { type })}
                   onDelete={() => onRemoveColumn(col.id)}
                   showTypeSelector={false}
+                  isRepresentative={representativeColumnId === col.id}
+                  onRepresentativeClick={() => onRepresentativeColumnChange(col.id)}
                 />
               ))}
               <th className="w-12 bg-slate-50 border-l border-slate-200">

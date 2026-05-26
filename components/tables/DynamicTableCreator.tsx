@@ -6,7 +6,7 @@
  * Implements: docs/logs/REFACTOR_TABLE_CREATOR.md §2.1-2.3
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +34,25 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
 
   const [selectedBaseListId, setSelectedBaseListId] = useState<string | null>(null);
   const [tableMetadata, setTableMetadata] = useState<TableMetadata>({});
+  const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(null);
+
+  /**
+   * Auto-select first TEXT column as representative if none is selected
+   */
+  useEffect(() => {
+    if (!representativeColumnId && columns.length > 0) {
+      const firstTextColumn = columns.find(col => col.type === 'text');
+      if (firstTextColumn) {
+        setRepresentativeColumnId(firstTextColumn.id);
+      }
+    }
+    
+    const currentRepColumn = columns.find(col => col.id === representativeColumnId);
+    if (representativeColumnId && (!currentRepColumn || currentRepColumn.type !== 'text')) {
+      const firstTextColumn = columns.find(col => col.type === 'text');
+      setRepresentativeColumnId(firstTextColumn?.id || null);
+    }
+  }, [columns, representativeColumnId]);
 
   /**
    * Handle Base List selection - Inject columns and rows
@@ -71,6 +90,11 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
 
       setRows(injectedRows);
 
+      const firstTextColumn = injectedColumns.find(col => col.type === 'text');
+      if (firstTextColumn) {
+        setRepresentativeColumnId(firstTextColumn.id);
+      }
+
       setTableMetadata({
         baseListId: baseList.id,
         baseListName: baseList.name,
@@ -100,12 +124,20 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
       setRows([{ id: 'row_1', values: {}, metadata: { source: 'inline' } }]);
       setTableMetadata({});
       setSelectedBaseListId(null);
+      setRepresentativeColumnId(null);
       
       toast({
         title: 'Base List Cleared',
         description: 'Switched to generic table mode',
       });
     }
+  };
+
+  /**
+   * Handle representative column selection
+   */
+  const handleRepresentativeColumnChange = (columnId: string) => {
+    setRepresentativeColumnId(columnId);
   };
 
   /**
@@ -138,8 +170,11 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
     setIsSubmitting(true);
 
     try {
-      // Use first column as representative column
-      const representativeColumnKey = columns[0].id;
+      const representativeColumnKey = representativeColumnId || columns[0]?.id;
+
+      if (!representativeColumnKey) {
+        throw new Error('No columns defined');
+      }
 
       // Transform columns to API format
       const apiColumns = columns
@@ -232,6 +267,8 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
             <SharedBuilderGrid
               columns={columns}
               rows={rows}
+              representativeColumnId={representativeColumnId}
+              onRepresentativeColumnChange={handleRepresentativeColumnChange}
               {...gridActions}
             />
           </div>
