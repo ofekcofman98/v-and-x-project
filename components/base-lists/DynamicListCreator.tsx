@@ -7,6 +7,7 @@
  * Refactored to use shared-table components (Phase 1)
  */
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
@@ -47,6 +48,10 @@ export function DynamicListCreator({ open, onClose, onSuccess }: DynamicListCrea
     setters: { setName: setListName, setDescription, setIsSubmitting, setColumns, setRows },
     gridActions
   } = useGridBuilder(DEFAULT_COLUMN);
+
+  const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(
+    DEFAULT_COLUMN.id
+  );
   
   if (!open) return null;
 
@@ -74,7 +79,7 @@ export function DynamicListCreator({ open, onClose, onSuccess }: DynamicListCrea
           columns: columns.map((col) => ({
             id: col.id,
             label: col.name,
-            type: col.type,
+            type: col.type.toUpperCase(),
             validation: col.id === 'name' ? { required: true } : {},
           })),
         },
@@ -178,6 +183,8 @@ export function DynamicListCreator({ open, onClose, onSuccess }: DynamicListCrea
           <SharedBuilderGrid
             columns={columns}
             rows={rows}
+            representativeColumnId={representativeColumnId}
+            onRepresentativeColumnChange={setRepresentativeColumnId}
             {...gridActions}
           />
         </div>

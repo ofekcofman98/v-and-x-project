@@ -164,9 +164,18 @@ export default function TableDetailsPage() {
         })),
     ];
 
+    // Resolve the representative column: prefer table.representativeColumnKey,
+    // fall back to the first TEXT-type base column, then the first base column.
+    const repColId = table.representativeColumnKey;
+    const firstTextColId =
+        baseListColumns.find((col) => (col.type as string).toUpperCase() === 'TEXT')?.id ??
+        baseListColumns[0]?.id;
+
     const rows: RowDefinition[] = entities.map((entity) => ({
         id: entity.id,
-        label: entity.values[baseListColumns[0]?.id]?.toString() || entity.id,
+        label:
+            (entity.values[repColId] ?? entity.values[firstTextColId ?? ''])?.toString() ||
+            entity.id,
         values: entity.values,
     }));
 

@@ -65,10 +65,10 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
       
       const { data: baseList } = await response.json();
 
-      const injectedColumns: ColumnDef[] = baseList.schema.columns.map((col: { id: string; label: string; type: 'text' | 'number' | 'boolean' | 'date' }) => ({
+      const injectedColumns: ColumnDef[] = baseList.schema.columns.map((col: { id: string; label: string; type: string }) => ({
         id: col.id,
         name: col.label,
-        type: col.type,
+        type: (col.type || 'text').toLowerCase() as ColumnDef['type'],
         metadata: {
           source: 'base_list' as const,
           baseListColumnId: col.id,
