@@ -1,6 +1,5 @@
-// components/table/TableGridSection.tsx
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DataTable } from '@/components/table/DataTable';
+import { DataTable } from './DataTable';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
 import type { ColumnDefinition, RowDefinition } from '@/lib/types/table-schema';
 
@@ -30,7 +29,7 @@ export function TableGridSection({
       </CardHeader>
       <CardContent>
         {!hasData ? (
-          <EmptyEntitiesState 
+          <EmptyEntitiesState
             title="No Data Yet"
             description="This table doesn't have any entities or columns yet. Add a Base List or create columns to get started."
           />

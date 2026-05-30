@@ -28,44 +28,43 @@ export const MobileTableView = memo(function MobileTableView({
   onCellClick,
 }: MobileTableViewProps) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  // Optimized: Only subscribe to setActiveCell, not entire store (§3.2)
   const setActiveCell = useUIStore((state) => state.setActiveCell);
-  
+
   const getCellValue = useCallback((rowId: string, columnId: string) => {
     const cell = data.find(
       (d) => d.rowKey === rowId && d.tableColumnId === columnId
     );
     return cell?.value;
   }, [data]);
-  
+
   const handleCellClick = useCallback((rowId: string, columnId: string) => {
-    setActiveCell({ rowId, columnId });
+    setActiveCell({ rowKey: rowId, tableColumnId: columnId });
     onCellClick?.(rowId, columnId);
   }, [setActiveCell, onCellClick]);
-  
+
   return (
     <div className="lg:hidden space-y-2">
       {rows.map((row) => (
-        <div key={row.id} className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
+        <div key={row.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden">
           {/* Row Header */}
           <button
             onClick={() => setExpandedRow(expandedRow === row.id ? null : row.id)}
-            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+            className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
           >
-            <span className="font-medium text-gray-900 dark:text-gray-100">
+            <span className="font-medium text-slate-900">
               {row.label}
             </span>
             <ChevronRight
               className={cn(
-                "h-5 w-5 text-gray-400 transition-transform",
-                expandedRow === row.id && "rotate-90"
+                'h-5 w-5 text-slate-400 transition-transform',
+                expandedRow === row.id && 'rotate-90'
               )}
             />
           </button>
-          
+
           {/* Expanded Content */}
           {expandedRow === row.id && (
-            <div className="px-4 pb-4 space-y-3 border-t border-gray-200 dark:border-gray-800">
+            <div className="px-4 pb-4 space-y-3 border-t border-slate-200">
               {columns.map((col) => {
                 const value = getCellValue(row.id, col.id);
                 const formattedValue = formatCellValue(value, col.type);
@@ -73,12 +72,12 @@ export const MobileTableView = memo(function MobileTableView({
                   <button
                     key={col.id}
                     onClick={() => handleCellClick(row.id, col.id)}
-                    className="w-full flex justify-between items-center py-2 hover:bg-gray-50 dark:hover:bg-gray-900 rounded px-2 -mx-2"
+                    className="w-full flex justify-between items-center py-2 hover:bg-slate-50 rounded px-2 -mx-2"
                   >
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                    <span className="text-sm text-slate-500">
                       {col.label}
                     </span>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                    <span className="font-medium text-slate-900">
                       {formattedValue || '—'}
                     </span>
                   </button>

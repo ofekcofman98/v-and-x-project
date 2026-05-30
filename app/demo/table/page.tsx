@@ -6,10 +6,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import { DataTable } from '@/components/table/DataTable';
-import { MobileTableView } from '@/components/table/MobileTableView';
-
-import { NavigationModeToggle } from '@/components/table/NavigationModeToggle';
+import { DataTable } from '@/components/shared-table/DataTable';
+import { MobileTableView } from '@/components/shared-table/MobileTableView';
+import { NavigationModeToggle } from '@/components/shared-table/NavigationModeToggle';
 import { ConfirmationDialog, VoiceButton } from '@/components/voice';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useTableCellStore } from '@/lib/stores/table-cell-store';
@@ -122,9 +121,9 @@ export default function DataTableDemoPage() {
             <div className="font-mono text-sm bg-gray-100 dark:bg-gray-800 p-3 rounded">
               {activeCell ? (
                 <>
-                  Row: <span className="font-semibold">{activeCell.rowId}</span>
+                  Row: <span className="font-semibold">{activeCell.rowKey}</span>
                   {' | '}
-                  Column: <span className="font-semibold">{activeCell.columnId}</span>
+                  Column: <span className="font-semibold">{activeCell.tableColumnId}</span>
                 </>
               ) : (
                 <span className="text-gray-500 dark:text-gray-500">None selected</span>
@@ -190,19 +189,19 @@ export default function DataTableDemoPage() {
             </p>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setActiveCell({ rowId: 'row1', columnId: 'entity' })}
+                onClick={() => setActiveCell({ rowKey: 'row1', tableColumnId: 'entity' })}
                 className="px-3 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 A - Entity
               </button>
               <button
-                onClick={() => setActiveCell({ rowId: 'row2', columnId: 'value' })}
+                onClick={() => setActiveCell({ rowKey: 'row2', tableColumnId: 'value' })}
                 className="px-3 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 B - Value
               </button>
               <button
-                onClick={() => setActiveCell({ rowId: 'row3', columnId: 'status' })}
+                onClick={() => setActiveCell({ rowKey: 'row3', tableColumnId: 'status' })}
                 className="px-3 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 C - Status
@@ -220,9 +219,9 @@ export default function DataTableDemoPage() {
         {/* Desktop Table View */}
         <div className="hidden lg:block">
           <DataTable
+            tableId="demo"
             columns={columns}
             rows={rows}
-            data={mockData}
             onCellClick={handleCellClick}
           />
         </div>
@@ -252,7 +251,7 @@ export default function DataTableDemoPage() {
         
         {/* Voice Button */}
         <div className="mt-8 flex justify-center">
-          <VoiceButton tableSchema={tableSchema} />
+          <VoiceButton tableId="demo" tableSchema={tableSchema} />
         </div>
 
         <ConfirmationDialog />

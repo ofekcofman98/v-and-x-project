@@ -13,7 +13,7 @@ import { AppHeader } from '@/components/AppHeader';
 
 import { StatCard } from '@/components/shared/StatCard';
 import { RelationCard } from '@/components/shared/RelationCard';
-import { TableGridSection } from '@/components/table/TableGridSection';
+import { TableGridSection } from '@/components/shared-table/TableGridSection';
 
 import type { 
   TableWithRelations, 
