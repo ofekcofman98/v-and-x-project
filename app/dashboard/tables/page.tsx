@@ -5,7 +5,7 @@
  * Implements: docs/14_PRODUCT_DATA_FLOW.md §4
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTableStore } from '@/lib/stores/table-store';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
@@ -13,7 +13,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
-import { Plus, Table as TableIcon } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/components/ui/use-toast';
+import { Plus, Table as TableIcon, Trash2 } from 'lucide-react';
 
 /**
  * Loading skeleton for table cards
@@ -87,18 +98,43 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 }
 
 export default function TablesDashboardPage() {
-  const { tables, isLoading, error, fetchTables } = useTableStore();
+  const { tables, isLoading, error, fetchTables, deleteTable } = useTableStore();
   const { lists, fetchLists } = useBaseListStore();
+  const { toast } = useToast();
+
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchTables();
     fetchLists();
   }, [fetchTables, fetchLists]);
 
-  // Helper to get base list name
   const getBaseListName = (baseListId: string) => {
     const baseList = lists.find((list) => list.id === baseListId);
     return baseList?.name || 'Unknown List';
+  };
+
+  const pendingTable = tables.find((t) => t.id === pendingDeleteId);
+
+  const handleDeleteConfirm = async () => {
+    if (!pendingDeleteId) return;
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/tables/${pendingDeleteId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Delete failed' }));
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      deleteTable(pendingDeleteId);
+      toast({ title: 'Table deleted', description: `"${pendingTable?.name}" was removed successfully.` });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteId(null);
+    }
   };
 
   return (
@@ -136,9 +172,18 @@ export default function TablesDashboardPage() {
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {tables.map((table) => (
-                <Card key={table.id} className="flex flex-col">
+                <Card key={table.id} className="group flex flex-col">
                   <CardHeader>
-                    <CardTitle className="text-xl">{table.name}</CardTitle>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-xl">{table.name}</CardTitle>
+                      <button
+                        onClick={() => setPendingDeleteId(table.id)}
+                        aria-label={`Delete ${table.name}`}
+                        className="mt-0.5 shrink-0 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                     <CardDescription>
                       Base List: {getBaseListName(table.baseListId || '')}
                     </CardDescription>
@@ -197,6 +242,23 @@ export default function TablesDashboardPage() {
           )}
         </section>
       </main>
+
+      <AlertDialog open={!!pendingDeleteId} onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Table</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-medium text-slate-900">&ldquo;{pendingTable?.name}&rdquo;</span>? This action cannot be undone and will permanently remove all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting}>
+              {isDeleting ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

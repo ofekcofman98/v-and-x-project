@@ -17,6 +17,19 @@ import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
 import { StatCard } from '@/components/shared/StatCard';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/components/ui/use-toast';
+import { useBaseListStore } from '@/lib/stores/base-list-store';
+import { Trash2 } from 'lucide-react';
 
 interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {
   createdAt: string;
@@ -34,11 +47,35 @@ export default function BaseListDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+  const { toast } = useToast();
+  const deleteList = useBaseListStore((s) => s.deleteList);
 
   const [baseList, setBaseList] = useState<BaseListWithEntitiesDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteConfirm = async () => {
+    if (!id) return;
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/base-lists/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Delete failed' }));
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      deleteList(id);
+      toast({ title: 'Base list deleted', description: `"${baseList?.name}" was removed successfully.` });
+      router.push('/dashboard/base-lists');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
 
   const fetchBaseList = async () => {
     if (!id) return;
@@ -113,25 +150,34 @@ export default function BaseListDetailsPage() {
                   <p className="text-muted-foreground mt-2">{baseList.description}</p>
                 )}
               </div>
-              <Link
-                href="/dashboard/base-lists"
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2"
-              >
-                <svg
-                  className="h-4 w-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setDeleteDialogOpen(true)}
+                  aria-label="Delete base list"
+                  className="inline-flex items-center justify-center rounded-md h-10 w-10 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-                Back to Dashboard
-              </Link>
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <Link
+                  href="/dashboard/base-lists"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2"
+                >
+                  <svg
+                    className="h-4 w-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                    />
+                  </svg>
+                  Back to Dashboard
+                </Link>
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
@@ -201,6 +247,23 @@ export default function BaseListDetailsPage() {
           </div>
         </section>
       </main>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open && !isDeleting) setDeleteDialogOpen(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Base List</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-medium text-slate-900">&ldquo;{baseList?.name}&rdquo;</span>? This action cannot be undone and will permanently remove all associated entities.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting}>
+              {isDeleting ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

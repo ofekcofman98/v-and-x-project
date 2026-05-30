@@ -17,6 +17,7 @@ interface BaseListState {
   
   fetchLists: () => Promise<void>;
   setLists: (lists: BaseListDTO[]) => void;
+  deleteList: (id: string) => void;
   clearError: () => void;
 }
 
@@ -52,6 +53,10 @@ export const useBaseListStore = create<BaseListState>()(
       },
       
       setLists: (lists) => set({ lists }),
+      
+      deleteList: (id) => set((state) => ({
+        lists: state.lists.filter((l) => l.id !== id),
+      })),
       
       clearError: () => set({ error: null }),
     }),

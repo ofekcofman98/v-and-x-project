@@ -13,7 +13,18 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
 import { DynamicListCreator } from '@/components/base-lists/DynamicListCreator';
-import { Plus } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/components/ui/use-toast';
+import { Plus, Trash2 } from 'lucide-react';
 
 /**
  * Loading skeleton for list cards
@@ -93,12 +104,37 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 }
 
 export default function DashboardPage() {
-  const { lists, isLoading, error, fetchLists } = useBaseListStore();
+  const { lists, isLoading, error, fetchLists, deleteList } = useBaseListStore();
+  const { toast } = useToast();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchLists();
   }, [fetchLists]);
+
+  const pendingList = lists.find((l) => l.id === pendingDeleteId);
+
+  const handleDeleteConfirm = async () => {
+    if (!pendingDeleteId) return;
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/base-lists/${pendingDeleteId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Delete failed' }));
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      deleteList(pendingDeleteId);
+      toast({ title: 'Base list deleted', description: `"${pendingList?.name}" was removed successfully.` });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteId(null);
+    }
+  };
 
   return (
     <>
@@ -132,9 +168,18 @@ export default function DashboardPage() {
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {lists.map((list) => (
-                <Card key={list.id} className="flex flex-col">
+                <Card key={list.id} className="group flex flex-col">
                   <CardHeader>
-                    <CardTitle className="text-xl">{list.name}</CardTitle>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-xl">{list.name}</CardTitle>
+                      <button
+                        onClick={() => setPendingDeleteId(list.id)}
+                        aria-label={`Delete ${list.name}`}
+                        className="mt-0.5 shrink-0 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                     {list.description && (
                       <CardDescription className="line-clamp-2">
                         {list.description}
@@ -192,6 +237,23 @@ export default function DashboardPage() {
         open={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
       />
+
+      <AlertDialog open={!!pendingDeleteId} onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Base List</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-medium text-slate-900">&ldquo;{pendingList?.name}&rdquo;</span>? This action cannot be undone and will permanently remove all associated entities.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting}>
+              {isDeleting ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

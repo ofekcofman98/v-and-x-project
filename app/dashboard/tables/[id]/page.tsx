@@ -7,9 +7,22 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/components/ui/use-toast';
+import { useTableStore } from '@/lib/stores/table-store';
+import { Trash2 } from 'lucide-react';
 
 import { StatCard } from '@/components/shared/StatCard';
 import { RelationCard } from '@/components/shared/RelationCard';
@@ -65,15 +78,40 @@ interface TableWithRelationsDTO extends Omit<TableWithRelations, 'createdAt' | '
 
 export default function TableDetailsPage() {
     const params = useParams();
+    const router = useRouter();
     const id = params?.id as string;
+    const { toast } = useToast();
+    const deleteTable = useTableStore((s) => s.deleteTable);
 
     const [table, setTable] = useState<TableWithRelationsDTO | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [notFound, setNotFound] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Use the table cell store for cell data
     const fetchCells = useTableCellStore((state) => state.fetchCells);
+
+    const handleDeleteConfirm = async () => {
+        if (!id) return;
+        setIsDeleting(true);
+        try {
+            const response = await fetch(`/api/tables/${id}`, { method: 'DELETE' });
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({ error: 'Delete failed' }));
+                throw new Error(data.error || `HTTP ${response.status}`);
+            }
+            deleteTable(id);
+            toast({ title: 'Table deleted', description: `"${table?.name}" was removed successfully.` });
+            router.push('/dashboard/tables');
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Something went wrong';
+            toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
+            setIsDeleting(false);
+            setDeleteDialogOpen(false);
+        }
+    };
 
     const fetchTable = async () => {
         if (!id) return;
@@ -200,6 +238,14 @@ export default function TableDetailsPage() {
                   )}
                 </div>
                             
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setDeleteDialogOpen(true)}
+                  aria-label="Delete table"
+                  className="inline-flex items-center justify-center rounded-md h-10 w-10 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
                 <Link
                   href="/dashboard/tables"
                   className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2"
@@ -220,6 +266,7 @@ export default function TableDetailsPage() {
                   
                   Back to Tables
                 </Link>
+              </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
@@ -254,6 +301,23 @@ export default function TableDetailsPage() {
               <VoiceButton tableId={id} tableSchema={tableSchema} />
             </div>
           )}
+
+          <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open && !isDeleting) setDeleteDialogOpen(false); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Table</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete <span className="font-medium text-slate-900">&ldquo;{table?.name}&rdquo;</span>? This action cannot be undone and will permanently remove all associated data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting}>
+                  {isDeleting ? 'Deleting…' : 'Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
     );
 }

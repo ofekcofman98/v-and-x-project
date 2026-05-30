@@ -17,6 +17,7 @@ interface TableState {
   
   fetchTables: () => Promise<void>;
   addTable: (table: TableDTO) => void;
+  deleteTable: (id: string) => void;
   clearError: () => void;
 }
 
@@ -53,6 +54,10 @@ export const useTableStore = create<TableState>()(
       
       addTable: (table) => set((state) => ({ 
         tables: [table, ...state.tables] 
+      })),
+      
+      deleteTable: (id) => set((state) => ({
+        tables: state.tables.filter((t) => t.id !== id),
       })),
       
       clearError: () => set({ error: null }),
