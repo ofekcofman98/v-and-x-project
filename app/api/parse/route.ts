@@ -251,25 +251,31 @@ function buildParsePrompt(params: {
   const currentColumn = tableSchema.columns.find((col) => col.id === activeCell.columnId);
   const columnType = currentColumn?.type ?? ColumnType.TEXT;
 
-  // Context Diet: We deliberately DO NOT pass the rows/entities array here!
-  // We only tell it what column it's currently on to help parse the value.
+  const availableEntities = tableSchema.rows.map(row => row.label).join(', ');
 
   return `
 You are a lightning-fast data extraction assistant.
-Your ONLY job is to extract the spoken entity and the value from the transcript.
-Do NOT attempt to match the entity against any database. Return EXACTLY what was heard.
+Your job is to extract the intended entity and the value from the transcript.
 
 CURRENT STATE:
 - Navigation mode: ${navigationMode}
 - Expected Column Type: ${columnType} (e.g. if 'number', convert word numbers like "eighty" to 80)
 
+AVAILABLE ENTITIES IN TABLE (Voice Key):
+[${availableEntities}]
+
 USER SAID: "${transcript}"
+
+INSTRUCTIONS:
+1. Match the spoken entity to ONE of the exact names in the AVAILABLE ENTITIES list. 
+2. If it's a clear match (even with slight mispronunciation), return that exact name.
+3. Extract the target value.
 
 RESPOND ONLY IN JSON (strictly matching this schema):
 {
   "entity": "The exact entity name you heard",
   "entityMatch": {
-    "original": "The exact entity name you heard",
+    "original": "The raw word heard",
     "matched": "The exact entity name you heard",
     "confidence": 1.0,
     "matchType": "exact"
