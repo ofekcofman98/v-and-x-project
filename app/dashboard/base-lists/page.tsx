@@ -13,16 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
 import { DynamicListCreator } from '@/components/base-lists/DynamicListCreator';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -237,23 +228,15 @@ export default function DashboardPage() {
         open={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
       />
-
-      <AlertDialog open={!!pendingDeleteId} onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Base List</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete <span className="font-medium text-slate-900">&ldquo;{pendingList?.name}&rdquo;</span>? This action cannot be undone and will permanently remove all associated entities.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting}>
-              {isDeleting ? 'Deleting…' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      
+      <DeleteConfirmDialog
+        isOpen={!!pendingDeleteId}
+        onClose={() => setPendingDeleteId(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Base List"
+        itemName={pendingList?.name || ''}
+        isDeleting={isDeleting}
+      />
     </>
   );
 }

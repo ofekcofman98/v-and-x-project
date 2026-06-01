@@ -17,16 +17,7 @@ import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
 import { StatCard } from '@/components/shared/StatCard';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { useToast } from '@/components/ui/use-toast';
 import { useBaseListStore } from '@/lib/stores/base-list-store';
 import { Trash2 } from 'lucide-react';
@@ -248,22 +239,14 @@ export default function BaseListDetailsPage() {
         </section>
       </main>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open && !isDeleting) setDeleteDialogOpen(false); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Base List</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete <span className="font-medium text-slate-900">&ldquo;{baseList?.name}&rdquo;</span>? This action cannot be undone and will permanently remove all associated entities.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting}>
-              {isDeleting ? 'Deleting…' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Base List"
+        itemName={baseList?.name || ''}
+        isDeleting={isDeleting}
+      />
     </>
   );
 }

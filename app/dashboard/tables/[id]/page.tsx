@@ -10,16 +10,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { useToast } from '@/components/ui/use-toast';
 import { useTableStore } from '@/lib/stores/table-store';
 import { Trash2 } from 'lucide-react';
@@ -302,22 +293,14 @@ export default function TableDetailsPage() {
             </div>
           )}
 
-          <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open && !isDeleting) setDeleteDialogOpen(false); }}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Table</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete <span className="font-medium text-slate-900">&ldquo;{table?.name}&rdquo;</span>? This action cannot be undone and will permanently remove all associated data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting}>
-                  {isDeleting ? 'Deleting…' : 'Delete'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <DeleteConfirmDialog
+            isOpen={deleteDialogOpen}
+            onClose={() => setDeleteDialogOpen(false)}
+            onConfirm={handleDeleteConfirm}
+            title="Delete Table"
+            itemName={table?.name || ''}
+            isDeleting={isDeleting}
+          />
         </>
     );
 }
