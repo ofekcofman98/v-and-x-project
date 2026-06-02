@@ -34,8 +34,9 @@ model BaseList {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  entities ListEntity[]
-  tables   Table[]
+  entities  ListEntity[]
+  tables    Table[]
+  templates BaseListTemplate[]
 
   @@map("base_lists")
 }
@@ -192,6 +193,65 @@ model TableCell {
   @@index([tableId, tableColumnId])
   @@index([entityId])
   @@map("table_cells")
+}
+
+// ───────────────────────────────────────────────────────────
+// COLUMN TEMPLATE
+// Reusable column schema definitions that can be injected
+// into multiple BaseLists, eliminating repetitive column
+// definition work.
+// Implements: docs/features/02_column_templates.md
+// ───────────────────────────────────────────────────────────
+model ColumnTemplate {
+  id             String  @id @default(uuid()) @db.Uuid
+  userId         String  @map("user_id") @db.Uuid
+  organizationId String? @map("organization_id") @db.Uuid
+
+  name        String
+  description String?
+  category    String?
+
+  // Column definitions stored as JSONB.
+  // Shape: { columns: [{ id, label, type, validation? }] }
+  schema Json
+
+  isPublic   Boolean @default(false) @map("is_public")
+  usageCount Int     @default(0) @map("usage_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  baseLists BaseListTemplate[]
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([category])
+  @@index([isPublic])
+  @@map("column_templates")
+}
+
+// ───────────────────────────────────────────────────────────
+// BASE LIST TEMPLATE (junction)
+// Tracks which templates have been applied to which BaseLists
+// and whether auto-sync is enabled.
+// ───────────────────────────────────────────────────────────
+model BaseListTemplate {
+  id         String @id @default(uuid()) @db.Uuid
+  baseListId String @map("base_list_id") @db.Uuid
+  templateId String @map("template_id") @db.Uuid
+
+  autoSync  Boolean  @default(false) @map("auto_sync")
+  appliedAt DateTime @default(now()) @map("applied_at")
+
+  // Relations
+  baseList BaseList       @relation(fields: [baseListId], references: [id], onDelete: Cascade)
+  template ColumnTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([baseListId, templateId])
+  @@index([baseListId])
+  @@index([templateId])
+  @@map("base_list_templates")
 }
 
 // ───────────────────────────────────────────────────────────
