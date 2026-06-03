@@ -8,7 +8,7 @@
 import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { List, Table } from 'lucide-react';
+import { List, Table, LayoutTemplate } from 'lucide-react';
 
 export default function DashboardPage() {
   return (
@@ -63,6 +63,26 @@ export default function DashboardPage() {
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
                     Access all tables, view data, and manage table-specific information.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/dashboard/templates" className="group">
+              <Card className="h-full transition-colors hover:border-primary cursor-pointer">
+                <CardHeader>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                      <LayoutTemplate className="w-6 h-6 text-primary" />
+                    </div>
+                    <CardTitle>Column Templates</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Create reusable column schemas and inject them into multiple Base Lists.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Define a schema once and apply it everywhere — reduce setup time by 80%.
                   </p>
                 </CardContent>
               </Card>
