@@ -49,7 +49,7 @@ export const useColumnTemplateStore = create<ColumnTemplateState>()(
         try {
           // TODO: Replace with real auth header once session is wired up
           const response = await fetch('/api/column-templates', {
-            headers: { 'x-user-id': 'dev-user' },
+            headers: { 'x-user-id': '00000000-0000-0000-0000-000000000000' },
           });
 
           if (!response.ok) {

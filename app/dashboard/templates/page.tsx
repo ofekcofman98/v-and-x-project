@@ -249,7 +249,7 @@ export default function TemplatesDashboardPage() {
       // TODO: Replace x-user-id with real auth header
       const response = await fetch(`/api/column-templates/${pendingDeleteId}`, {
         method: 'DELETE',
-        headers: { 'x-user-id': 'dev-user' },
+        headers: { 'x-user-id': '00000000-0000-0000-0000-000000000000' },
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({ error: 'Delete failed' }));

@@ -95,7 +95,7 @@ export function DynamicTemplateCreator({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': 'dev-user',
+          'x-user-id': '00000000-0000-0000-0000-000000000000',
         },
         body: JSON.stringify(payload),
       });

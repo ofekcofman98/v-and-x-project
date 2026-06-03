@@ -3,7 +3,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 config({ path: ".env" });
 
-import { defineConfig } from "prisma/config";
+import { defineConfig, env } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -11,7 +11,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
-    directUrl: process.env["DIRECT_URL"],
+    url: env("DATABASE_URL"),
+    // @ts-expect-error directUrl is a valid datasource option but is missing from Prisma's type definitions
+    directUrl: env("DIRECT_URL"),
   },
 });
