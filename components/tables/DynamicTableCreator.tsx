@@ -18,6 +18,18 @@ import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
 import { BaseListSidebar } from './BaseListSidebar';
 import { Database, X } from 'lucide-react';
 
+import { cn } from '@/lib/utils/cn';
+import { useColumnTemplateStore } from '@/lib/stores/column-template-store';
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  education:  '🎓',
+  hr:         '👔',
+  inventory:  '📦',
+  finance:    '💰',
+  healthcare: '🏥',
+  custom:     '⚙️',
+};
+
 interface DynamicTableCreatorProps {
   onClose: () => void;
   onSuccess?: (tableId: string) => void;
@@ -32,6 +44,8 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
     gridActions
   } = useGridBuilder();
 
+  const { templates, isLoading: templatesLoading, fetchTemplates } = useColumnTemplateStore();
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedBaseListId, setSelectedBaseListId] = useState<string | null>(null);
   const [tableMetadata, setTableMetadata] = useState<TableMetadata>({});
   const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(null);
@@ -53,6 +67,10 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
       setRepresentativeColumnId(firstTextColumn?.id || null);
     }
   }, [columns, representativeColumnId]);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
 
   /**
    * Handle Base List selection - Inject columns and rows
@@ -115,6 +133,53 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
     }
   };
 
+  const handleTemplateSelect = async (templateId: string) => {
+    if (selectedTemplateId === templateId) {
+      setSelectedTemplateId(null);
+      return;
+    }
+
+    if (selectedBaseListId) {
+      if (!window.confirm('Applying a template will replace the current Base List columns. Continue?')) {
+        return;
+      }
+      setSelectedBaseListId(null);
+      setTableMetadata({});
+    }
+
+    try {
+      const response = await fetch(`/api/column-templates/${templateId}`, {
+        headers: { 'x-user-id': '00000000-0000-0000-0000-000000000000' },
+      });
+      if (!response.ok) throw new Error('Failed to fetch template');
+  
+      const { data: template } = await response.json();
+  
+      const injectedColumns: ColumnDef[] = template.schema.columns.map(
+        (col: { id: string; label: string; type: string }) => ({
+          id: col.id,
+          name: col.label,
+          type: (col.type || 'text').toLowerCase() as ColumnDef['type'],
+          metadata: { source: 'user_defined' as const, locked: false },
+        })
+      );
+  
+      setColumns(injectedColumns);
+      setSelectedTemplateId(templateId);
+  
+      toast({
+        title: 'Template Applied',
+        description: `${template.name} injected with ${injectedColumns.length} columns`,
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to load template',
+        variant: 'destructive',
+      });
+    }
+  };
+  
   /**
    * Clear Base List and reset to generic mode
    */
@@ -257,6 +322,61 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
               <Button variant="ghost" size="sm" onClick={clearBaseList}>
                 Clear
               </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Template Track */}
+        <div className="border-b bg-muted/20 px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Column Templates
+            </span>
+            {selectedTemplateId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs px-2"
+                onClick={() => setSelectedTemplateId(null)}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+
+          {templatesLoading ? (
+            <p className="text-xs text-muted-foreground py-1">Loading templates…</p>
+          ) : templates.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-1">No templates available</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="flex gap-3 pb-2 w-max">
+                {templates.map((template) => {
+                  const emoji = CATEGORY_EMOJI[template.category?.toLowerCase() ?? ''] ?? '📐';
+                  const isSelected = selectedTemplateId === template.id;
+                  const colCount = template.schema?.columns?.length ?? '?';
+
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => handleTemplateSelect(template.id)}
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-2 rounded-lg border bg-card text-left',
+                        'text-sm whitespace-nowrap transition-all duration-150',
+                        'hover:shadow-md hover:ring-2 hover:ring-purple-500/40',
+                        isSelected
+                          ? 'ring-2 ring-primary border-primary shadow-sm bg-primary/5'
+                          : 'border-border hover:border-purple-300'
+                      )}
+                    >
+                      <span className="text-base leading-none">{emoji}</span>
+                      <span className="font-medium">{template.name}</span>
+                      <span className="text-xs text-muted-foreground">({colCount} cols)</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
