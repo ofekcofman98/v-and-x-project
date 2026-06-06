@@ -3,7 +3,7 @@ export interface ColumnDef {
   name: string;
   type: 'text' | 'number' | 'boolean' | 'date';
   metadata?: {
-    source?: 'base_list' | 'user_defined';
+    source?: 'base_list' | 'user_defined' | 'template';
     baseListColumnId?: string;
     locked?: boolean;
   };

@@ -94,7 +94,11 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
         },
       }));
 
-      setColumns(injectedColumns);
+      // Preserve any active template columns after the new base_list columns
+      const activeTemplateCols = columns.filter(
+        (col) => col.metadata?.source === 'template'
+      );
+      setColumns([...injectedColumns, ...activeTemplateCols]);
 
       const injectedRows: RowData[] = baseList.entities?.map((entity: { id: string; values: Record<string, string> }) => ({
         id: entity.id,
@@ -134,17 +138,11 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
   };
 
   const handleTemplateSelect = async (templateId: string) => {
+    // Deselect: strip template columns only, leaving base_list + user_defined intact
     if (selectedTemplateId === templateId) {
+      setColumns((prev) => prev.filter((col) => col.metadata?.source !== 'template'));
       setSelectedTemplateId(null);
       return;
-    }
-
-    if (selectedBaseListId) {
-      if (!window.confirm('Applying a template will replace the current Base List columns. Continue?')) {
-        return;
-      }
-      setSelectedBaseListId(null);
-      setTableMetadata({});
     }
 
     try {
@@ -152,24 +150,40 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
         headers: { 'x-user-id': '00000000-0000-0000-0000-000000000000' },
       });
       if (!response.ok) throw new Error('Failed to fetch template');
-  
+
       const { data: template } = await response.json();
-  
-      const injectedColumns: ColumnDef[] = template.schema.columns.map(
+
+      const rawTemplateColumns = template.schema.columns.map(
         (col: { id: string; label: string; type: string }) => ({
           id: col.id,
           name: col.label,
           type: (col.type || 'text').toLowerCase() as ColumnDef['type'],
-          metadata: { source: 'user_defined' as const, locked: false },
+          metadata: { source: 'template' as const, locked: false },
         })
       );
-  
-      setColumns(injectedColumns);
+
+      // Strip previous template columns, then append de-duplicated new ones.
+      // IDs are de-duplicated against the surviving (non-template) columns so
+      // React never sees two children with the same key.
+      setColumns((prev) => {
+        const base = prev.filter((col) => col.metadata?.source !== 'template');
+        const occupiedIds = new Set(base.map((col) => col.id));
+
+        const dedupedTemplateColumns: ColumnDef[] = rawTemplateColumns.map(
+          (col: ColumnDef) => {
+            if (!occupiedIds.has(col.id)) return col;
+            const uniqueId = `${col.id}_tpl`;
+            return { ...col, id: uniqueId };
+          }
+        );
+
+        return [...base, ...dedupedTemplateColumns];
+      });
       setSelectedTemplateId(templateId);
-  
+
       toast({
         title: 'Template Applied',
-        description: `${template.name} injected with ${injectedColumns.length} columns`,
+        description: `${template.name} added ${rawTemplateColumns.length} column${rawTemplateColumns.length === 1 ? '' : 's'}`,
       });
     } catch {
       toast({
