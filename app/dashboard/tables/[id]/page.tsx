@@ -169,41 +169,60 @@ export default function TableDetailsPage() {
 
     const baseList = table.baseList;
     const entities = baseList?.entities || [];
-    const baseListColumns = (baseList?.schema as BaseListSchema)?.columns || [];
-    const tableColumns = table.columns || [];
-    const cells = table.cells || [];
+
+    // Build a set of column IDs that originate from the BaseList schema.
+    // This is used to mark which merged columns should read their cell values
+    // from entity.values (isBaseColumn: true) vs. TableCell records (false).
+    const baseListSchemaColumnIds = new Set(
+        ((baseList?.schema as BaseListSchema)?.columns ?? []).map((c) => c.id)
+    );
+
+    // table.schema.columns (JSONB) is the single source of truth for the grid layout.
+    // For tables created via apply-template it holds the complete merged schema
+    // (identity + template columns). Only fall back to the legacy path of combining
+    // baseList.schema + relational table.columns for pre-existing tables where the
+    // JSON schema is empty — this preserves backward compatibility.
+    const tableSchemaColumns = table.schema?.columns ?? [];
+    const relationalTableColumns = table.columns || [];
+
+    const columns: ColumnDefinition[] =
+        tableSchemaColumns.length > 0
+            ? tableSchemaColumns.map((col) => ({
+                  id: col.id,
+                  label: col.label,
+                  type: col.type as unknown as ColumnType,
+                  isBaseColumn: baseListSchemaColumnIds.has(col.id),
+              }))
+            : [
+                  ...((baseList?.schema as BaseListSchema)?.columns ?? []).map((col) => ({
+                      id: col.id,
+                      label: col.label,
+                      type: (col.type as string).toUpperCase() as ColumnType,
+                      isBaseColumn: true as const,
+                  })),
+                  ...relationalTableColumns.map((col) => ({
+                      id: col.id,
+                      label: col.label,
+                      type: prismaColumnTypeToColumnType(col.type),
+                      isBaseColumn: false as const,
+                  })),
+              ];
 
     const totalRows = entities.length;
-    const totalDataColumns = tableColumns.length;
-    const hasData = entities.length > 0 && (baseListColumns.length > 0 || tableColumns.length > 0);
+    const totalDataColumns = columns.length;
+    const hasData = entities.length > 0 && columns.length > 0;
 
-    // Transform data for DataTable component
-    const columns: ColumnDefinition[] = [
-        ...baseListColumns.map((col) => ({
-            id: col.id,
-            label: col.label,
-            type: (col.type as string).toUpperCase() as ColumnType,
-            isBaseColumn: true,
-        })),
-        ...tableColumns.map((col) => ({
-            id: col.id,
-            label: col.label,
-            type: prismaColumnTypeToColumnType(col.type),
-            isBaseColumn: false,
-        })),
-    ];
-
-    // Resolve the representative column: prefer table.representativeColumnKey,
-    // fall back to the first TEXT-type base column, then the first base column.
+    // Resolve entity display labels. Only search within base columns because
+    // entity.values exclusively holds data for base-list-originated columns.
     const repColId = table.representativeColumnKey;
-    const firstTextColId =
-        baseListColumns.find((col) => (col.type as string).toUpperCase() === 'TEXT')?.id ??
-        baseListColumns[0]?.id;
+    const firstTextBaseColId =
+        columns.find((col) => col.isBaseColumn && (col.type as string).toUpperCase() === 'TEXT')?.id ??
+        columns.find((col) => col.isBaseColumn)?.id;
 
     const rows: RowDefinition[] = entities.map((entity) => ({
         id: entity.id,
         label:
-            (entity.values[repColId] ?? entity.values[firstTextColId ?? ''])?.toString() ||
+            (entity.values[repColId] ?? entity.values[firstTextBaseColId ?? ''])?.toString() ||
             entity.id,
         values: entity.values,
     }));

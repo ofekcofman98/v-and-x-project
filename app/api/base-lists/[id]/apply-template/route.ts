@@ -17,10 +17,17 @@ export const runtime = "nodejs";
 // ─────────────────────────────────────────────────────────
 
 const ApplyTemplateBody = z.object({
-  template_id: z.string().uuid("Invalid template_id format"),
-  auto_sync: z.boolean().default(false),
-  merge_strategy: z.enum(["append", "replace"]).default("append"),
+  templateId: z.string().uuid("Invalid template_id format"),
+  autoSync: z.boolean().default(false),
+  selectedBaseListColumnIds: z.array(z.string()).default([]),
 });
+
+const IDENTITY_COLUMN_KEYS = new Set(['name', 'id', 'identifier', 'key']);
+
+function isIdentityColumn(col: { id: string; label: string }): boolean {
+  const norm = (s: string) => s.toLowerCase().trim();
+  return IDENTITY_COLUMN_KEYS.has(norm(col.id)) || IDENTITY_COLUMN_KEYS.has(norm(col.label));
+}
 
 // ─────────────────────────────────────────────────────────
 // POST /api/base-lists/:id/apply-template
@@ -37,16 +44,16 @@ export const POST = withErrorHandler(
     const body = await parseBody(req, ApplyTemplateBody);
     if (!body.success) return body.errorResponse;
 
-    const { template_id, auto_sync, merge_strategy } = body.data;
+    const { templateId, autoSync, selectedBaseListColumnIds } = body.data;
 
     const [baseList, template] = await Promise.all([
       prisma.baseList.findUnique({
         where: { id: parsedId.data },
-        select: { id: true, schema: true },
+        select: { id: true, name: true, schema: true },
       }),
       prisma.columnTemplate.findUnique({
-        where: { id: template_id },
-        select: { id: true, schema: true, isPublic: true, userId: true },
+        where: { id: templateId },
+        select: { id: true, name: true, schema: true, isPublic: true, userId: true },
       }),
     ]);
 
@@ -64,59 +71,67 @@ export const POST = withErrorHandler(
     const templateSchema = template.schema as { columns: Array<{ id: string; label: string; type: string }> };
     const baseListSchema = baseList.schema as { columns: Array<{ id: string; label: string; type: string }> };
 
-    let newColumns: Array<{ id: string; label: string; type: string }>;
-    const conflicts: Array<{ column_id: string; reason: string }> = [];
+    const columnsToKeep = new Set(selectedBaseListColumnIds);
 
-    if (merge_strategy === "replace") {
-      newColumns = templateSchema.columns;
-    } else {
-      const existingIds = new Set(baseListSchema.columns.map((c) => c.id));
-      newColumns = [...baseListSchema.columns];
+    const filteredBaseListColumns = baseListSchema.columns.filter((col) => {
+      if (isIdentityColumn(col)) return true;
+      return columnsToKeep.has(col.id);
+    });
 
-      for (const col of templateSchema.columns) {
-        if (existingIds.has(col.id)) {
-          conflicts.push({ column_id: col.id, reason: "Column ID already exists in BaseList" });
-        } else {
-          newColumns.push(col);
-        }
-      }
-    }
+    const existingColumnIds = new Set(filteredBaseListColumns.map(c => c.id));
+    const uniqueTemplateColumns = templateSchema.columns.filter((col) => {
+      return !existingColumnIds.has(col.id);
+    });
 
-    const columnsAdded =
-      merge_strategy === "replace"
-        ? templateSchema.columns.length
-        : templateSchema.columns.length - conflicts.length;
+    const newColumns = [...filteredBaseListColumns, ...uniqueTemplateColumns];
 
-    await prisma.$transaction([
-      prisma.baseList.update({
-        where: { id: parsedId.data },
-        data: { schema: { columns: newColumns } as unknown as Prisma.InputJsonValue },
+    const columnsAdded = templateSchema.columns.length;
+    const conflicts: any[] = [];
+
+    // The representative column key defaults to the first identity column present
+    // in the merged schema, falling back to the very first column's id.
+    const representativeColumnKey =
+      newColumns.find(isIdentityColumn)?.id ?? newColumns[0]?.id ?? "name";
+
+    const tableName = `${baseList.name} - ${template.name}`;
+
+    const [newTable] = await prisma.$transaction([
+      prisma.table.create({
+        data: {
+          name: tableName,
+          baseListId: parsedId.data,
+          schema: { columns: newColumns } as unknown as Prisma.InputJsonValue,
+          representativeColumnKey,
+          settings: {} as unknown as Prisma.InputJsonValue,
+        },
       }),
       prisma.baseListTemplate.upsert({
         where: {
           baseListId_templateId: {
             baseListId: parsedId.data,
-            templateId: template_id,
+            templateId: templateId,
           },
         },
         create: {
           baseListId: parsedId.data,
-          templateId: template_id,
-          autoSync: auto_sync,
+          templateId: templateId,
+          autoSync: autoSync,
         },
         update: {
-          autoSync: auto_sync,
+          autoSync: autoSync,
           appliedAt: new Date(),
         },
       }),
       prisma.columnTemplate.update({
-        where: { id: template_id },
+        where: { id: templateId },
         data: { usageCount: { increment: 1 } },
       }),
     ]);
 
     return apiSuccess({
       base_list_id: parsedId.data,
+      table_id: newTable.id,
+      table_name: newTable.name,
       template_applied: true,
       columns_added: columnsAdded,
       conflicts,

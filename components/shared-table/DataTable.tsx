@@ -123,7 +123,7 @@ export const DataTable = memo(function DataTable({
                 <th className="w-10 bg-slate-50 border-r border-slate-200" />
 
                 {/* Column headers — shared ColumnHeaderCell primitive */}
-                {columns.map((column) => {
+                {columns.map((column, index) => {
                   const isRepresentative = column.id === localRepKey;
                   // Key icon is only meaningful for Base List text columns —
                   // custom table columns are not part of the voice matching entity vocabulary.
@@ -132,7 +132,7 @@ export const DataTable = memo(function DataTable({
 
                   return (
                     <ColumnHeaderCell
-                      key={column.id}
+                      key={`${column.id}-${index}`}
                       column={toColumnDef(column)}
                       isRepresentative={isRepresentative}
                       onRepresentativeClick={
@@ -164,7 +164,7 @@ export const DataTable = memo(function DataTable({
                   {/* Data cells */}
                   {columns.map((column) => (
                     <DataTableCell
-                      key={`${row.id}-${column.id}`}
+                      key={`${row.id}-${column.id}-${index}`}
                       tableId={tableId}
                       rowKey={row.id}
                       tableColumnId={column.id}
