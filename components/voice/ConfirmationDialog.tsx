@@ -1,6 +1,6 @@
 'use client';
 
-import { useUIStore } from '@/lib/stores/ui-store';
+import { useUIStore } from '@/lib/client/stores/ui-store';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

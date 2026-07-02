@@ -7,9 +7,9 @@
 
 import { ArrowDown, ArrowRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useUIStore, type NavigationMode } from '@/lib/stores/ui-store';
+import { useUIStore, type NavigationMode } from '@/lib/client/stores/ui-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils/cn';
+import { cn } from '@/lib/shared/utils/cn';
 
 const MODE_OPTIONS: Array<{
   mode: NavigationMode;

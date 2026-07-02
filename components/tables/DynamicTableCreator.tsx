@@ -12,14 +12,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import type { ColumnDef, RowData, TableMetadata } from '@/components/shared-table/types';
-import { validateGridSchema } from '@/lib/utils/table-validation';
+import { validateGridSchema } from '@/lib/shared/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
 import { BaseListSidebar } from './BaseListSidebar';
 import { Database, X } from 'lucide-react';
 
-import { cn } from '@/lib/utils/cn';
-import { useColumnTemplateStore } from '@/lib/stores/column-template-store';
+import { cn } from '@/lib/shared/utils/cn';
+import { useColumnTemplateStore } from '@/lib/client/stores/column-template-store';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   education:  '🎓',

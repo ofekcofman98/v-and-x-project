@@ -6,7 +6,7 @@
 
 import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
-import { cn } from '@/lib/utils/cn';
+import { cn } from '@/lib/shared/utils/cn';
 
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;

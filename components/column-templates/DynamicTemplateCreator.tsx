@@ -9,12 +9,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { useColumnTemplateStore } from '@/lib/stores/column-template-store';
+import { useColumnTemplateStore } from '@/lib/client/stores/column-template-store';
 import type { ColumnDef } from '@/components/shared-table/types';
-import { validateGridSchema } from '@/lib/utils/table-validation';
+import { validateGridSchema } from '@/lib/shared/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
-import { cn } from '@/lib/utils/cn';
+import { cn } from '@/lib/shared/utils/cn';
 import { ArrowLeft, Save, X, Globe, Lock } from 'lucide-react';
 
 interface DynamicTemplateCreatorProps {

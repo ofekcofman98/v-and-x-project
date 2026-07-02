@@ -10,9 +10,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { useBaseListStore } from '@/lib/stores/base-list-store';
+import { useBaseListStore } from '@/lib/client/stores/base-list-store';
 import type { ColumnDef } from '@/components/shared-table/types';
-import { validateGridSchema } from '@/lib/utils/table-validation';
+import { validateGridSchema } from '@/lib/shared/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
 import { Save, X, ArrowLeft } from 'lucide-react';

@@ -10,20 +10,20 @@
 import { useEffect, useRef } from 'react';
 import { Mic, Infinity as InfinityIcon, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useVoiceEntry } from '@/lib/hooks/use-voice-entry';
-import { useContinuousVoice } from '@/lib/hooks/use-continuous-voice';
-import { useVoiceActionHandler } from '@/lib/hooks/use-voice-action-handler';
-import { useUIStore } from '@/lib/stores/ui-store';
-import { cn } from '@/lib/utils/cn';
+import { useVoiceEntry } from '@/lib/client/hooks/use-voice-entry';
+import { useContinuousVoice } from '@/lib/client/hooks/use-continuous-voice';
+import { useVoiceActionHandler } from '@/lib/client/hooks/use-voice-action-handler';
+import { useUIStore } from '@/lib/client/stores/ui-store';
+import { cn } from '@/lib/shared/utils/cn';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/components/ui/use-toast';
 import { ToastAction } from '@/components/ui/toast';
-import type { ParsedResult } from '@/lib/types/voice-pipeline';
-import type { TableSchema } from '@/lib/types/table-schema';
-import { VoiceErrors, VoiceInputError, VocalGridError, ErrorCodes } from '@/lib/types/voice-errors';
-import { getErrorMessage } from '@/lib/errors/error-mapping';
-import { trackVoiceMetrics } from '@/lib/monitoring/voice-metrics';
-import { logger } from '@/lib/logging/client-logger';
+import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
+import type { TableSchema } from '@/lib/shared/types/table-schema';
+import { VoiceErrors, VoiceInputError, VocalGridError, ErrorCodes } from '@/lib/shared/types/voice-errors';
+import { getErrorMessage } from '@/lib/shared/errors/error-mapping';
+import { trackVoiceMetrics } from '@/lib/shared/monitoring/voice-metrics';
+import { logger } from '@/lib/shared/logging/client-logger';
 
 interface VoiceButtonProps {
   tableId: string;

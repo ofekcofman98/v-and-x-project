@@ -14,7 +14,7 @@ import {
   withErrorHandler,
   uuidSchema,
   parseBody,
-} from "@/lib/utils/api";
+} from "@/lib/shared/utils/api";
 
 export const runtime = "nodejs";
 

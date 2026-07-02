@@ -3,7 +3,7 @@
  * Loading placeholder component
  */
 
-import { cn } from '@/lib/utils/cn';
+import { cn } from '@/lib/shared/utils/cn';
 
 function Skeleton({
   className,

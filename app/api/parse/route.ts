@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { z } from 'zod';
-import { ColumnType } from '@/lib/types/column-types';
-import type { ColumnDefinition, TableSchema } from '@/lib/types/table-schema';
-import type { ParsedResult } from '@/lib/types/voice-pipeline';
+import { ColumnType } from '@/lib/shared/types/column-types';
+import type { ColumnDefinition, TableSchema } from '@/lib/shared/types/table-schema';
+import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
 import {
   parseBoolean,
   parseNaturalDate,
   parseNumber,
   validateValue,
-} from '@/lib/parsers/value-parsers';
-import { trackVoiceMetrics } from '@/lib/monitoring/voice-metrics';
+} from '@/lib/server/parsers/value-parsers';
+import { trackVoiceMetrics } from '@/lib/shared/monitoring/voice-metrics';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 

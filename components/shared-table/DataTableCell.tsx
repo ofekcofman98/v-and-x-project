@@ -8,10 +8,10 @@
 'use client';
 
 import { memo, useEffect, useRef, useState } from 'react';
-import { useUIStore } from '@/lib/stores/ui-store';
-import { useTableCellStore } from '@/lib/stores/table-cell-store';
-import { cn } from '@/lib/utils/cn';
-import { ColumnType, formatCellValue } from '@/lib/types/column-types';
+import { useUIStore } from '@/lib/client/stores/ui-store';
+import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
+import { cn } from '@/lib/shared/utils/cn';
+import { ColumnType, formatCellValue } from '@/lib/shared/types/column-types';
 
 interface DataTableCellProps {
   tableId: string;

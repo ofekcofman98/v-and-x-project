@@ -8,7 +8,7 @@
 import { UseFormReturn, useFieldArray } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ColumnType } from '@/lib/types/column-types';
+import { ColumnType } from '@/lib/shared/types/column-types.js';
 import type { CreateBaseListFormData } from './types.ts';
 
 interface Step3DataEntryProps {

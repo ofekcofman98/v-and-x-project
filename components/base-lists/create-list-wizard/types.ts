@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import { ColumnType } from '@/lib/types/column-types';
+import { ColumnType } from '@/lib/shared/types/column-types';
 
 export const columnSchema = z.object({
   id: z.string(),

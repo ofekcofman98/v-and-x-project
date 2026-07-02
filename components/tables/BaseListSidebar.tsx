@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Database, Search } from 'lucide-react';
-import { useBaseListStore } from '@/lib/stores/base-list-store';
+import { useBaseListStore } from '@/lib/client/stores/base-list-store';
 
 interface BaseListSidebarProps {
   selectedId: string | null;

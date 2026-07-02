@@ -9,7 +9,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useTableStore } from '@/lib/stores/table-store';
+import { useTableStore } from '@/lib/client/stores/table-store';
 import { Plus } from 'lucide-react';
 
 export function TablesPage() {

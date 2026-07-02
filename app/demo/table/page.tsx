@@ -10,15 +10,15 @@ import { DataTable } from '@/components/shared-table/DataTable';
 import { MobileTableView } from '@/components/shared-table/MobileTableView';
 import { NavigationModeToggle } from '@/components/shared-table/NavigationModeToggle';
 import { ConfirmationDialog, VoiceButton } from '@/components/voice';
-import { useUIStore } from '@/lib/stores/ui-store';
-import { useTableCellStore } from '@/lib/stores/table-cell-store';
-import { ColumnType } from '@/lib/types/column-types';
+import { useUIStore } from '@/lib/client/stores/ui-store';
+import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
+import { ColumnType } from '@/lib/shared/types/column-types';
 import type {
   ColumnDefinition,
   RowDefinition,
   CellData,
   TableSchema,
-} from '@/lib/types/table-schema';
+} from '@/lib/shared/types/table-schema';
 
 // Mock Data - Student Grades Example from docs/03_DATABASE.md
 const columns: ColumnDefinition[] = [

@@ -6,8 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/lib/generated/prisma/client";
-import { apiSuccess, withErrorHandler } from "@/lib/utils/api";
+import { Prisma } from "@/lib/shared/generated/prisma/client";
+import { apiSuccess, withErrorHandler } from "@/lib/shared/utils/api";
 
 export const runtime = "nodejs";
 

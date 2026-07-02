@@ -8,14 +8,14 @@
 'use client';
 
 import { memo, useCallback, useEffect, useState } from 'react';
-import { useUIStore } from '@/lib/stores/ui-store';
-import { useTableCellStore } from '@/lib/stores/table-cell-store';
+import { useUIStore } from '@/lib/client/stores/ui-store';
+import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { useToast } from '@/components/ui/use-toast';
 import { DataTableCell } from './DataTableCell';
 import { ColumnHeaderCell } from './ColumnHeaderCell';
-import { ColumnType } from '@/lib/types/column-types';
-import { warmEntityCache } from '@/lib/matching/cache';
-import type { ColumnDefinition, RowDefinition } from '@/lib/types/table-schema';
+import { ColumnType } from '@/lib/shared/types/column-types';
+import { warmEntityCache } from '@/lib/server/matching/cache';
+import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 import type { ColumnDef } from './types';
 
 /**

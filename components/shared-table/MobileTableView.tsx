@@ -9,10 +9,10 @@
 
 import { memo, useCallback, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { useUIStore } from '@/lib/stores/ui-store';
-import { cn } from '@/lib/utils/cn';
-import { formatCellValue } from '@/lib/types/column-types';
-import type { ColumnDefinition, RowDefinition, CellData } from '@/lib/types/table-schema';
+import { useUIStore } from '@/lib/client/stores/ui-store';
+import { cn } from '@/lib/shared/utils/cn';
+import { formatCellValue } from '@/lib/shared/types/column-types';
+import type { ColumnDefinition, RowDefinition, CellData } from '@/lib/shared/types/table-schema';
 
 interface MobileTableViewProps {
   columns: ColumnDefinition[];

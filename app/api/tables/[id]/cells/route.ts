@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { apiSuccess, apiError, withErrorHandler, uuidSchema, parseBody } from "@/lib/utils/api";
-import { upsertCell, getCells } from "@/lib/services/cells";
-import { EntrySource } from "@/lib/generated/prisma/client";
+import { apiSuccess, apiError, withErrorHandler, uuidSchema, parseBody } from "@/lib/shared/utils/api";
+import { upsertCell, getCells } from "@/lib/server/services/cells";
+import { EntrySource } from "@/lib/shared/generated/prisma/client";
 export const runtime = "nodejs";
 
 // ─────────────────────────────────────────────────────────

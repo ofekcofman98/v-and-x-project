@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from './DataTable';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
-import type { ColumnDefinition, RowDefinition } from '@/lib/types/table-schema';
+import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 
 interface TableGridSectionProps {
   tableId: string;

@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { useToast } from '@/components/ui/use-toast';
-import { useTableStore } from '@/lib/stores/table-store';
+import { useTableStore } from '@/lib/client/stores/table-store';
 import { Trash2 } from 'lucide-react';
 
 import { StatCard } from '@/components/shared/StatCard';
@@ -26,14 +26,14 @@ import type {
   ListEntity, 
   BaseListWithEntities,
   BaseListSchema 
-} from '@/lib/types/models';
-import { ColumnType } from '@/lib/types/column-types';
-import { prismaColumnTypeToColumnType } from '@/lib/types/models'; 
+} from '@/lib/shared/types/models';
+import { ColumnType } from '@/lib/shared/types/column-types';
+import { prismaColumnTypeToColumnType } from '@/lib/shared/types/models'; 
 import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
-import { useTableCellStore } from '@/lib/stores/table-cell-store';
-import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/types/table-schema';
+import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
+import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/shared/types/table-schema';
 import { VoiceButton } from '@/components/voice/VoiceButton';
 
 interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {

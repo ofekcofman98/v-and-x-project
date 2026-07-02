@@ -7,8 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/lib/generated/prisma/client";
-import { apiError, apiSuccess, uuidSchema, withErrorHandler, parseBody } from "@/lib/utils/api";
+import { Prisma } from "@/lib/shared/generated/prisma/client";
+import { apiError, apiSuccess, uuidSchema, withErrorHandler, parseBody } from "@/lib/shared/utils/api";
 
 export const runtime = "nodejs";
 

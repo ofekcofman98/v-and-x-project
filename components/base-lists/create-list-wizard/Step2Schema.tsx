@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ColumnType } from '@/lib/types/column-types';
+import { ColumnType } from '@/lib/shared/types/column-types.js';
 import type { CreateBaseListFormData } from './types.ts';
 
 interface Step2SchemaProps {

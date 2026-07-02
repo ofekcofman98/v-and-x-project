@@ -19,8 +19,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { useBaseListStore } from '@/lib/stores/base-list-store';
-import { ColumnType } from '@/lib/types/column-types';
+import { useBaseListStore } from '@/lib/client/stores/base-list-store';
+import { ColumnType } from '@/lib/shared/types/column-types';
 import { Step1Info } from './Step1Info';
 import { Step2Schema } from './Step2Schema';
 import { Step3DataEntry } from './Step3DataEntry';

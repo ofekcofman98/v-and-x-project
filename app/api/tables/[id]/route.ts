@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { apiSuccess, apiError, withErrorHandler, uuidSchema } from "@/lib/utils/api";
+import { apiSuccess, apiError, withErrorHandler, uuidSchema } from "@/lib/shared/utils/api";
 
 export const runtime = "nodejs";
 

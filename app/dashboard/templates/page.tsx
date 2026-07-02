@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useColumnTemplateStore, type ColumnTemplateDTO } from '@/lib/stores/column-template-store';
+import { useColumnTemplateStore, type ColumnTemplateDTO } from '@/lib/client/stores/column-template-store';
 import {
   Card,
   CardContent,
@@ -31,7 +31,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils/cn';
+import { cn } from '@/lib/shared/utils/cn';
 
 // ─────────────────────────────────────────────────────────
 // Category helpers
