@@ -6,17 +6,15 @@
  * Implements: docs/14_PRODUCT_DATA_FLOW.md §3
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
+import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
+import type { StatCardConfig } from '@/components/shared/DetailPageHeader';
 import { useToast } from '@/components/ui/use-toast';
 import { useTableStore } from '@/lib/client/stores/table-store';
-import { Trash2 } from 'lucide-react';
 
-import { StatCard } from '@/components/shared/StatCard';
-import { RelationCard } from '@/components/shared/RelationCard';
 import { TableGridSection } from '@/components/shared-table/TableGridSection';
 
 import type { 
@@ -144,7 +142,20 @@ export default function TableDetailsPage() {
     // Stable reference for VoiceButton — only recreated when columns/rows change.
     const tableSchema = useMemo<TableSchema>(() => ({ columns, rows }), [columns, rows]);
 
+    // Stable stat card descriptors — only recreated when the counts or date change.
+    const statCards = useMemo<StatCardConfig[]>(() => {
+        if (!table) return [];
+        const entities = table.baseList?.entities ?? [];
+        return [
+            { title: 'Total Rows', value: entities.length.toString() },
+            { title: 'Data Columns', value: columns.length.toString() },
+            { title: 'Created', value: new Date(table.createdAt).toLocaleDateString() },
+        ];
+    }, [table, columns]);
+
     // -------------------------------------------------------------------------
+
+    const handleOpenDeleteDialog = useCallback(() => setDeleteDialogOpen(true), []);
 
     const handleDeleteConfirm = async () => {
         if (!id) return;
@@ -224,10 +235,7 @@ export default function TableDetailsPage() {
 
     const baseList = table.baseList;
     const entities = baseList?.entities ?? [];
-    const totalRows = entities.length;
-    const totalDataColumns = columns.length;
     const hasData = entities.length > 0 && columns.length > 0;
-    const createdAt = new Date(table.createdAt).toLocaleDateString();
 
     return (
       <>
@@ -235,67 +243,31 @@ export default function TableDetailsPage() {
         <main className="flex flex-1 flex-col">
           <section className="container py-8 md:py-12">
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight">{table.name}</h1>
-                  
-                  {table.description && (
-                    <p className="text-muted-foreground mt-2">{table.description}</p>
-                  )}
-                </div>
-                            
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setDeleteDialogOpen(true)}
-                  aria-label="Delete table"
-                  className="inline-flex items-center justify-center rounded-md h-10 w-10 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-                <Link
-                  href="/dashboard/tables"
-                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-transparent hover:bg-gray-100 h-10 px-4 py-2"
-                >
-                  <svg
-                    className="h-4 w-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                    />
-                  </svg>
-                  
-                  Back to Tables
-                </Link>
-              </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                  <StatCard title="Total Rows" value={totalRows.toString()} />
-                  <StatCard title="Data Columns" value={totalDataColumns.toString()} />
-                  <StatCard title="Created" value={createdAt} />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {baseList && ( 
-                  <RelationCard 
-                    title="Linked Base List"
-                    linkHref={`/dashboard/base-lists/${baseList.id}`}
-                    linkLabel={baseList.name}
-                    description={baseList.description}
-                  />
-                )}
-              </div>
+              <DetailPageHeader
+                name={table.name}
+                description={table.description}
+                backHref="/dashboard/tables"
+                backLabel="Back to Tables"
+                deleteAriaLabel="Delete table"
+                statCards={statCards}
+                onDeleteClick={handleOpenDeleteDialog}
+                relationCard={
+                  baseList
+                    ? {
+                        title: 'Linked Base List',
+                        linkHref: `/dashboard/base-lists/${baseList.id}`,
+                        linkLabel: baseList.name,
+                        description: baseList.description,
+                      }
+                    : null
+                }
+              />
                 <TableGridSection
                     tableId={id}
                     columns={columns}
                     rows={rows}
                     hasData={hasData}
-                    totalRows={totalRows}
+                    totalRows={entities.length}
                 />
               </div>
             </section>
