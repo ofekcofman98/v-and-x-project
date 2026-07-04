@@ -26,11 +26,13 @@ export function useContinuousVoice({
   onResult,
   onError,
 }: UseContinuousVoiceOptions) {
-  // Get VAD sensitivity settings from store
+  // VAD sensitivity must remain a reactive subscription — changes to these preferences
+  // must propagate to useVAD so the audio pipeline reinitialises with the new thresholds.
   const vadSensitivity = useUIStore((s) => s.preferences.vadSensitivity);
   const setRecordingState = useUIStore((s) => s.setRecordingState);
-  const activeCell = useUIStore((s) => s.activeCell);
-  const navigationMode = useUIStore((s) => s.navigationMode);
+
+  // activeCell and navigationMode are read imperatively inside handleChunk via
+  // useUIStore.getState() — avoids re-creating the callback on every cell-selection change.
 
   // Initialize VAD with user preferences
   const { startVAD, stopVAD, volume } = useVAD({
@@ -46,16 +48,19 @@ export function useContinuousVoice({
   const MAX_CONSECUTIVE_FAILURES = 3;
 
   /**
-   * Process a complete audio chunk through the voice pipeline
-   * Called by VAD when speech ends
+   * Process a complete audio chunk through the voice pipeline.
+   * Called by VAD when speech ends.
+   * Reads activeCell and navigationMode imperatively at call time so this callback
+   * is stable across all cell-selection changes.
    */
   const handleChunk = useCallback(
     async (audioBlob: Blob) => {
       if (!isContinuousRef.current) return;
 
-      // Check if activeCell is selected before processing
+      // Read volatile state imperatively — no stale-closure risk, no re-render on change
+      const { activeCell, navigationMode } = useUIStore.getState();
+
       if (!activeCell) {
-        console.warn('[useContinuousVoice] No active cell selected, skipping processing');
         setRecordingState('listening');
         return;
       }
@@ -63,14 +68,12 @@ export function useContinuousVoice({
       try {
         setRecordingState('processing');
 
-        // Prepare form data for voice entry API
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
         formData.append('tableSchema', JSON.stringify(tableSchema));
         formData.append('activeCell', JSON.stringify(activeCell));
         formData.append('navigationMode', navigationMode);
 
-        // Call the voice entry API
         const response = await fetch('/api/voice-entry', {
           method: 'POST',
           body: formData,
@@ -84,7 +87,7 @@ export function useContinuousVoice({
         const result: ParsedResult = payload.data;
 
         // Handle empty transcripts or hallucinations (early exit from API)
-        if (!result || !result.entity && !result.value) {
+        if (!result || (!result.entity && !result.value)) {
           setRecordingState('listening');
           return;
         }
@@ -92,7 +95,7 @@ export function useContinuousVoice({
         // Reset failure counter on success
         consecutiveFailuresRef.current = 0;
 
-        // Pass result to component for confirmation
+        // Pass result upstream for entity matching and pointer advancement
         setRecordingState('confirming');
         onResult(result);
 
@@ -102,7 +105,7 @@ export function useContinuousVoice({
       } catch (err) {
         consecutiveFailuresRef.current += 1;
 
-        // Auto-stop after consecutive failures
+        // Auto-stop after too many consecutive failures
         if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) {
           isContinuousRef.current = false;
           stopVAD();
@@ -117,13 +120,13 @@ export function useContinuousVoice({
     },
     [
       tableSchema,
-      activeCell,
-      navigationMode,
       onResult,
       onError,
       setRecordingState,
       stopVAD,
     ]
+    // activeCell and navigationMode intentionally omitted —
+    // read imperatively via getState() to keep this callback stable.
   );
 
   /**

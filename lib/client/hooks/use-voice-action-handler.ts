@@ -37,14 +37,16 @@ export function useVoiceActionHandler({
   tableSchema,
   onEndOfTable,
 }: UseVoiceActionHandlerOptions): VoiceActionHandlerResult {
+  // Stable action dispatchers — Zustand guarantees these references never change,
+  // so these selectors never trigger a re-render.
   const setRecordingState = useUIStore((state) => state.setRecordingState);
   const setPendingConfirmation = useUIStore((state) => state.setPendingConfirmation);
   const setActiveCell = useUIStore((state) => state.setActiveCell);
-  const activeCell = useUIStore((state) => state.activeCell);
-  const navigationMode = useUIStore((state) => state.navigationMode);
-  const continuousMode = useUIStore((state) => state.continuousMode);
   const setContinuousMode = useUIStore((state) => state.setContinuousMode);
-  
+
+  // activeCell, navigationMode, continuousMode are read imperatively inside callbacks
+  // via useUIStore.getState() to avoid re-rendering on every cell-selection change.
+
   const updateCell = useTableCellStore((state) => state.updateCell);
 
   /**
@@ -80,25 +82,32 @@ export function useVoiceActionHandler({
 
 
   /**
-   * Calculate the next cell based on the current navigation mode
+   * Calculate the next cell based on the current navigation mode.
+   * Reads navigationMode imperatively so the callback is not recreated on preference changes.
    */
   const calculateNextCell = useCallback(
     (currentCell: CellPosition | null): CellPosition | null => {
       if (!currentCell) return null;
 
+      const { navigationMode } = useUIStore.getState();
       const strategy = navigationStrategies[navigationMode];
 
       return strategy.getNext(currentCell, tableSchema, rowIndexMap, colIndexMap);
     },
-    [navigationMode, tableSchema, rowIndexMap, colIndexMap]
+    [tableSchema, rowIndexMap, colIndexMap]
   );
 
   /**
-   * Handle parsed voice result
-   * Uses cascading matcher to find best entity match, then updates cell and advances pointer
+   * Handle parsed voice result.
+   * Uses cascading matcher to find best entity match, then updates cell and advances pointer.
+   * Reads activeCell and continuousMode imperatively at call time so this callback is stable
+   * across all cell-selection changes.
    */
   const handleParsedResult = useCallback(
     async (parsed: ParsedResult) => {
+      // Read volatile state imperatively — no stale-closure risk, no re-render on change
+      const { activeCell, continuousMode } = useUIStore.getState();
+
       if (!activeCell) {
         throw new VoiceInputError('NO_CELL_SELECTED', 'No cell selected', true);
       }
@@ -114,18 +123,8 @@ export function useVoiceActionHandler({
         fuzzyThreshold: 2,
       });
 
-      console.log('[VoiceActionHandler] Cascading match result:', {
-        input: parsed.entity,
-        matched: matchResult.matched,
-        confidence: matchResult.confidence,
-        matchType: matchResult.matchType,
-        candidates: matchResult.candidates,
-      });
-
       // Detect ambiguity using our ambiguity detection system
       const ambiguityResult = detectAmbiguity(matchResult, 0.85);
-
-      console.log('[VoiceActionHandler] Ambiguity analysis:', ambiguityResult);
 
       // Prepare alternatives for confirmation dialog
       const alternatives = ambiguityResult.candidates.map((candidate) => ({
@@ -153,19 +152,15 @@ export function useVoiceActionHandler({
           tableColumnId: activeCell.tableColumnId,
         };
 
-        // Update the cell value at the matched location
-        // Pass tableId, rowKey, tableColumnId, and value to the store
         await updateCell(
           tableId,
           matchedCell.rowKey,
           matchedCell.tableColumnId,
           parsed.value as string | number | boolean | null
         );
-        console.log('[VoiceActionHandler] Updated matched cell:', matchedCell);
 
         // Sync pointer to matched entity after the write so the UI follows the data
         setActiveCell(matchedCell);
-        console.log('[VoiceActionHandler] Synced pointer to matched entity:', matchedCell);
         setRecordingState('committing');
 
         // Calculate next cell from the MATCHED cell, not the old activeCell
@@ -175,26 +170,18 @@ export function useVoiceActionHandler({
           // Advance to next cell after short delay (green flash animation)
           setTimeout(() => {
             setActiveCell(nextCell);
-            console.log('[VoiceActionHandler] Advanced pointer to:', nextCell);
             setRecordingState('advancing');
           }, 500);
         } else {
-          // End of table reached
-          console.log('[VoiceActionHandler] End of table reached');
-          
-          // Stop continuous mode if active
+          // End of table reached — stop continuous mode if active
           if (continuousMode) {
-            console.log('[VoiceActionHandler] Stopping continuous mode automatically');
             setContinuousMode(false);
             onEndOfTable?.();
           }
-          
+
           setRecordingState('idle');
         }
       } else if (ambiguityResult.isAmbiguous || ambiguityResult.recommendedAction === 'ask_user') {
-        // Ambiguous match - show confirmation dialog with alternatives
-        console.log('[VoiceActionHandler] Ambiguous match detected, showing confirmation with alternatives');
-
         setPendingConfirmation({
           entity: matchResult.matched ?? parsed.entity ?? '',
           value: parsed.value as string | number | boolean | null,
@@ -204,9 +191,7 @@ export function useVoiceActionHandler({
 
         setRecordingState('confirming');
       } else {
-        // No match or very low confidence
-        console.log('[VoiceActionHandler] No match found or very low confidence');
-
+        // No match or very low confidence — show confirmation dialog
         setPendingConfirmation({
           entity: parsed.entity ?? '',
           value: parsed.value as string | number | boolean | null,
@@ -219,10 +204,8 @@ export function useVoiceActionHandler({
     },
     [
       tableId,
-      activeCell,
       tableSchema,
       calculateNextCell,
-      continuousMode,
       setActiveCell,
       setContinuousMode,
       setPendingConfirmation,
@@ -230,6 +213,8 @@ export function useVoiceActionHandler({
       updateCell,
       onEndOfTable,
     ]
+    // activeCell, navigationMode, continuousMode intentionally omitted —
+    // read imperatively via getState() to keep this callback stable.
   );
 
   return {
