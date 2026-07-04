@@ -172,7 +172,11 @@ export const DataTable = memo(function DataTable({
                       isBaseColumn={column.isBaseColumn}
                       baseValue={row.values?.[column.id]}
                       isReadOnly={column.isBaseColumn === true}
-                      onClick={() => handleCellClick(row.id, column.id)}
+                      onClick={() => {
+                        if (column.isBaseColumn !== true) {
+                          handleCellClick(row.id, column.id);
+                        }
+                      }}
                     />
                   ))}
                 </tr>

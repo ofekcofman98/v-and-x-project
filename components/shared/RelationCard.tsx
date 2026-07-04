@@ -1,6 +1,7 @@
 // components/shared/RelationCard.tsx
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import React from 'react';
 
 interface RelationCardProps {
     title: string;
@@ -9,7 +10,12 @@ interface RelationCardProps {
     description?: string | null;
   }
 
-  export function RelationCard({ title, linkHref, linkLabel, description }: RelationCardProps) {
+  export const RelationCard = React.memo(({ 
+    title, 
+    linkHref, 
+    linkLabel, 
+    description 
+  }: RelationCardProps) => {
     return (
       <Card>
         <CardHeader className="pb-3">
@@ -25,4 +31,4 @@ interface RelationCardProps {
         </CardContent>
       </Card>
     );
-  }
+  });

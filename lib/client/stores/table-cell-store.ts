@@ -6,6 +6,8 @@
 import { create } from 'zustand';
 import type { CellData } from '@/lib/shared/types/table-schema';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Table Cell Store State
  */
@@ -76,6 +78,17 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
     tableColumnId: string,
     value: string | number | boolean | null
   ) => {
+    // Guard: both identifiers must be database UUIDs. Base-list column IDs
+    // are human-readable slugs (e.g. "first_name") and must never reach the API.
+    if (!UUID_REGEX.test(rowKey) || !UUID_REGEX.test(tableColumnId)) {
+      set({
+        error:
+          'Cannot save: the selected cell uses a read-only base-list column. ' +
+          'Please select a data-entry column before saving.',
+      });
+      return;
+    }
+
     // 1. SAVE THE PREVIOUS STATE (for rollback)
     const previousCellData = [...get().cellData];
     

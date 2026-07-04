@@ -6,7 +6,7 @@
  * Implements: docs/14_PRODUCT_DATA_FLOW.md §3
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
@@ -32,7 +32,6 @@ import { prismaColumnTypeToColumnType } from '@/lib/shared/types/models';
 import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
-import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/shared/types/table-schema';
 import { VoiceButton } from '@/components/voice/VoiceButton';
 
@@ -81,8 +80,71 @@ export default function TableDetailsPage() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Use the table cell store for cell data
-    const fetchCells = useTableCellStore((state) => state.fetchCells);
+    // -------------------------------------------------------------------------
+    // Memoized derived data — must be declared before early returns so that
+    // hook call order is stable across renders. Guards against null table.
+    // -------------------------------------------------------------------------
+
+    // table.schema.columns (JSONB) is the single source of truth for the grid layout.
+    // For tables created via apply-template it holds the complete merged schema
+    // (identity + template columns). Only fall back to the legacy path of combining
+    // baseList.schema + relational table.columns for pre-existing tables where the
+    // JSON schema is empty — this preserves backward compatibility.
+    const columns = useMemo<ColumnDefinition[]>(() => {
+        if (!table) return [];
+        const baseList = table.baseList;
+        const baseListSchemaColumnIds = new Set(
+            ((baseList?.schema as BaseListSchema)?.columns ?? []).map((c) => c.id)
+        );
+        const tableSchemaColumns = table.schema?.columns ?? [];
+        const relationalTableColumns = table.columns ?? [];
+
+        return tableSchemaColumns.length > 0
+            ? tableSchemaColumns.map((col) => ({
+                  id: col.id,
+                  label: col.label,
+                  type: col.type as unknown as ColumnType,
+                  isBaseColumn: baseListSchemaColumnIds.has(col.id),
+              }))
+            : [
+                  ...((baseList?.schema as BaseListSchema)?.columns ?? []).map((col) => ({
+                      id: col.id,
+                      label: col.label,
+                      type: (col.type as string).toUpperCase() as ColumnType,
+                      isBaseColumn: true as const,
+                  })),
+                  ...relationalTableColumns.map((col) => ({
+                      id: col.id,
+                      label: col.label,
+                      type: prismaColumnTypeToColumnType(col.type),
+                      isBaseColumn: false as const,
+                  })),
+              ];
+    }, [table]);
+
+    const rows = useMemo<RowDefinition[]>(() => {
+        if (!table) return [];
+        const entities = table.baseList?.entities ?? [];
+        const repColId = table.representativeColumnKey;
+        // Resolve entity display labels. Only search within base columns because
+        // entity.values exclusively holds data for base-list-originated columns.
+        const firstTextBaseColId =
+            columns.find((col) => col.isBaseColumn && (col.type as string).toUpperCase() === 'TEXT')?.id ??
+            columns.find((col) => col.isBaseColumn)?.id;
+
+        return entities.map((entity) => ({
+            id: entity.id,
+            label:
+                (entity.values[repColId] ?? entity.values[firstTextBaseColId ?? ''])?.toString() ||
+                entity.id,
+            values: entity.values,
+        }));
+    }, [table, columns]);
+
+    // Stable reference for VoiceButton — only recreated when columns/rows change.
+    const tableSchema = useMemo<TableSchema>(() => ({ columns, rows }), [columns, rows]);
+
+    // -------------------------------------------------------------------------
 
     const handleDeleteConfirm = async () => {
         if (!id) return;
@@ -139,13 +201,6 @@ export default function TableDetailsPage() {
         fetchTable();
     }, [id]);
 
-    // Fetch cell data using the store
-    useEffect(() => {
-        if (id) {
-            fetchCells(id);
-        }
-    }, [id, fetchCells]);
-
     if (isLoading){
         return <LoadingSkeleton />;
     }
@@ -168,70 +223,11 @@ export default function TableDetailsPage() {
     }
 
     const baseList = table.baseList;
-    const entities = baseList?.entities || [];
-
-    // Build a set of column IDs that originate from the BaseList schema.
-    // This is used to mark which merged columns should read their cell values
-    // from entity.values (isBaseColumn: true) vs. TableCell records (false).
-    const baseListSchemaColumnIds = new Set(
-        ((baseList?.schema as BaseListSchema)?.columns ?? []).map((c) => c.id)
-    );
-
-    // table.schema.columns (JSONB) is the single source of truth for the grid layout.
-    // For tables created via apply-template it holds the complete merged schema
-    // (identity + template columns). Only fall back to the legacy path of combining
-    // baseList.schema + relational table.columns for pre-existing tables where the
-    // JSON schema is empty — this preserves backward compatibility.
-    const tableSchemaColumns = table.schema?.columns ?? [];
-    const relationalTableColumns = table.columns || [];
-
-    const columns: ColumnDefinition[] =
-        tableSchemaColumns.length > 0
-            ? tableSchemaColumns.map((col) => ({
-                  id: col.id,
-                  label: col.label,
-                  type: col.type as unknown as ColumnType,
-                  isBaseColumn: baseListSchemaColumnIds.has(col.id),
-              }))
-            : [
-                  ...((baseList?.schema as BaseListSchema)?.columns ?? []).map((col) => ({
-                      id: col.id,
-                      label: col.label,
-                      type: (col.type as string).toUpperCase() as ColumnType,
-                      isBaseColumn: true as const,
-                  })),
-                  ...relationalTableColumns.map((col) => ({
-                      id: col.id,
-                      label: col.label,
-                      type: prismaColumnTypeToColumnType(col.type),
-                      isBaseColumn: false as const,
-                  })),
-              ];
-
+    const entities = baseList?.entities ?? [];
     const totalRows = entities.length;
     const totalDataColumns = columns.length;
     const hasData = entities.length > 0 && columns.length > 0;
-
-    // Resolve entity display labels. Only search within base columns because
-    // entity.values exclusively holds data for base-list-originated columns.
-    const repColId = table.representativeColumnKey;
-    const firstTextBaseColId =
-        columns.find((col) => col.isBaseColumn && (col.type as string).toUpperCase() === 'TEXT')?.id ??
-        columns.find((col) => col.isBaseColumn)?.id;
-
-    const rows: RowDefinition[] = entities.map((entity) => ({
-        id: entity.id,
-        label:
-            (entity.values[repColId] ?? entity.values[firstTextBaseColId ?? ''])?.toString() ||
-            entity.id,
-        values: entity.values,
-    }));
-
-    // Construct TableSchema for VoiceButton
-    const tableSchema: TableSchema = {
-        columns,
-        rows,
-    };
+    const createdAt = new Date(table.createdAt).toLocaleDateString();
 
     return (
       <>
@@ -282,7 +278,7 @@ export default function TableDetailsPage() {
               <div className="grid gap-4 sm:grid-cols-3">
                   <StatCard title="Total Rows" value={totalRows.toString()} />
                   <StatCard title="Data Columns" value={totalDataColumns.toString()} />
-                  <StatCard title="Created" value={new Date(table.createdAt).toLocaleDateString()} />
+                  <StatCard title="Created" value={createdAt} />
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 {baseList && ( 

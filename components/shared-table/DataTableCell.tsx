@@ -87,6 +87,7 @@ export const DataTableCell = memo(
     // Save on blur or Enter
     const handleSave = async () => {
       setIsEditing(false);
+      if (isReadOnly) return;
       if (editedValue !== value?.toString()) {
         await useTableCellStore.getState().updateCell(
           tableId,

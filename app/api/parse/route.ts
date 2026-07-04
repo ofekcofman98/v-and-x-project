@@ -1,21 +1,29 @@
+/**
+ * Parse API Route
+ * HTTP transport layer only — all business logic lives in:
+ *   lib/server/services/parse-service.ts
+ *
+ * Responsibilities of this file:
+ *   - Validate the JSON request body with Zod
+ *   - Resolve active column/row from the provided schema
+ *   - Delegate to executeTranscriptParse
+ *   - Wrap the result in the standard { success, data } envelope
+ *
+ * Based on: docs/05_VOICE_PIPELINE.md, docs/11_API_ROUTES.md
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { z } from 'zod';
 import { ColumnType } from '@/lib/shared/types/column-types';
-import type { ColumnDefinition, TableSchema } from '@/lib/shared/types/table-schema';
-import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
-import {
-  parseBoolean,
-  parseNaturalDate,
-  parseNumber,
-  validateValue,
-} from '@/lib/server/parsers/value-parsers';
-import { trackVoiceMetrics } from '@/lib/shared/monitoring/voice-metrics';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import type { TableSchema } from '@/lib/shared/types/table-schema';
+import { executeTranscriptParse } from '@/lib/server/services/parse-service';
 
 // export const runtime = 'nodejs';
 export const runtime = 'edge';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Input validation schemas (HTTP / API layer)
+// ─────────────────────────────────────────────────────────────────────────────
 
 const ColumnSchema = z.object({
   id: z.string(),
@@ -63,7 +71,7 @@ const ParsedResultSchema = z.object({
       matchType: z.enum(['exact', 'fuzzy', 'phonetic', 'semantic']).nullable(),
     })
     .nullable(),
-  value: z.any(),
+  value: z.unknown(),
   valueValid: z.boolean(),
   action: z.enum(['UPDATE_CELL', 'ERROR', 'AMBIGUOUS']),
   error: z.string().optional(),
@@ -79,23 +87,39 @@ const ParsedResultSchema = z.object({
   duration: z.number().optional(),
 });
 
-type ParseRequest = z.infer<typeof ParseRequestSchema>;
+// Suppress unused-variable warning — ParsedResultSchema is retained here
+// as part of the HTTP validation contract for documentation and future use.
+void ParsedResultSchema;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST handler
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { success: false, error: { code: 'OPENAI_KEY_MISSING', message: 'OpenAI API key is not configured.' } },
-        { status: 500 }
-      );
-    }
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: 'OPENAI_KEY_MISSING', message: 'OpenAI API key is not configured.' },
+      },
+      { status: 500 }
+    );
+  }
 
-    const rawBody = await req.json();
+  try {
+    const rawBody: unknown = await req.json();
     const parsed = ParseRequestSchema.safeParse(rawBody);
 
     if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: { code: 'INVALID_REQUEST', message: 'Payload is invalid.', details: parsed.error.flatten() } },
+        {
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Payload is invalid.',
+            details: parsed.error.flatten(),
+          },
+        },
         { status: 400 }
       );
     }
@@ -107,183 +131,40 @@ export async function POST(req: NextRequest) {
 
     if (!activeColumn || !activeRow) {
       return NextResponse.json(
-        { success: false, error: { code: 'CELL_NOT_FOUND', message: 'Active cell cannot be resolved.' } },
+        {
+          success: false,
+          error: { code: 'CELL_NOT_FOUND', message: 'Active cell cannot be resolved.' },
+        },
         { status: 400 }
       );
     }
 
-    const prompt = buildParsePrompt({
+    const responsePayload = await executeTranscriptParse({
       transcript,
       tableSchema,
       activeCell,
       navigationMode,
     });
 
-    const startTime = Date.now();
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a data entry assistant that extracts entities and values from voice transcripts.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      max_tokens: 256,
-    });
-
-    const duration = Date.now() - startTime;
-    const rawContent = completion.choices?.[0]?.message?.content;
-
-    if (!rawContent) {
-      throw new Error('LLM returned empty content');
-    }
-
-    const parsedResult = parseCompletion(rawContent);
-    const normalizedValue = normalizeValue(parsedResult.value, activeColumn);
-    const validation = validateValue(normalizedValue, activeColumn.type, activeColumn.validation);
-    const responsePayload: ParsedResult = {
-      ...parsedResult,
-      value: validation.valid ? normalizedValue : null,
-      valueValid: validation.valid,
-      duration,
-      error: validation.valid ? parsedResult.error : validation.error ?? parsedResult.error,
-    };
-
     console.log('[Parse] success', {
-      duration,
+      duration: responsePayload.duration,
       transcript,
       result: responsePayload,
     });
 
-    // Track server-side metrics
-    if (typeof process !== 'undefined') {
-      console.log('[Performance] parse:', {
-        phase: 'parse',
-        duration,
-        success: true,
-        exceeded: duration > 1000,
-      });
-    }
-
     return NextResponse.json({ success: true, data: responsePayload });
   } catch (error) {
     console.error('[Parse API]', error);
-    
-    // Track failure
-    if (typeof process !== 'undefined') {
-      console.log('[Performance] parse:', {
-        phase: 'parse',
-        duration: 0,
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-    
+
     return NextResponse.json(
       {
         success: false,
-        error: { code: 'PARSE_FAILED', message: 'We could not interpret that voice command right now.' },
+        error: {
+          code: 'PARSE_FAILED',
+          message: 'We could not interpret that voice command right now.',
+        },
       },
       { status: 500 }
     );
   }
-}
-
-function parseCompletion(content: string): ParsedResult {
-  const parsed = JSON.parse(content);
-  const validated = ParsedResultSchema.safeParse(parsed);
-
-  if (!validated.success) {
-    throw new Error('LLM output did not match expected schema');
-  }
-
-  return validated.data;
-}
-
-function normalizeValue(value: unknown, column: ColumnDefinition) {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  switch (column.type) {
-    case ColumnType.NUMBER:
-      if (typeof value === 'number') return value;
-      if (typeof value === 'string') return parseNumber(value);
-      return null;
-
-    case ColumnType.BOOLEAN:
-      if (typeof value === 'boolean') return value;
-      if (typeof value === 'string') return parseBoolean(value);
-      return null;
-
-    case ColumnType.DATE:
-      if (typeof value === 'string') {
-        const date = parseNaturalDate(value);
-        return date ? date.toISOString() : null;
-      }
-      if (value instanceof Date) {
-        return value.toISOString();
-      }
-      return null;
-
-    case ColumnType.TEXT:
-    default:
-      if (typeof value === 'string') {
-        return value.trim();
-      }
-      return value;
-  }
-}
-
-function buildParsePrompt(params: {
-  transcript: string;
-  tableSchema: TableSchema;
-  activeCell: ParseRequest['activeCell'];
-  navigationMode: ParseRequest['navigationMode'];
-}) {
-  const { transcript, tableSchema, activeCell, navigationMode } = params;
-  const currentColumn = tableSchema.columns.find((col) => col.id === activeCell.columnId);
-  const columnType = currentColumn?.type ?? ColumnType.TEXT;
-
-  const availableEntities = tableSchema.rows.map(row => row.label).join(', ');
-
-  return `
-You are a lightning-fast data extraction assistant.
-Your job is to extract the intended entity and the value from the transcript.
-
-CURRENT STATE:
-- Navigation mode: ${navigationMode}
-- Expected Column Type: ${columnType} (e.g. if 'number', convert word numbers like "eighty" to 80)
-
-AVAILABLE ENTITIES IN TABLE (Voice Key):
-[${availableEntities}]
-
-USER SAID: "${transcript}"
-
-INSTRUCTIONS:
-1. Match the spoken entity to ONE of the exact names in the AVAILABLE ENTITIES list. 
-2. If it's a clear match (even with slight mispronunciation), return that exact name.
-3. Extract the target value.
-
-RESPOND ONLY IN JSON (strictly matching this schema):
-{
-  "entity": "The exact entity name you heard",
-  "entityMatch": {
-    "original": "The raw word heard",
-    "matched": "The exact entity name you heard",
-    "confidence": 1.0,
-    "matchType": "exact"
-  },
-  "value": "The extracted value",
-  "valueValid": true,
-  "action": "UPDATE_CELL",
-  "reasoning": "Extracted raw data from transcript"
-}
-`.trim();
 }
