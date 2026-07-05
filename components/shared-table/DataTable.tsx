@@ -36,11 +36,19 @@ function toColumnDef(col: ColumnDefinition): ColumnDef {
 }
 
 interface DataTableProps {
-  tableId: string;
+  /** Required when isReadOnly is false (default). Not used in read-only mode. */
+  tableId?: string;
   columns: ColumnDefinition[];
   rows: RowDefinition[];
   representativeColumnKey?: string | null;
   onCellClick?: (rowKey: string, tableColumnId: string) => void;
+  /**
+   * When true, disables all write operations:
+   *  - Skips the cell-fetch effect (no /api/tables/:id/cells call)
+   *  - Disables the representative-column PATCH
+   *  - All cells render as read-only regardless of isBaseColumn
+   */
+  isReadOnly?: boolean;
 }
 
 export const DataTable = memo(function DataTable({
@@ -49,6 +57,7 @@ export const DataTable = memo(function DataTable({
   rows,
   representativeColumnKey,
   onCellClick,
+  isReadOnly = false,
 }: DataTableProps) {
   const setActiveCell = useUIStore((state) => state.setActiveCell);
   const isLoading = useTableCellStore((state) => state.isLoading);
@@ -63,14 +72,15 @@ export const DataTable = memo(function DataTable({
     setLocalRepKey(representativeColumnKey ?? null);
   }, [representativeColumnKey]);
 
-  // Fetch data on mount
+  // Fetch cell data only for editable (Table) views — BaseList has no table_cells rows.
   useEffect(() => {
+    if (isReadOnly || !tableId) return;
     fetchCells(tableId);
-  }, [tableId, fetchCells]);
+  }, [tableId, fetchCells, isReadOnly]);
 
-  // Switch the representative (Voice Key) column
+  // Switch the representative (Voice Key) column — only available in editable (Table) views.
   const handleRepresentativeColumnChange = useCallback(async (columnId: string) => {
-    if (columnId === localRepKey) return;
+    if (isReadOnly || !tableId || columnId === localRepKey) return;
 
     try {
       const response = await fetch(`/api/tables/${tableId}/representative-column`, {
@@ -93,7 +103,7 @@ export const DataTable = memo(function DataTable({
         variant: 'destructive',
       });
     }
-  }, [tableId, localRepKey, rows, toast]);
+  }, [isReadOnly, tableId, localRepKey, rows, toast]);
 
   const handleCellClick = useCallback((rowKey: string, tableColumnId: string) => {
     setActiveCell({ rowKey, tableColumnId });
@@ -102,19 +112,19 @@ export const DataTable = memo(function DataTable({
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-      {isLoading && (
+      {!isReadOnly && isLoading && (
         <div className="flex items-center justify-center p-8">
           <div className="text-sm text-slate-500">Loading table data...</div>
         </div>
       )}
 
-      {error && (
+      {!isReadOnly && error && (
         <div className="flex items-center justify-center p-8">
           <div className="text-sm text-red-500">Error loading table data: {error}</div>
         </div>
       )}
 
-      {!isLoading && !error && (
+      {(isReadOnly || (!isLoading && !error)) && (
         <div className="overflow-x-auto">
           <table className="border-collapse w-full">
             <thead>
@@ -136,7 +146,7 @@ export const DataTable = memo(function DataTable({
                       column={toColumnDef(column)}
                       isRepresentative={isRepresentative}
                       onRepresentativeClick={
-                        isBaseTextColumn
+                        !isReadOnly && isBaseTextColumn
                           ? () => handleRepresentativeColumnChange(column.id)
                           : undefined
                       }
@@ -165,15 +175,15 @@ export const DataTable = memo(function DataTable({
                   {columns.map((column) => (
                     <DataTableCell
                       key={`${row.id}-${column.id}-${index}`}
-                      tableId={tableId}
+                      tableId={tableId ?? ''}
                       rowKey={row.id}
                       tableColumnId={column.id}
                       columnType={column.type}
                       isBaseColumn={column.isBaseColumn}
                       baseValue={row.values?.[column.id]}
-                      isReadOnly={column.isBaseColumn === true}
+                      isReadOnly={isReadOnly || column.isBaseColumn === true}
                       onClick={() => {
-                        if (column.isBaseColumn !== true) {
+                        if (!isReadOnly && column.isBaseColumn !== true) {
                           handleCellClick(row.id, column.id);
                         }
                       }}

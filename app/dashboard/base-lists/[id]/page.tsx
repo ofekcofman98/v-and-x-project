@@ -2,26 +2,30 @@
 
 /**
  * BaseList Details Page
- * Displays a specific BaseList with all its entities in a dynamic table
+ * Displays a specific BaseList with all its entities in a read-only grid.
  * Implements: docs/14_PRODUCT_DATA_FLOW.md §3
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { BaseListWithEntities, BaseListSchema, ListEntity } from '@/lib/shared/types/models';
+import type { BaseListWithEntities, BaseListSchema } from '@/lib/shared/types/models';
+import { ColumnType } from '@/lib/shared/types/column-types';
 import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
-import { EmptyEntitiesState } from '@/components/states/empty-state';
 import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
 import type { StatCardConfig } from '@/components/shared/DetailPageHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { useToast } from '@/components/ui/use-toast';
 import { useBaseListStore } from '@/lib/client/stores/base-list-store';
+import { TableGridSection } from '@/components/shared-table/TableGridSection';
+import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 
-interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {
+interface ListEntityDTO {
+  id: string;
+  baseListId: string;
+  values: Record<string, string | number | boolean>;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,7 +35,6 @@ interface BaseListWithEntitiesDTO extends Omit<BaseListWithEntities, 'createdAt'
   updatedAt: string;
   entities: ListEntityDTO[];
 }
-
 
 export default function BaseListDetailsPage() {
   const params = useParams();
@@ -49,17 +52,49 @@ export default function BaseListDetailsPage() {
 
   // ---------------------------------------------------------------------------
   // Memoized derived data — declared before early returns for stable hook order.
-  // Guards against null baseList so useMemo deps are always present.
   // ---------------------------------------------------------------------------
 
-  const columns = useMemo(
+  const schemaColumns = useMemo(
     () => ((baseList?.schema as BaseListSchema | undefined)?.columns ?? []),
     [baseList],
   );
 
   const entities = useMemo(() => baseList?.entities ?? [], [baseList]);
 
-  /** Pre-built stat card descriptors — only recreated when counts or date change. */
+  /** Map BaseListSchema columns → ColumnDefinition[] (all are base columns). */
+  const columns = useMemo<ColumnDefinition[]>(
+    () =>
+      schemaColumns.map((col) => ({
+        id: col.id,
+        label: col.label,
+        type: col.type as unknown as ColumnType,
+        isBaseColumn: true as const,
+      })),
+    [schemaColumns],
+  );
+
+  /**
+   * Derive the first TEXT column id to use as the entity display label,
+   * mirroring the logic in the Table details page.
+   */
+  const firstTextColId = useMemo(
+    () =>
+      columns.find((col) => (col.type as string).toUpperCase() === 'TEXT')?.id ??
+      columns[0]?.id,
+    [columns],
+  );
+
+  /** Map entities → RowDefinition[] using values as the data source. */
+  const rows = useMemo<RowDefinition[]>(
+    () =>
+      entities.map((entity) => ({
+        id: entity.id,
+        label: entity.values[firstTextColId ?? '']?.toString() || entity.id,
+        values: entity.values,
+      })),
+    [entities, firstTextColId],
+  );
+
   const statCards = useMemo<StatCardConfig[]>(
     () =>
       baseList
@@ -74,7 +109,6 @@ export default function BaseListDetailsPage() {
 
   // ---------------------------------------------------------------------------
 
-  /** Stable reference — ListPageHeader's memo bails out every dialog state toggle. */
   const handleOpenDeleteDialog = useCallback(() => setDeleteDialogOpen(true), []);
 
   const handleDeleteConfirm = async () => {
@@ -151,6 +185,8 @@ export default function BaseListDetailsPage() {
     return <ErrorState title="Failed to Load List" error={error} onRetry={fetchBaseList} />;
   }
 
+  const hasData = entities.length > 0 && columns.length > 0;
+
   return (
     <>
       <AppHeader />
@@ -167,60 +203,15 @@ export default function BaseListDetailsPage() {
               onDeleteClick={handleOpenDeleteDialog}
             />
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Entities</CardTitle>
-                <CardDescription>
-                  All entities in this list ({entities.length} total)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {entities.length === 0 ? (
-                  <EmptyEntitiesState
-                    title="No Entities Yet"
-                    description="This list doesn't have any entities yet. Add entities to start tracking data."
-                  />
-                ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-muted">
-                          <tr>
-                            {columns.map((col) => (
-                              <th
-                                key={col.id}
-                                className="px-4 py-3 text-left text-sm font-medium"
-                              >
-                                {col.label}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {entities.map((entity) => (
-                            <tr key={entity.id} className="hover:bg-muted/50">
-                              {columns.map((col) => {
-                                const value = entity.values[col.id];
-                                return (
-                                  <td
-                                    key={`${entity.id}-${col.id}`}
-                                    className="px-4 py-3 text-sm"
-                                  >
-                                    {value !== null && value !== undefined
-                                      ? String(value)
-                                      : '-'}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <TableGridSection
+              columns={columns}
+              rows={rows}
+              hasData={hasData}
+              totalRows={entities.length}
+              title="Entities"
+              description={`All entities in this list${hasData ? ` (${entities.length} ${entities.length === 1 ? 'entity' : 'entities'})` : ''}`}
+              isReadOnly
+            />
           </div>
         </section>
       </main>

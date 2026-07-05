@@ -4,11 +4,22 @@ import { EmptyEntitiesState } from '@/components/states/empty-state';
 import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 
 interface TableGridSectionProps {
-  tableId: string;
+  /** Required for editable (Table) views; omit when isReadOnly is true. */
+  tableId?: string;
   columns: ColumnDefinition[];
   rows: RowDefinition[];
   hasData: boolean;
   totalRows: number;
+  /** Override the card title. Defaults to "Data Grid". */
+  title?: string;
+  /** Override the card description. Defaults to the Table-specific blurb. */
+  description?: string;
+  /**
+   * When true, passes isReadOnly down to DataTable:
+   * skips cell fetching and disables all write interactions.
+   * Use for BaseList detail pages where there are no table_cells.
+   */
+  isReadOnly?: boolean;
 }
 
 export function TableGridSection({
@@ -17,15 +28,19 @@ export function TableGridSection({
   rows,
   hasData,
   totalRows,
+  title = 'Data Grid',
+  description,
+  isReadOnly = false,
 }: TableGridSectionProps) {
+  const resolvedDescription =
+    description ??
+    `Integrated view combining Base List entities and Table data columns${hasData ? ` (${totalRows} ${totalRows === 1 ? 'row' : 'rows'})` : ''}`;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Data Grid</CardTitle>
-        <CardDescription>
-          Integrated view combining Base List entities and Table data columns
-          {hasData && ` (${totalRows} ${totalRows === 1 ? 'row' : 'rows'})`}
-        </CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{resolvedDescription}</CardDescription>
       </CardHeader>
       <CardContent>
         {!hasData ? (
@@ -38,6 +53,7 @@ export function TableGridSection({
             tableId={tableId}
             columns={columns}
             rows={rows}
+            isReadOnly={isReadOnly}
           />
         )}
       </CardContent>
