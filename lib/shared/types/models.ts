@@ -143,6 +143,21 @@ export interface BaseListDTO {
   updatedAt: string;
 }
 
+/**
+ * Minimal BaseList shape returned by GET /api/base-lists.
+ * Used in ApplyTemplateDialog to let users choose target lists.
+ * Columns are untyped strings here because the schema is stored as JSONB
+ * and may contain column types from multiple schema versions.
+ */
+export interface BaseListSummaryDTO {
+  id: string;
+  name: string;
+  description: string | null;
+  schema: {
+    columns: Array<{ id: string; label: string; type: string }>;
+  } | null;
+}
+
 // ═══════════════════════════════════════════════════════════
 // LIST ENTITY TYPES
 // ═══════════════════════════════════════════════════════════

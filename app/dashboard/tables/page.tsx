@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
+import { InlineErrorState } from '@/components/states/error-state';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Table as TableIcon, Trash2 } from 'lucide-react';
 
@@ -56,34 +57,6 @@ function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
           Create Your First Table
         </Button>
       </Link>
-    </div>
-  );
-}
-
-/**
- * Error state display
- */
-function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 px-4">
-      <div className="rounded-full bg-red-50 p-6 mb-4">
-        <svg
-          className="h-12 w-12 text-red-500"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      </div>
-      <h3 className="text-lg font-semibold mb-2">Failed to load tables</h3>
-      <p className="text-sm text-muted-foreground text-center max-w-md mb-6">{error}</p>
-      <Button onClick={onRetry}>Try Again</Button>
     </div>
   );
 }
@@ -151,7 +124,7 @@ export default function TablesDashboardPage() {
           </div>
 
           {error ? (
-            <ErrorState error={error} onRetry={fetchTables} />
+            <InlineErrorState error={error} onRetry={fetchTables} />
           ) : isLoading ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {[...Array(6)].map((_, i) => (
