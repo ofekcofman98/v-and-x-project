@@ -16,11 +16,16 @@ import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
 import { cn } from '@/lib/shared/utils/cn';
 import { ArrowLeft, Save, X, Globe, Lock } from 'lucide-react';
+import { CATEGORY_OPTIONS } from '@/components/templates/template-categories';
 
 interface DynamicTemplateCreatorProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** Allow adding/removing rows. Pass false for pure schema blueprints. Defaults to true. */
+  allowRows?: boolean;
+  /** Allow cell data entry. Pass false for pure schema blueprints. Defaults to true. */
+  allowDataEntry?: boolean;
 }
 
 const DEFAULT_COLUMN: ColumnDef = {
@@ -33,20 +38,13 @@ const DEFAULT_COLUMN: ColumnDef = {
   },
 };
 
-const CATEGORY_OPTIONS = [
-  { value: '', label: 'No category' },
-  { value: 'education', label: '🎓 Education' },
-  { value: 'hr', label: '👔 HR' },
-  { value: 'inventory', label: '📦 Inventory' },
-  { value: 'finance', label: '💰 Finance' },
-  { value: 'healthcare', label: '🏥 Healthcare' },
-  { value: 'custom', label: '⚙️ Custom' },
-];
 
 export function DynamicTemplateCreator({
   open,
   onClose,
   onSuccess,
+  allowRows = true,
+  allowDataEntry = true,
 }: DynamicTemplateCreatorProps) {
   const { toast } = useToast();
   const { addTemplate } = useColumnTemplateStore();
@@ -250,6 +248,8 @@ export function DynamicTemplateCreator({
             rows={rows}
             representativeColumnId={representativeColumnId}
             onRepresentativeColumnChange={setRepresentativeColumnId}
+            allowRows={allowRows}
+            allowDataEntry={allowDataEntry}
             {...gridActions}
           />
         </div>

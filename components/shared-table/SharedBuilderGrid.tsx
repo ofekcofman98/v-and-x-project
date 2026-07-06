@@ -18,6 +18,10 @@ interface SharedBuilderGridProps {
   onAddRow: () => void;
   onRemoveRow: (rowId: string) => void;
   onUpdateCell: (rowId: string, colId: string, value: string) => void;
+  /** Show "Add Row" footer and row-delete icons. Defaults to true. */
+  allowRows?: boolean;
+  /** Enable cell data entry. Defaults to true. */
+  allowDataEntry?: boolean;
 }
 
 export function SharedBuilderGrid({
@@ -31,6 +35,8 @@ export function SharedBuilderGrid({
   onAddRow,
   onRemoveRow,
   onUpdateCell,
+  allowRows = true,
+  allowDataEntry = true,
 }: SharedBuilderGridProps) {
   
   if (columns.length === 0) {
@@ -114,21 +120,23 @@ export function SharedBuilderGrid({
                     column={col}
                     value={row.values[col.id] || ''}
                     onChange={(val) => onUpdateCell(row.id, col.id, val)}
-                    disabled={col.metadata?.locked}
+                    disabled={!allowDataEntry || col.metadata?.locked}
                   />
                 ))}
                 <td className="border-l border-slate-200 p-1 bg-slate-50/30">
-                  <div className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      onClick={() => onRemoveRow(row.id)}
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 hover:bg-red-50 hover:text-red-600"
-                      disabled={row.metadata?.locked}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  {allowRows && (
+                    <div className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        onClick={() => onRemoveRow(row.id)}
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 hover:bg-red-50 hover:text-red-600"
+                        disabled={row.metadata?.locked}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -136,17 +144,18 @@ export function SharedBuilderGrid({
         </table>
       </div>
 
-      {/* Add Row Button - Clean footer */}
-      <div className="border-t border-slate-200 bg-slate-50/30 p-2">
-        <Button
-          onClick={onAddRow}
-          variant="ghost"
-          className="w-full justify-start text-slate-600 hover:bg-slate-50 hover:text-slate-900 h-8"
-        >
-          <Plus className="h-3.5 w-3.5 mr-2" />
-          Add Row
-        </Button>
-      </div>
+      {allowRows && (
+        <div className="border-t border-slate-200 bg-slate-50/30 p-2">
+          <Button
+            onClick={onAddRow}
+            variant="ghost"
+            className="w-full justify-start text-slate-600 hover:bg-slate-50 hover:text-slate-900 h-8"
+          >
+            <Plus className="h-3.5 w-3.5 mr-2" />
+            Add Row
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -100,8 +101,14 @@ export function TemplateCard({ template, onDeleteClick, onApplyClick }: Template
           onClick={() => onApplyClick(template)}
         >
           <Zap className="h-3.5 w-3.5" />
-          Apply to Lists
+          Apply
         </Button>
+        <Link
+          href={`/dashboard/templates/${template.id}`}
+          className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-8 px-3 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          View
+        </Link>
       </CardFooter>
     </Card>
   );

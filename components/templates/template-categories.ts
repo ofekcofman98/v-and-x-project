@@ -32,6 +32,23 @@ export const FILTER_TABS: FilterTab[] = [
   { key: 'custom',     label: '⚙️ Custom' },
 ];
 
+/**
+ * Options for the category <select> in the template creation form.
+ * Derived from FILTER_TABS (excludes the "all" sentinel, adds a blank option).
+ */
+export interface CategoryOption {
+  value: string;
+  label: string;
+}
+
+export const CATEGORY_OPTIONS: CategoryOption[] = [
+  { value: '', label: 'No category' },
+  ...FILTER_TABS.filter((t) => t.key !== 'all').map((t) => ({
+    value: t.key,
+    label: t.label,
+  })),
+];
+
 export function categoryIcon(category: string | null): string {
   return category ? (CATEGORY_META[category]?.icon ?? '📋') : '📋';
 }

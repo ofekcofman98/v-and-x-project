@@ -7,10 +7,11 @@
  */
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useColumnTemplateStore, type ColumnTemplateDTO } from '@/lib/client/stores/column-template-store';
 import { Button } from '@/components/ui/button';
 import { AppHeader } from '@/components/AppHeader';
-import { DynamicTemplateCreator } from '@/components/column-templates/DynamicTemplateCreator';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { InlineErrorState } from '@/components/states/error-state';
 import { useToast } from '@/components/ui/use-toast';
@@ -24,11 +25,11 @@ import { TemplatesEmptyState } from '@/components/templates/TemplatesEmptyState'
 import { ApplyTemplateDialog } from '@/components/templates/ApplyTemplateDialog';
 
 export default function TemplatesDashboardPage() {
+  const router = useRouter();
   const { templates, isLoading, error, fetchTemplates, deleteTemplate } =
     useColumnTemplateStore();
   const { toast } = useToast();
 
-  const [isCreatorOpen, setIsCreatorOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -93,10 +94,12 @@ export default function TemplatesDashboardPage() {
                   Reusable column schemas you can inject into any Base List
                 </p>
               </div>
-              <Button onClick={() => setIsCreatorOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Template
-              </Button>
+              <Link href="/dashboard/templates/new">
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Template
+                </Button>
+              </Link>
             </div>
 
             {/* Filter bar */}
@@ -139,7 +142,7 @@ export default function TemplatesDashboardPage() {
             </div>
           ) : filtered.length === 0 ? (
             <TemplatesEmptyState
-              onCreateClick={() => setIsCreatorOpen(true)}
+              onCreateClick={() => router.push('/dashboard/templates/new')}
               hasFilter={hasFilter}
             />
           ) : (
@@ -156,11 +159,6 @@ export default function TemplatesDashboardPage() {
           )}
         </section>
       </main>
-
-      <DynamicTemplateCreator
-        open={isCreatorOpen}
-        onClose={() => setIsCreatorOpen(false)}
-      />
 
       <DeleteConfirmDialog
         isOpen={!!pendingDeleteId}

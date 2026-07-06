@@ -24,6 +24,10 @@ interface DynamicListCreatorProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** Allow adding/removing rows. Defaults to true. */
+  allowRows?: boolean;
+  /** Allow cell data entry. Defaults to true. */
+  allowDataEntry?: boolean;
 }
 
 /**
@@ -39,7 +43,13 @@ const DEFAULT_COLUMN: ColumnDef = {
   },
 };
 
-export function DynamicListCreator({ open, onClose, onSuccess }: DynamicListCreatorProps) {
+export function DynamicListCreator({
+  open,
+  onClose,
+  onSuccess,
+  allowRows = true,
+  allowDataEntry = true,
+}: DynamicListCreatorProps) {
   const { toast } = useToast();
   const { fetchLists } = useBaseListStore();
 
@@ -185,6 +195,8 @@ export function DynamicListCreator({ open, onClose, onSuccess }: DynamicListCrea
             rows={rows}
             representativeColumnId={representativeColumnId}
             onRepresentativeColumnChange={setRepresentativeColumnId}
+            allowRows={allowRows}
+            allowDataEntry={allowDataEntry}
             {...gridActions}
           />
         </div>

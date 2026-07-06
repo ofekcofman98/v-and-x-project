@@ -7,12 +7,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useBaseListStore } from '@/lib/client/stores/base-list-store';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
-import { DynamicListCreator } from '@/components/base-lists/DynamicListCreator';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Trash2 } from 'lucide-react';
@@ -95,9 +95,9 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { lists, isLoading, error, fetchLists, deleteList } = useBaseListStore();
   const { toast } = useToast();
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -140,9 +140,9 @@ export default function DashboardPage() {
                   Manage your entity lists and track data across tables
                 </p>
               </div>
-              <Button onClick={() => setIsWizardOpen(true)}>
-                Create New List
-              </Button>
+              <Link href="/dashboard/base-lists/new">
+                <Button>Create New List</Button>
+              </Link>
             </div>
           </div>
 
@@ -155,7 +155,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : lists.length === 0 ? (
-            <EmptyState onCreateClick={() => setIsWizardOpen(true)} />
+            <EmptyState onCreateClick={() => router.push('/dashboard/base-lists/new')} />
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {lists.map((list) => (
@@ -224,11 +224,6 @@ export default function DashboardPage() {
         </section>
       </main>
 
-      <DynamicListCreator
-        open={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
-      />
-      
       <DeleteConfirmDialog
         isOpen={!!pendingDeleteId}
         onClose={() => setPendingDeleteId(null)}

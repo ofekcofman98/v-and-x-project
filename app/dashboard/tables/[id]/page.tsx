@@ -17,14 +17,7 @@ import { useTableStore } from '@/lib/client/stores/table-store';
 
 import { TableGridSection } from '@/components/shared-table/TableGridSection';
 
-import type { 
-  TableWithRelations, 
-  TableCell, 
-  TableColumn, 
-  ListEntity, 
-  BaseListWithEntities,
-  BaseListSchema 
-} from '@/lib/shared/types/models';
+import type { TableWithRelations, TableCell, TableColumn, ListEntity, BaseListWithEntities, BaseListSchema } from '@/lib/shared/types/models';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import { prismaColumnTypeToColumnType } from '@/lib/shared/types/models'; 
 import { LoadingSkeleton } from '@/components/states/loading-skeleton';
