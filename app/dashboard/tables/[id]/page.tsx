@@ -14,9 +14,7 @@ import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
 import type { StatCardConfig } from '@/components/shared/DetailPageHeader';
 import { useToast } from '@/components/ui/use-toast';
 import { useTableStore } from '@/lib/client/stores/table-store';
-
 import { TableGridSection } from '@/components/shared-table/TableGridSection';
-
 import type { TableWithRelations, TableCell, TableColumn, ListEntity, BaseListWithEntities, BaseListSchema } from '@/lib/shared/types/models';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import { prismaColumnTypeToColumnType } from '@/lib/shared/types/models'; 

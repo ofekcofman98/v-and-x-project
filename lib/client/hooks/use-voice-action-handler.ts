@@ -5,13 +5,13 @@
  * Based on: docs/05_VOICE_PIPELINE.md §2.2 and docs/06_SMART_POINTER.md
  */
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
-import { match } from '@/lib/server/matching/matcher';
-import { detectAmbiguity } from '@/lib/server/matching/ambiguity';
+import { detectAmbiguity } from '@/lib/shared/utils/ambiguity';
 import { VoiceInputError } from '@/lib/shared/types/voice-errors';
-import { warmEntityCache } from '@/lib/server/matching/cache';
+import { toast } from '@/components/ui/use-toast';
+import { logger } from '@/lib/shared/logging/client-logger';
 import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { CellPosition } from '@/lib/client/stores/ui-store';
@@ -48,20 +48,6 @@ export function useVoiceActionHandler({
   // via useUIStore.getState() to avoid re-rendering on every cell-selection change.
 
   const updateCell = useTableCellStore((state) => state.updateCell);
-
-  /**
-   * Proactive Cache Warming
-   * Pre-populate the EntityRecognitionCache with all existing student names
-   * from the table schema to avoid any LLM parsing for known entities.
-   * 
-   * Runs on hook initialization and whenever tableSchema.rows change
-   */
-  useEffect(() => {
-    if (tableSchema.rows.length > 0) {
-      warmEntityCache(tableSchema.rows);
-    }
-  }, [tableSchema.rows]);
-
 
   const rowIndexMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -112,19 +98,13 @@ export function useVoiceActionHandler({
         throw new VoiceInputError('NO_CELL_SELECTED', 'No cell selected', true);
       }
 
-      // Extract entity names from schema for matching
-      const entityNames = tableSchema.rows.map((row) => row.label);
+      // The entity match was already computed server-side by /api/voice-entry
+      // (Levels 1-4 cascading matcher). Just classify ambiguity over that result.
+      const matched = parsed.entityMatch?.matched ?? null;
+      const confidence = parsed.entityMatch?.confidence ?? 0;
+      const candidates = parsed.alternatives ?? [];
 
-      // Use cascading matcher (Exact → Phonetic → Fuzzy)
-      const matchResult = match(parsed.entity ?? '', entityNames, {
-        useCache: true,
-        usePhonetic: true,
-        useFuzzy: true,
-        fuzzyThreshold: 2,
-      });
-
-      // Detect ambiguity using our ambiguity detection system
-      const ambiguityResult = detectAmbiguity(matchResult, 0.85);
+      const ambiguityResult = detectAmbiguity(matched, confidence, candidates, 0.85);
 
       // Prepare alternatives for confirmation dialog
       const alternatives = ambiguityResult.candidates.map((candidate) => ({
@@ -133,17 +113,38 @@ export function useVoiceActionHandler({
       }));
 
       // Handle based on ambiguity recommendation
-      if (ambiguityResult.recommendedAction === 'auto_select' && matchResult.matched) {
+      if (ambiguityResult.recommendedAction === 'auto_select' && matched) {
         const matchedRow = tableSchema.rows.find(
-          (row) => row.label === matchResult.matched
+          (row) => row.label === matched
         );
 
         if (!matchedRow) {
-          throw new VoiceInputError(
-            'UPDATE_FAILED',
-            'Matched entity not found in schema',
-            true
-          );
+          // The server reported a high-confidence match (e.g. a Whisper
+          // mis-transcription like "John 74" -> "1.74" matching itself with
+          // confidence 1) for a label that doesn't actually exist in this
+          // table's rows. Never let that escape as an unhandled rejection —
+          // ask the user to confirm/correct instead, same as a low-confidence
+          // match, so continuous mode keeps listening.
+          logger.warn('Matched entity not found in schema — asking user to confirm', {
+            tableId,
+            matched,
+          });
+
+          toast({
+            title: 'Could not find that entry',
+            description: `"${matched}" doesn't match anyone in this table.`,
+            variant: 'destructive',
+          });
+
+          setPendingConfirmation({
+            entity: parsed.entity ?? matched ?? '',
+            value: parsed.value as string | number | boolean | null,
+            confidence: 0,
+            alternatives: [],
+          });
+
+          setRecordingState('confirming');
+          return;
         }
 
         // Determine where the data should land before mutating state
@@ -183,9 +184,9 @@ export function useVoiceActionHandler({
         }
       } else if (ambiguityResult.isAmbiguous || ambiguityResult.recommendedAction === 'ask_user') {
         setPendingConfirmation({
-          entity: matchResult.matched ?? parsed.entity ?? '',
+          entity: matched ?? parsed.entity ?? '',
           value: parsed.value as string | number | boolean | null,
-          confidence: matchResult.confidence,
+          confidence,
           alternatives,
         });
 

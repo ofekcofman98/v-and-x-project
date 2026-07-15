@@ -12,6 +12,7 @@
   "description": "VocalGrid - Voice-first spreadsheet data entry",
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@huggingface/transformers": "^4.2.0",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.8.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",

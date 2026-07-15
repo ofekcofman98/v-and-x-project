@@ -76,3 +76,8 @@ export type ColumnTemplate = Prisma.ColumnTemplateModel
  * 
  */
 export type BaseListTemplate = Prisma.BaseListTemplateModel
+/**
+ * Model EntityEmbedding
+ * 
+ */
+export type EntityEmbedding = Prisma.EntityEmbeddingModel

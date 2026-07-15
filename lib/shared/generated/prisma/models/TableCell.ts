@@ -210,9 +210,9 @@ export type TableCellWhereInput = {
   entrySource?: Prisma.EnumEntrySourceFilter<"TableCell"> | $Enums.EntrySource
   createdAt?: Prisma.DateTimeFilter<"TableCell"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TableCell"> | Date | string
-  table?: Prisma.XOR<Prisma.TableScalarRelationFilter, Prisma.TableWhereInput>
-  tableColumn?: Prisma.XOR<Prisma.TableColumnScalarRelationFilter, Prisma.TableColumnWhereInput>
   entity?: Prisma.XOR<Prisma.ListEntityNullableScalarRelationFilter, Prisma.ListEntityWhereInput> | null
+  tableColumn?: Prisma.XOR<Prisma.TableColumnScalarRelationFilter, Prisma.TableColumnWhereInput>
+  table?: Prisma.XOR<Prisma.TableScalarRelationFilter, Prisma.TableWhereInput>
 }
 
 export type TableCellOrderByWithRelationInput = {
@@ -225,9 +225,9 @@ export type TableCellOrderByWithRelationInput = {
   entrySource?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  table?: Prisma.TableOrderByWithRelationInput
-  tableColumn?: Prisma.TableColumnOrderByWithRelationInput
   entity?: Prisma.ListEntityOrderByWithRelationInput
+  tableColumn?: Prisma.TableColumnOrderByWithRelationInput
+  table?: Prisma.TableOrderByWithRelationInput
 }
 
 export type TableCellWhereUniqueInput = Prisma.AtLeast<{
@@ -244,9 +244,9 @@ export type TableCellWhereUniqueInput = Prisma.AtLeast<{
   entrySource?: Prisma.EnumEntrySourceFilter<"TableCell"> | $Enums.EntrySource
   createdAt?: Prisma.DateTimeFilter<"TableCell"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TableCell"> | Date | string
-  table?: Prisma.XOR<Prisma.TableScalarRelationFilter, Prisma.TableWhereInput>
-  tableColumn?: Prisma.XOR<Prisma.TableColumnScalarRelationFilter, Prisma.TableColumnWhereInput>
   entity?: Prisma.XOR<Prisma.ListEntityNullableScalarRelationFilter, Prisma.ListEntityWhereInput> | null
+  tableColumn?: Prisma.XOR<Prisma.TableColumnScalarRelationFilter, Prisma.TableColumnWhereInput>
+  table?: Prisma.XOR<Prisma.TableScalarRelationFilter, Prisma.TableWhereInput>
 }, "id" | "tableId_rowKey_tableColumnId">
 
 export type TableCellOrderByWithAggregationInput = {
@@ -286,9 +286,9 @@ export type TableCellCreateInput = {
   entrySource?: $Enums.EntrySource
   createdAt?: Date | string
   updatedAt?: Date | string
-  table: Prisma.TableCreateNestedOneWithoutCellsInput
-  tableColumn: Prisma.TableColumnCreateNestedOneWithoutCellsInput
   entity?: Prisma.ListEntityCreateNestedOneWithoutTableCellsInput
+  tableColumn: Prisma.TableColumnCreateNestedOneWithoutCellsInput
+  table: Prisma.TableCreateNestedOneWithoutCellsInput
 }
 
 export type TableCellUncheckedCreateInput = {
@@ -310,9 +310,9 @@ export type TableCellUpdateInput = {
   entrySource?: Prisma.EnumEntrySourceFieldUpdateOperationsInput | $Enums.EntrySource
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  table?: Prisma.TableUpdateOneRequiredWithoutCellsNestedInput
-  tableColumn?: Prisma.TableColumnUpdateOneRequiredWithoutCellsNestedInput
   entity?: Prisma.ListEntityUpdateOneWithoutTableCellsNestedInput
+  tableColumn?: Prisma.TableColumnUpdateOneRequiredWithoutCellsNestedInput
+  table?: Prisma.TableUpdateOneRequiredWithoutCellsNestedInput
 }
 
 export type TableCellUncheckedUpdateInput = {
@@ -547,8 +547,8 @@ export type TableCellCreateWithoutEntityInput = {
   entrySource?: $Enums.EntrySource
   createdAt?: Date | string
   updatedAt?: Date | string
-  table: Prisma.TableCreateNestedOneWithoutCellsInput
   tableColumn: Prisma.TableColumnCreateNestedOneWithoutCellsInput
+  table: Prisma.TableCreateNestedOneWithoutCellsInput
 }
 
 export type TableCellUncheckedCreateWithoutEntityInput = {
@@ -610,8 +610,8 @@ export type TableCellCreateWithoutTableInput = {
   entrySource?: $Enums.EntrySource
   createdAt?: Date | string
   updatedAt?: Date | string
-  tableColumn: Prisma.TableColumnCreateNestedOneWithoutCellsInput
   entity?: Prisma.ListEntityCreateNestedOneWithoutTableCellsInput
+  tableColumn: Prisma.TableColumnCreateNestedOneWithoutCellsInput
 }
 
 export type TableCellUncheckedCreateWithoutTableInput = {
@@ -658,8 +658,8 @@ export type TableCellCreateWithoutTableColumnInput = {
   entrySource?: $Enums.EntrySource
   createdAt?: Date | string
   updatedAt?: Date | string
-  table: Prisma.TableCreateNestedOneWithoutCellsInput
   entity?: Prisma.ListEntityCreateNestedOneWithoutTableCellsInput
+  table: Prisma.TableCreateNestedOneWithoutCellsInput
 }
 
 export type TableCellUncheckedCreateWithoutTableColumnInput = {
@@ -717,8 +717,8 @@ export type TableCellUpdateWithoutEntityInput = {
   entrySource?: Prisma.EnumEntrySourceFieldUpdateOperationsInput | $Enums.EntrySource
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  table?: Prisma.TableUpdateOneRequiredWithoutCellsNestedInput
   tableColumn?: Prisma.TableColumnUpdateOneRequiredWithoutCellsNestedInput
+  table?: Prisma.TableUpdateOneRequiredWithoutCellsNestedInput
 }
 
 export type TableCellUncheckedUpdateWithoutEntityInput = {
@@ -761,8 +761,8 @@ export type TableCellUpdateWithoutTableInput = {
   entrySource?: Prisma.EnumEntrySourceFieldUpdateOperationsInput | $Enums.EntrySource
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  tableColumn?: Prisma.TableColumnUpdateOneRequiredWithoutCellsNestedInput
   entity?: Prisma.ListEntityUpdateOneWithoutTableCellsNestedInput
+  tableColumn?: Prisma.TableColumnUpdateOneRequiredWithoutCellsNestedInput
 }
 
 export type TableCellUncheckedUpdateWithoutTableInput = {
@@ -805,8 +805,8 @@ export type TableCellUpdateWithoutTableColumnInput = {
   entrySource?: Prisma.EnumEntrySourceFieldUpdateOperationsInput | $Enums.EntrySource
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  table?: Prisma.TableUpdateOneRequiredWithoutCellsNestedInput
   entity?: Prisma.ListEntityUpdateOneWithoutTableCellsNestedInput
+  table?: Prisma.TableUpdateOneRequiredWithoutCellsNestedInput
 }
 
 export type TableCellUncheckedUpdateWithoutTableColumnInput = {
@@ -843,9 +843,9 @@ export type TableCellSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   entrySource?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
-  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
   entity?: boolean | Prisma.TableCell$entityArgs<ExtArgs>
+  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
+  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tableCell"]>
 
 export type TableCellSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -858,9 +858,9 @@ export type TableCellSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   entrySource?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
-  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
   entity?: boolean | Prisma.TableCell$entityArgs<ExtArgs>
+  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
+  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tableCell"]>
 
 export type TableCellSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -873,9 +873,9 @@ export type TableCellSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   entrySource?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
-  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
   entity?: boolean | Prisma.TableCell$entityArgs<ExtArgs>
+  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
+  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tableCell"]>
 
 export type TableCellSelectScalar = {
@@ -892,27 +892,27 @@ export type TableCellSelectScalar = {
 
 export type TableCellOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tableId" | "tableColumnId" | "entityId" | "rowKey" | "value" | "entrySource" | "createdAt" | "updatedAt", ExtArgs["result"]["tableCell"]>
 export type TableCellInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
-  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
   entity?: boolean | Prisma.TableCell$entityArgs<ExtArgs>
+  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
+  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
 }
 export type TableCellIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
-  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
   entity?: boolean | Prisma.TableCell$entityArgs<ExtArgs>
+  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
+  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
 }
 export type TableCellIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
-  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
   entity?: boolean | Prisma.TableCell$entityArgs<ExtArgs>
+  tableColumn?: boolean | Prisma.TableColumnDefaultArgs<ExtArgs>
+  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
 }
 
 export type $TableCellPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "TableCell"
   objects: {
-    table: Prisma.$TablePayload<ExtArgs>
-    tableColumn: Prisma.$TableColumnPayload<ExtArgs>
     entity: Prisma.$ListEntityPayload<ExtArgs> | null
+    tableColumn: Prisma.$TableColumnPayload<ExtArgs>
+    table: Prisma.$TablePayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1318,9 +1318,9 @@ readonly fields: TableCellFieldRefs;
  */
 export interface Prisma__TableCellClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  table<T extends Prisma.TableDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TableDefaultArgs<ExtArgs>>): Prisma.Prisma__TableClient<runtime.Types.Result.GetResult<Prisma.$TablePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  tableColumn<T extends Prisma.TableColumnDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TableColumnDefaultArgs<ExtArgs>>): Prisma.Prisma__TableColumnClient<runtime.Types.Result.GetResult<Prisma.$TableColumnPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   entity<T extends Prisma.TableCell$entityArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TableCell$entityArgs<ExtArgs>>): Prisma.Prisma__ListEntityClient<runtime.Types.Result.GetResult<Prisma.$ListEntityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  tableColumn<T extends Prisma.TableColumnDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TableColumnDefaultArgs<ExtArgs>>): Prisma.Prisma__TableColumnClient<runtime.Types.Result.GetResult<Prisma.$TableColumnPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  table<T extends Prisma.TableDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TableDefaultArgs<ExtArgs>>): Prisma.Prisma__TableClient<runtime.Types.Result.GetResult<Prisma.$TablePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.

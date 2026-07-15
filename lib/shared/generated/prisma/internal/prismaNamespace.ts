@@ -80,12 +80,12 @@ export type PrismaVersion = {
 }
 
 /**
- * Prisma Client JS version: 7.6.0
- * Query Engine version: 75cbdc1eb7150937890ad5465d861175c6624711
+ * Prisma Client JS version: 7.8.0
+ * Query Engine version: 3c6e192761c0362d496ed980de936e2f3cebcd3a
  */
 export const prismaVersion: PrismaVersion = {
-  client: "7.6.0",
-  engine: "75cbdc1eb7150937890ad5465d861175c6624711"
+  client: "7.8.0",
+  engine: "3c6e192761c0362d496ed980de936e2f3cebcd3a"
 }
 
 /**
@@ -390,7 +390,8 @@ export const ModelName = {
   TableColumn: 'TableColumn',
   TableCell: 'TableCell',
   ColumnTemplate: 'ColumnTemplate',
-  BaseListTemplate: 'BaseListTemplate'
+  BaseListTemplate: 'BaseListTemplate',
+  EntityEmbedding: 'EntityEmbedding'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -406,7 +407,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "baseList" | "listEntity" | "table" | "tableColumn" | "tableCell" | "columnTemplate" | "baseListTemplate"
+    modelProps: "baseList" | "listEntity" | "table" | "tableColumn" | "tableCell" | "columnTemplate" | "baseListTemplate" | "entityEmbedding"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -928,6 +929,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    EntityEmbedding: {
+      payload: Prisma.$EntityEmbeddingPayload<ExtArgs>
+      fields: Prisma.EntityEmbeddingFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.EntityEmbeddingFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.EntityEmbeddingFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload>
+        }
+        findFirst: {
+          args: Prisma.EntityEmbeddingFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.EntityEmbeddingFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload>
+        }
+        findMany: {
+          args: Prisma.EntityEmbeddingFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload>[]
+        }
+        create: {
+          args: Prisma.EntityEmbeddingCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload>
+        }
+        createMany: {
+          args: Prisma.EntityEmbeddingCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.EntityEmbeddingCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload>[]
+        }
+        delete: {
+          args: Prisma.EntityEmbeddingDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload>
+        }
+        update: {
+          args: Prisma.EntityEmbeddingUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload>
+        }
+        deleteMany: {
+          args: Prisma.EntityEmbeddingDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.EntityEmbeddingUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.EntityEmbeddingUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload>[]
+        }
+        upsert: {
+          args: Prisma.EntityEmbeddingUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EntityEmbeddingPayload>
+        }
+        aggregate: {
+          args: Prisma.EntityEmbeddingAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateEntityEmbedding>
+        }
+        groupBy: {
+          args: Prisma.EntityEmbeddingGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EntityEmbeddingGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.EntityEmbeddingCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EntityEmbeddingCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1061,6 +1136,19 @@ export const BaseListTemplateScalarFieldEnum = {
 } as const
 
 export type BaseListTemplateScalarFieldEnum = (typeof BaseListTemplateScalarFieldEnum)[keyof typeof BaseListTemplateScalarFieldEnum]
+
+
+export const EntityEmbeddingScalarFieldEnum = {
+  tableId: 'tableId',
+  model: 'model',
+  dim: 'dim',
+  labels: 'labels',
+  vectors: 'vectors',
+  labelsHash: 'labelsHash',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EntityEmbeddingScalarFieldEnum = (typeof EntityEmbeddingScalarFieldEnum)[keyof typeof EntityEmbeddingScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1209,6 +1297,20 @@ export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
 
 
 /**
+ * Reference to a field of type 'Bytes'
+ */
+export type BytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes'>
+    
+
+
+/**
+ * Reference to a field of type 'Bytes[]'
+ */
+export type ListBytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes[]'>
+    
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -1314,6 +1416,21 @@ export type PrismaClientOptions = ({
    * ```
    */
   comments?: runtime.SqlCommenterPlugin[]
+  /**
+   * Optional maximum size for the query plan cache. If not provided, a default size will be used.
+   * A value of `0` can be used to disable the cache entirely. A higher cache size can improve
+   * performance for applications that execute a large number of unique queries, while a smaller
+   * cache size can reduce memory usage.
+   * 
+   * @example
+   * ```
+   * const prisma = new PrismaClient({
+   *   adapter,
+   *   queryPlanCacheMaxSize: 100,
+   * })
+   * ```
+   */
+  queryPlanCacheMaxSize?: number
 }
 export type GlobalOmitConfig = {
   baseList?: Prisma.BaseListOmit
@@ -1323,6 +1440,7 @@ export type GlobalOmitConfig = {
   tableCell?: Prisma.TableCellOmit
   columnTemplate?: Prisma.ColumnTemplateOmit
   baseListTemplate?: Prisma.BaseListTemplateOmit
+  entityEmbedding?: Prisma.EntityEmbeddingOmit
 }
 
 /* Types for Logging */

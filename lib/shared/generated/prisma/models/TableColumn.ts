@@ -244,8 +244,8 @@ export type TableColumnWhereInput = {
   validation?: Prisma.JsonNullableFilter<"TableColumn">
   createdAt?: Prisma.DateTimeFilter<"TableColumn"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TableColumn"> | Date | string
-  table?: Prisma.XOR<Prisma.TableScalarRelationFilter, Prisma.TableWhereInput>
   cells?: Prisma.TableCellListRelationFilter
+  table?: Prisma.XOR<Prisma.TableScalarRelationFilter, Prisma.TableWhereInput>
 }
 
 export type TableColumnOrderByWithRelationInput = {
@@ -258,8 +258,8 @@ export type TableColumnOrderByWithRelationInput = {
   validation?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  table?: Prisma.TableOrderByWithRelationInput
   cells?: Prisma.TableCellOrderByRelationAggregateInput
+  table?: Prisma.TableOrderByWithRelationInput
 }
 
 export type TableColumnWhereUniqueInput = Prisma.AtLeast<{
@@ -276,8 +276,8 @@ export type TableColumnWhereUniqueInput = Prisma.AtLeast<{
   validation?: Prisma.JsonNullableFilter<"TableColumn">
   createdAt?: Prisma.DateTimeFilter<"TableColumn"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TableColumn"> | Date | string
-  table?: Prisma.XOR<Prisma.TableScalarRelationFilter, Prisma.TableWhereInput>
   cells?: Prisma.TableCellListRelationFilter
+  table?: Prisma.XOR<Prisma.TableScalarRelationFilter, Prisma.TableWhereInput>
 }, "id" | "tableId_key">
 
 export type TableColumnOrderByWithAggregationInput = {
@@ -321,8 +321,8 @@ export type TableColumnCreateInput = {
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
-  table: Prisma.TableCreateNestedOneWithoutColumnsInput
   cells?: Prisma.TableCellCreateNestedManyWithoutTableColumnInput
+  table: Prisma.TableCreateNestedOneWithoutColumnsInput
 }
 
 export type TableColumnUncheckedCreateInput = {
@@ -347,8 +347,8 @@ export type TableColumnUpdateInput = {
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  table?: Prisma.TableUpdateOneRequiredWithoutColumnsNestedInput
   cells?: Prisma.TableCellUpdateManyWithoutTableColumnNestedInput
+  table?: Prisma.TableUpdateOneRequiredWithoutColumnsNestedInput
 }
 
 export type TableColumnUncheckedUpdateInput = {
@@ -745,8 +745,8 @@ export type TableColumnSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   validation?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
   cells?: boolean | Prisma.TableColumn$cellsArgs<ExtArgs>
+  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
   _count?: boolean | Prisma.TableColumnCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tableColumn"]>
 
@@ -790,8 +790,8 @@ export type TableColumnSelectScalar = {
 
 export type TableColumnOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tableId" | "key" | "label" | "type" | "order" | "validation" | "createdAt" | "updatedAt", ExtArgs["result"]["tableColumn"]>
 export type TableColumnInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
   cells?: boolean | Prisma.TableColumn$cellsArgs<ExtArgs>
+  table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
   _count?: boolean | Prisma.TableColumnCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type TableColumnIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -804,8 +804,8 @@ export type TableColumnIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.
 export type $TableColumnPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "TableColumn"
   objects: {
-    table: Prisma.$TablePayload<ExtArgs>
     cells: Prisma.$TableCellPayload<ExtArgs>[]
+    table: Prisma.$TablePayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1211,8 +1211,8 @@ readonly fields: TableColumnFieldRefs;
  */
 export interface Prisma__TableColumnClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  table<T extends Prisma.TableDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TableDefaultArgs<ExtArgs>>): Prisma.Prisma__TableClient<runtime.Types.Result.GetResult<Prisma.$TablePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   cells<T extends Prisma.TableColumn$cellsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TableColumn$cellsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TableCellPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  table<T extends Prisma.TableDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TableDefaultArgs<ExtArgs>>): Prisma.Prisma__TableClient<runtime.Types.Result.GetResult<Prisma.$TablePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.

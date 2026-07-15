@@ -11,6 +11,7 @@ import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
 
 interface UseContinuousVoiceOptions {
+  tableId: string;
   tableSchema: TableSchema;
   onResult: (result: ParsedResult) => void;
   onError: (error: Error) => void;
@@ -22,6 +23,7 @@ interface UseContinuousVoiceOptions {
  * and returns to listening after each entry
  */
 export function useContinuousVoice({
+  tableId,
   tableSchema,
   onResult,
   onError,
@@ -73,6 +75,7 @@ export function useContinuousVoice({
         formData.append('tableSchema', JSON.stringify(tableSchema));
         formData.append('activeCell', JSON.stringify(activeCell));
         formData.append('navigationMode', navigationMode);
+        formData.append('tableId', tableId);
 
         const response = await fetch('/api/voice-entry', {
           method: 'POST',
@@ -119,6 +122,7 @@ export function useContinuousVoice({
       }
     },
     [
+      tableId,
       tableSchema,
       onResult,
       onError,

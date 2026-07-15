@@ -23,7 +23,7 @@ import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnDefinition, TableSchema } from '@/lib/shared/types/table-schema';
 import type { ParsedResult, MatchType, ProcessingPath, VoiceEntryPayload, VoiceEntryResult } from '@/lib/shared/types/voice-pipeline';
 import { parseBoolean, parseNaturalDate, parseNumber, validateValue } from '@/lib/server/parsers/value-parsers';
-import { match } from '@/lib/server/matching/matcher';
+import { matchAsync } from '@/lib/server/matching/matcher';
 import { transcriptCache } from '@/lib/server/cache/transcript-cache';
 import { entityCache } from '@/lib/server/cache/entity-recognition-cache';
 import { ErrorCodes, ErrorSeverity, ErrorCategory, VocalGridError } from '@/lib/shared/types/voice-errors';
@@ -205,7 +205,7 @@ export async function processVoiceEntry(
   if (quickExtract) {
     console.log('[VoiceEntryService] Quick extraction found pattern:', quickExtract);
 
-    const matchResult = match(quickExtract.entity, entities, {
+    const matchResult = await matchAsync(quickExtract.entity, entities, tableId, {
       useCache: true,
       usePhonetic: true,
       useFuzzy: true,
@@ -302,14 +302,23 @@ export async function processVoiceEntry(
 
   const parsedResult = parseCompletion(rawContent);
 
-  const finalMatch = match(parsedResult.entity ?? '', entities, {
+  const finalMatch = await matchAsync(parsedResult.entity ?? '', entities, tableId, {
     useCache: true,
     usePhonetic: true,
     useFuzzy: true,
     fuzzyThreshold: 4,
   });
 
-  const matchedEntity = finalMatch.matched ?? parsedResult.entity;
+  // `finalMatch` is the real matcher chain's verdict (Exact/Phonetic/Fuzzy/
+  // Vector) against the actual row labels — it's the only source of truth
+  // for whether `parsedResult.entity` (the LLM's raw transcript extraction,
+  // e.g. "1.74" from a mis-heard "John 74") corresponds to a real row.
+  // `parsedResult.entityMatch` is NOT a real match result: the parse prompt
+  // explicitly tells the LLM not to attempt matching, and the JSON schema
+  // it echoes back always carries the example's confidence: 1.0. Falling
+  // back to either of those on a matcher miss would report a fabricated
+  // high-confidence match for an entity that doesn't exist in the schema.
+  const matchedEntity = finalMatch.matched;
   const normalizedValue = normalizeValue(parsedResult.value, activeColumn);
   const validation = validateValue(normalizedValue, activeColumn.type, activeColumn.validation);
   const totalDuration = Date.now() - totalStartTime;
@@ -320,11 +329,14 @@ export async function processVoiceEntry(
     entityMatch: {
       original: parsedResult.entity,
       matched: matchedEntity,
-      confidence: finalMatch.confidence || parsedResult.entityMatch?.confidence || 0,
-      matchType: 'semantic',
+      confidence: finalMatch.confidence,
+      matchType: matchedEntity ? 'semantic' : null,
     },
     value: validation.valid ? normalizedValue : null,
     valueValid: validation.valid,
+    // No real match against the schema — ask the user instead of silently
+    // committing (or crashing downstream on) an unresolved entity.
+    action: matchedEntity ? parsedResult.action : 'AMBIGUOUS',
     duration: totalDuration,
     error: validation.valid ? parsedResult.error : (validation.error ?? parsedResult.error),
     transcript,
@@ -332,7 +344,7 @@ export async function processVoiceEntry(
     parsingDuration,
     totalDuration,
     cached: false,
-    matchType: 'semantic',
+    matchType: matchedEntity ? 'semantic' : undefined,
     pathTaken: 'LLM_FALLBACK',
   };
 

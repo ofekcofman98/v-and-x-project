@@ -206,9 +206,10 @@ export type TableWhereInput = {
   settings?: Prisma.JsonFilter<"Table">
   createdAt?: Prisma.DateTimeFilter<"Table"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Table"> | Date | string
-  baseList?: Prisma.XOR<Prisma.BaseListNullableScalarRelationFilter, Prisma.BaseListWhereInput> | null
-  columns?: Prisma.TableColumnListRelationFilter
   cells?: Prisma.TableCellListRelationFilter
+  columns?: Prisma.TableColumnListRelationFilter
+  baseList?: Prisma.XOR<Prisma.BaseListNullableScalarRelationFilter, Prisma.BaseListWhereInput> | null
+  entityEmbedding?: Prisma.XOR<Prisma.EntityEmbeddingNullableScalarRelationFilter, Prisma.EntityEmbeddingWhereInput> | null
 }
 
 export type TableOrderByWithRelationInput = {
@@ -221,9 +222,10 @@ export type TableOrderByWithRelationInput = {
   settings?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  baseList?: Prisma.BaseListOrderByWithRelationInput
-  columns?: Prisma.TableColumnOrderByRelationAggregateInput
   cells?: Prisma.TableCellOrderByRelationAggregateInput
+  columns?: Prisma.TableColumnOrderByRelationAggregateInput
+  baseList?: Prisma.BaseListOrderByWithRelationInput
+  entityEmbedding?: Prisma.EntityEmbeddingOrderByWithRelationInput
 }
 
 export type TableWhereUniqueInput = Prisma.AtLeast<{
@@ -239,9 +241,10 @@ export type TableWhereUniqueInput = Prisma.AtLeast<{
   settings?: Prisma.JsonFilter<"Table">
   createdAt?: Prisma.DateTimeFilter<"Table"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Table"> | Date | string
-  baseList?: Prisma.XOR<Prisma.BaseListNullableScalarRelationFilter, Prisma.BaseListWhereInput> | null
-  columns?: Prisma.TableColumnListRelationFilter
   cells?: Prisma.TableCellListRelationFilter
+  columns?: Prisma.TableColumnListRelationFilter
+  baseList?: Prisma.XOR<Prisma.BaseListNullableScalarRelationFilter, Prisma.BaseListWhereInput> | null
+  entityEmbedding?: Prisma.XOR<Prisma.EntityEmbeddingNullableScalarRelationFilter, Prisma.EntityEmbeddingWhereInput> | null
 }, "id">
 
 export type TableOrderByWithAggregationInput = {
@@ -283,9 +286,10 @@ export type TableCreateInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
-  baseList?: Prisma.BaseListCreateNestedOneWithoutTablesInput
-  columns?: Prisma.TableColumnCreateNestedManyWithoutTableInput
   cells?: Prisma.TableCellCreateNestedManyWithoutTableInput
+  columns?: Prisma.TableColumnCreateNestedManyWithoutTableInput
+  baseList?: Prisma.BaseListCreateNestedOneWithoutTablesInput
+  entityEmbedding?: Prisma.EntityEmbeddingCreateNestedOneWithoutTableInput
 }
 
 export type TableUncheckedCreateInput = {
@@ -298,8 +302,9 @@ export type TableUncheckedCreateInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
-  columns?: Prisma.TableColumnUncheckedCreateNestedManyWithoutTableInput
   cells?: Prisma.TableCellUncheckedCreateNestedManyWithoutTableInput
+  columns?: Prisma.TableColumnUncheckedCreateNestedManyWithoutTableInput
+  entityEmbedding?: Prisma.EntityEmbeddingUncheckedCreateNestedOneWithoutTableInput
 }
 
 export type TableUpdateInput = {
@@ -311,9 +316,10 @@ export type TableUpdateInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  baseList?: Prisma.BaseListUpdateOneWithoutTablesNestedInput
-  columns?: Prisma.TableColumnUpdateManyWithoutTableNestedInput
   cells?: Prisma.TableCellUpdateManyWithoutTableNestedInput
+  columns?: Prisma.TableColumnUpdateManyWithoutTableNestedInput
+  baseList?: Prisma.BaseListUpdateOneWithoutTablesNestedInput
+  entityEmbedding?: Prisma.EntityEmbeddingUpdateOneWithoutTableNestedInput
 }
 
 export type TableUncheckedUpdateInput = {
@@ -326,8 +332,9 @@ export type TableUncheckedUpdateInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  columns?: Prisma.TableColumnUncheckedUpdateManyWithoutTableNestedInput
   cells?: Prisma.TableCellUncheckedUpdateManyWithoutTableNestedInput
+  columns?: Prisma.TableColumnUncheckedUpdateManyWithoutTableNestedInput
+  entityEmbedding?: Prisma.EntityEmbeddingUncheckedUpdateOneWithoutTableNestedInput
 }
 
 export type TableCreateManyInput = {
@@ -482,6 +489,20 @@ export type TableUpdateOneRequiredWithoutCellsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.TableUpdateToOneWithWhereWithoutCellsInput, Prisma.TableUpdateWithoutCellsInput>, Prisma.TableUncheckedUpdateWithoutCellsInput>
 }
 
+export type TableCreateNestedOneWithoutEntityEmbeddingInput = {
+  create?: Prisma.XOR<Prisma.TableCreateWithoutEntityEmbeddingInput, Prisma.TableUncheckedCreateWithoutEntityEmbeddingInput>
+  connectOrCreate?: Prisma.TableCreateOrConnectWithoutEntityEmbeddingInput
+  connect?: Prisma.TableWhereUniqueInput
+}
+
+export type TableUpdateOneRequiredWithoutEntityEmbeddingNestedInput = {
+  create?: Prisma.XOR<Prisma.TableCreateWithoutEntityEmbeddingInput, Prisma.TableUncheckedCreateWithoutEntityEmbeddingInput>
+  connectOrCreate?: Prisma.TableCreateOrConnectWithoutEntityEmbeddingInput
+  upsert?: Prisma.TableUpsertWithoutEntityEmbeddingInput
+  connect?: Prisma.TableWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.TableUpdateToOneWithWhereWithoutEntityEmbeddingInput, Prisma.TableUpdateWithoutEntityEmbeddingInput>, Prisma.TableUncheckedUpdateWithoutEntityEmbeddingInput>
+}
+
 export type TableCreateWithoutBaseListInput = {
   id?: string
   name: string
@@ -491,8 +512,9 @@ export type TableCreateWithoutBaseListInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
-  columns?: Prisma.TableColumnCreateNestedManyWithoutTableInput
   cells?: Prisma.TableCellCreateNestedManyWithoutTableInput
+  columns?: Prisma.TableColumnCreateNestedManyWithoutTableInput
+  entityEmbedding?: Prisma.EntityEmbeddingCreateNestedOneWithoutTableInput
 }
 
 export type TableUncheckedCreateWithoutBaseListInput = {
@@ -504,8 +526,9 @@ export type TableUncheckedCreateWithoutBaseListInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
-  columns?: Prisma.TableColumnUncheckedCreateNestedManyWithoutTableInput
   cells?: Prisma.TableCellUncheckedCreateNestedManyWithoutTableInput
+  columns?: Prisma.TableColumnUncheckedCreateNestedManyWithoutTableInput
+  entityEmbedding?: Prisma.EntityEmbeddingUncheckedCreateNestedOneWithoutTableInput
 }
 
 export type TableCreateOrConnectWithoutBaseListInput = {
@@ -558,8 +581,9 @@ export type TableCreateWithoutColumnsInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
-  baseList?: Prisma.BaseListCreateNestedOneWithoutTablesInput
   cells?: Prisma.TableCellCreateNestedManyWithoutTableInput
+  baseList?: Prisma.BaseListCreateNestedOneWithoutTablesInput
+  entityEmbedding?: Prisma.EntityEmbeddingCreateNestedOneWithoutTableInput
 }
 
 export type TableUncheckedCreateWithoutColumnsInput = {
@@ -573,6 +597,7 @@ export type TableUncheckedCreateWithoutColumnsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   cells?: Prisma.TableCellUncheckedCreateNestedManyWithoutTableInput
+  entityEmbedding?: Prisma.EntityEmbeddingUncheckedCreateNestedOneWithoutTableInput
 }
 
 export type TableCreateOrConnectWithoutColumnsInput = {
@@ -600,8 +625,9 @@ export type TableUpdateWithoutColumnsInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  baseList?: Prisma.BaseListUpdateOneWithoutTablesNestedInput
   cells?: Prisma.TableCellUpdateManyWithoutTableNestedInput
+  baseList?: Prisma.BaseListUpdateOneWithoutTablesNestedInput
+  entityEmbedding?: Prisma.EntityEmbeddingUpdateOneWithoutTableNestedInput
 }
 
 export type TableUncheckedUpdateWithoutColumnsInput = {
@@ -615,6 +641,7 @@ export type TableUncheckedUpdateWithoutColumnsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cells?: Prisma.TableCellUncheckedUpdateManyWithoutTableNestedInput
+  entityEmbedding?: Prisma.EntityEmbeddingUncheckedUpdateOneWithoutTableNestedInput
 }
 
 export type TableCreateWithoutCellsInput = {
@@ -626,8 +653,9 @@ export type TableCreateWithoutCellsInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
-  baseList?: Prisma.BaseListCreateNestedOneWithoutTablesInput
   columns?: Prisma.TableColumnCreateNestedManyWithoutTableInput
+  baseList?: Prisma.BaseListCreateNestedOneWithoutTablesInput
+  entityEmbedding?: Prisma.EntityEmbeddingCreateNestedOneWithoutTableInput
 }
 
 export type TableUncheckedCreateWithoutCellsInput = {
@@ -641,6 +669,7 @@ export type TableUncheckedCreateWithoutCellsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   columns?: Prisma.TableColumnUncheckedCreateNestedManyWithoutTableInput
+  entityEmbedding?: Prisma.EntityEmbeddingUncheckedCreateNestedOneWithoutTableInput
 }
 
 export type TableCreateOrConnectWithoutCellsInput = {
@@ -668,8 +697,9 @@ export type TableUpdateWithoutCellsInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  baseList?: Prisma.BaseListUpdateOneWithoutTablesNestedInput
   columns?: Prisma.TableColumnUpdateManyWithoutTableNestedInput
+  baseList?: Prisma.BaseListUpdateOneWithoutTablesNestedInput
+  entityEmbedding?: Prisma.EntityEmbeddingUpdateOneWithoutTableNestedInput
 }
 
 export type TableUncheckedUpdateWithoutCellsInput = {
@@ -682,6 +712,79 @@ export type TableUncheckedUpdateWithoutCellsInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  columns?: Prisma.TableColumnUncheckedUpdateManyWithoutTableNestedInput
+  entityEmbedding?: Prisma.EntityEmbeddingUncheckedUpdateOneWithoutTableNestedInput
+}
+
+export type TableCreateWithoutEntityEmbeddingInput = {
+  id?: string
+  name: string
+  description?: string | null
+  representativeColumnKey: string
+  schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  cells?: Prisma.TableCellCreateNestedManyWithoutTableInput
+  columns?: Prisma.TableColumnCreateNestedManyWithoutTableInput
+  baseList?: Prisma.BaseListCreateNestedOneWithoutTablesInput
+}
+
+export type TableUncheckedCreateWithoutEntityEmbeddingInput = {
+  id?: string
+  name: string
+  description?: string | null
+  baseListId?: string | null
+  representativeColumnKey: string
+  schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  cells?: Prisma.TableCellUncheckedCreateNestedManyWithoutTableInput
+  columns?: Prisma.TableColumnUncheckedCreateNestedManyWithoutTableInput
+}
+
+export type TableCreateOrConnectWithoutEntityEmbeddingInput = {
+  where: Prisma.TableWhereUniqueInput
+  create: Prisma.XOR<Prisma.TableCreateWithoutEntityEmbeddingInput, Prisma.TableUncheckedCreateWithoutEntityEmbeddingInput>
+}
+
+export type TableUpsertWithoutEntityEmbeddingInput = {
+  update: Prisma.XOR<Prisma.TableUpdateWithoutEntityEmbeddingInput, Prisma.TableUncheckedUpdateWithoutEntityEmbeddingInput>
+  create: Prisma.XOR<Prisma.TableCreateWithoutEntityEmbeddingInput, Prisma.TableUncheckedCreateWithoutEntityEmbeddingInput>
+  where?: Prisma.TableWhereInput
+}
+
+export type TableUpdateToOneWithWhereWithoutEntityEmbeddingInput = {
+  where?: Prisma.TableWhereInput
+  data: Prisma.XOR<Prisma.TableUpdateWithoutEntityEmbeddingInput, Prisma.TableUncheckedUpdateWithoutEntityEmbeddingInput>
+}
+
+export type TableUpdateWithoutEntityEmbeddingInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
+  schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cells?: Prisma.TableCellUpdateManyWithoutTableNestedInput
+  columns?: Prisma.TableColumnUpdateManyWithoutTableNestedInput
+  baseList?: Prisma.BaseListUpdateOneWithoutTablesNestedInput
+}
+
+export type TableUncheckedUpdateWithoutEntityEmbeddingInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  baseListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
+  schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cells?: Prisma.TableCellUncheckedUpdateManyWithoutTableNestedInput
   columns?: Prisma.TableColumnUncheckedUpdateManyWithoutTableNestedInput
 }
 
@@ -705,8 +808,9 @@ export type TableUpdateWithoutBaseListInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  columns?: Prisma.TableColumnUpdateManyWithoutTableNestedInput
   cells?: Prisma.TableCellUpdateManyWithoutTableNestedInput
+  columns?: Prisma.TableColumnUpdateManyWithoutTableNestedInput
+  entityEmbedding?: Prisma.EntityEmbeddingUpdateOneWithoutTableNestedInput
 }
 
 export type TableUncheckedUpdateWithoutBaseListInput = {
@@ -718,8 +822,9 @@ export type TableUncheckedUpdateWithoutBaseListInput = {
   settings?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  columns?: Prisma.TableColumnUncheckedUpdateManyWithoutTableNestedInput
   cells?: Prisma.TableCellUncheckedUpdateManyWithoutTableNestedInput
+  columns?: Prisma.TableColumnUncheckedUpdateManyWithoutTableNestedInput
+  entityEmbedding?: Prisma.EntityEmbeddingUncheckedUpdateOneWithoutTableNestedInput
 }
 
 export type TableUncheckedUpdateManyWithoutBaseListInput = {
@@ -739,13 +844,13 @@ export type TableUncheckedUpdateManyWithoutBaseListInput = {
  */
 
 export type TableCountOutputType = {
-  columns: number
   cells: number
+  columns: number
 }
 
 export type TableCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  columns?: boolean | TableCountOutputTypeCountColumnsArgs
   cells?: boolean | TableCountOutputTypeCountCellsArgs
+  columns?: boolean | TableCountOutputTypeCountColumnsArgs
 }
 
 /**
@@ -761,15 +866,15 @@ export type TableCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extens
 /**
  * TableCountOutputType without action
  */
-export type TableCountOutputTypeCountColumnsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.TableColumnWhereInput
+export type TableCountOutputTypeCountCellsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TableCellWhereInput
 }
 
 /**
  * TableCountOutputType without action
  */
-export type TableCountOutputTypeCountCellsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.TableCellWhereInput
+export type TableCountOutputTypeCountColumnsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TableColumnWhereInput
 }
 
 
@@ -783,9 +888,10 @@ export type TableSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   settings?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  baseList?: boolean | Prisma.Table$baseListArgs<ExtArgs>
-  columns?: boolean | Prisma.Table$columnsArgs<ExtArgs>
   cells?: boolean | Prisma.Table$cellsArgs<ExtArgs>
+  columns?: boolean | Prisma.Table$columnsArgs<ExtArgs>
+  baseList?: boolean | Prisma.Table$baseListArgs<ExtArgs>
+  entityEmbedding?: boolean | Prisma.Table$entityEmbeddingArgs<ExtArgs>
   _count?: boolean | Prisma.TableCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["table"]>
 
@@ -829,9 +935,10 @@ export type TableSelectScalar = {
 
 export type TableOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "description" | "baseListId" | "representativeColumnKey" | "schema" | "settings" | "createdAt" | "updatedAt", ExtArgs["result"]["table"]>
 export type TableInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  baseList?: boolean | Prisma.Table$baseListArgs<ExtArgs>
-  columns?: boolean | Prisma.Table$columnsArgs<ExtArgs>
   cells?: boolean | Prisma.Table$cellsArgs<ExtArgs>
+  columns?: boolean | Prisma.Table$columnsArgs<ExtArgs>
+  baseList?: boolean | Prisma.Table$baseListArgs<ExtArgs>
+  entityEmbedding?: boolean | Prisma.Table$entityEmbeddingArgs<ExtArgs>
   _count?: boolean | Prisma.TableCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type TableIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -844,9 +951,10 @@ export type TableIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
 export type $TablePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Table"
   objects: {
-    baseList: Prisma.$BaseListPayload<ExtArgs> | null
-    columns: Prisma.$TableColumnPayload<ExtArgs>[]
     cells: Prisma.$TableCellPayload<ExtArgs>[]
+    columns: Prisma.$TableColumnPayload<ExtArgs>[]
+    baseList: Prisma.$BaseListPayload<ExtArgs> | null
+    entityEmbedding: Prisma.$EntityEmbeddingPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1252,9 +1360,10 @@ readonly fields: TableFieldRefs;
  */
 export interface Prisma__TableClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  baseList<T extends Prisma.Table$baseListArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Table$baseListArgs<ExtArgs>>): Prisma.Prisma__BaseListClient<runtime.Types.Result.GetResult<Prisma.$BaseListPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-  columns<T extends Prisma.Table$columnsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Table$columnsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TableColumnPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   cells<T extends Prisma.Table$cellsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Table$cellsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TableCellPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  columns<T extends Prisma.Table$columnsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Table$columnsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TableColumnPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  baseList<T extends Prisma.Table$baseListArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Table$baseListArgs<ExtArgs>>): Prisma.Prisma__BaseListClient<runtime.Types.Result.GetResult<Prisma.$BaseListPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  entityEmbedding<T extends Prisma.Table$entityEmbeddingArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Table$entityEmbeddingArgs<ExtArgs>>): Prisma.Prisma__EntityEmbeddingClient<runtime.Types.Result.GetResult<Prisma.$EntityEmbeddingPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1694,22 +1803,27 @@ export type TableDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Interna
 }
 
 /**
- * Table.baseList
+ * Table.cells
  */
-export type Table$baseListArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type Table$cellsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the BaseList
+   * Select specific fields to fetch from the TableCell
    */
-  select?: Prisma.BaseListSelect<ExtArgs> | null
+  select?: Prisma.TableCellSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the BaseList
+   * Omit specific fields from the TableCell
    */
-  omit?: Prisma.BaseListOmit<ExtArgs> | null
+  omit?: Prisma.TableCellOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.BaseListInclude<ExtArgs> | null
-  where?: Prisma.BaseListWhereInput
+  include?: Prisma.TableCellInclude<ExtArgs> | null
+  where?: Prisma.TableCellWhereInput
+  orderBy?: Prisma.TableCellOrderByWithRelationInput | Prisma.TableCellOrderByWithRelationInput[]
+  cursor?: Prisma.TableCellWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.TableCellScalarFieldEnum | Prisma.TableCellScalarFieldEnum[]
 }
 
 /**
@@ -1737,27 +1851,41 @@ export type Table$columnsArgs<ExtArgs extends runtime.Types.Extensions.InternalA
 }
 
 /**
- * Table.cells
+ * Table.baseList
  */
-export type Table$cellsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type Table$baseListArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the TableCell
+   * Select specific fields to fetch from the BaseList
    */
-  select?: Prisma.TableCellSelect<ExtArgs> | null
+  select?: Prisma.BaseListSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the TableCell
+   * Omit specific fields from the BaseList
    */
-  omit?: Prisma.TableCellOmit<ExtArgs> | null
+  omit?: Prisma.BaseListOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.TableCellInclude<ExtArgs> | null
-  where?: Prisma.TableCellWhereInput
-  orderBy?: Prisma.TableCellOrderByWithRelationInput | Prisma.TableCellOrderByWithRelationInput[]
-  cursor?: Prisma.TableCellWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.TableCellScalarFieldEnum | Prisma.TableCellScalarFieldEnum[]
+  include?: Prisma.BaseListInclude<ExtArgs> | null
+  where?: Prisma.BaseListWhereInput
+}
+
+/**
+ * Table.entityEmbedding
+ */
+export type Table$entityEmbeddingArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the EntityEmbedding
+   */
+  select?: Prisma.EntityEmbeddingSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the EntityEmbedding
+   */
+  omit?: Prisma.EntityEmbeddingOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.EntityEmbeddingInclude<ExtArgs> | null
+  where?: Prisma.EntityEmbeddingWhereInput
 }
 
 /**

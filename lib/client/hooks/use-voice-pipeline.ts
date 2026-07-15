@@ -100,6 +100,7 @@ export function useVoicePipeline({
       formData.append('tableSchema', JSON.stringify(tableSchema));
       formData.append('activeCell', JSON.stringify(activeCell));
       formData.append('navigationMode', navigationMode);
+      formData.append('tableId', tableId);
 
       const startTime = Date.now();
       const response = await fetch('/api/voice-entry', {
@@ -151,7 +152,7 @@ export function useVoicePipeline({
       trackVoiceMetrics({ phase: 'voice-entry', duration, success: true });
       await handleParsedResult(parsed);
     },
-    [tableSchema, handleParsedResult]
+    [tableId, tableSchema, handleParsedResult]
   );
 
   /**
@@ -193,6 +194,7 @@ export function useVoicePipeline({
   });
 
   const { startContinuous, stopContinuous, volume: continuousAudioLevel } = useContinuousVoice({
+    tableId,
     tableSchema,
     onResult: handleParsedResult,
     onError: handleVoiceError,

@@ -57,7 +57,8 @@ export const ModelName = {
   TableColumn: 'TableColumn',
   TableCell: 'TableCell',
   ColumnTemplate: 'ColumnTemplate',
-  BaseListTemplate: 'BaseListTemplate'
+  BaseListTemplate: 'BaseListTemplate',
+  EntityEmbedding: 'EntityEmbedding'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -170,6 +171,19 @@ export const BaseListTemplateScalarFieldEnum = {
 } as const
 
 export type BaseListTemplateScalarFieldEnum = (typeof BaseListTemplateScalarFieldEnum)[keyof typeof BaseListTemplateScalarFieldEnum]
+
+
+export const EntityEmbeddingScalarFieldEnum = {
+  tableId: 'tableId',
+  model: 'model',
+  dim: 'dim',
+  labels: 'labels',
+  vectors: 'vectors',
+  labelsHash: 'labelsHash',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EntityEmbeddingScalarFieldEnum = (typeof EntityEmbeddingScalarFieldEnum)[keyof typeof EntityEmbeddingScalarFieldEnum]
 
 
 export const SortOrder = {

@@ -14,7 +14,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { DataTableCell } from './DataTableCell';
 import { ColumnHeaderCell } from './ColumnHeaderCell';
 import { ColumnType } from '@/lib/shared/types/column-types';
-import { warmEntityCache } from '@/lib/server/matching/cache';
 import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 import type { ColumnDef } from './types';
 
@@ -93,9 +92,6 @@ export const DataTable = memo(function DataTable({
 
       setLocalRepKey(columnId);
       toast({ title: 'Voice Key updated!' });
-
-      // Re-warm entity cache so voice matching reflects the new key immediately
-      warmEntityCache(rows);
     } catch {
       toast({
         title: 'Error',

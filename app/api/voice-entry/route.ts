@@ -23,7 +23,10 @@ import type {
 import { VocalGridError, ErrorCodes } from '@/lib/shared/types/voice-errors';
 import { processVoiceEntry } from '@/lib/server/services/voice-entry-service';
 
-export const runtime = 'edge';
+// nodejs (not edge): VectorMatcher loads a ~50MB ONNX model via
+// @huggingface/transformers, which needs fs/WASM threads Edge doesn't
+// provide. docs/features/10_voice-pipeline-hardening.md §3.2
+export const runtime = 'nodejs';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Input validation schemas

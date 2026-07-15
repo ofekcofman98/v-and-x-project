@@ -16,7 +16,7 @@ class TranscriptCache {
       max: 100,
       ttl: 1000 * 60 * 60,
       maxSize: 1024 * 1024,
-      sizeCalculation: (value) => value.text.length,
+      sizeCalculation: (value) => Math.max(1, value.text.length),
     });
   }
 

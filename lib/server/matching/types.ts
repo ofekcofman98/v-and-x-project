@@ -18,3 +18,12 @@ export interface MatchResult {
     match(input: string, entities: string[]): MatchResult;
     readonly name: string;
   }
+
+  // Additive only — mirrors Matcher but returns a Promise, so it can wrap
+  // async-only steps (e.g. VectorMatcher's embedding call) without changing
+  // the sync Matcher contract or any existing matcher class.
+  // docs/features/10_voice-pipeline-hardening.md §3.5
+  export interface AsyncMatcher {
+    match(input: string, entities: string[]): Promise<MatchResult>;
+    readonly name: string;
+  }
