@@ -49,7 +49,7 @@
 
 ### General cleanliness
 
-- **No `console.log` in committed code.** Use the monitoring helpers in `lib/monitoring/`.
+- **No `console.log` in committed code.** Use the monitoring helpers in `lib/shared/monitoring/`.
 - **No magic strings or numbers.** Extract to named constants or enums.
 - One concern per file. Co-locate types with the code that owns them.
 - All async functions must handle errors explicitly — no silent `catch (() => {})` unless intentional fire-and-forget (add a comment explaining why).
@@ -68,15 +68,37 @@
 ## 4. Maintainable Architecture Rules
 
 ### Separation of concerns
-Keep the three layers strictly separate — never let them bleed into each other:
+`lib/` is divided into four zones — never import across boundaries in the wrong direction:
 
-| Layer | Where | Responsibility |
-|---|---|---|
-| **UI** | `components/` | Render, layout, user interaction only |
-| **Logic** | `lib/hooks/` | Custom hooks own all complex UI behaviour |
-| **Data access** | `lib/queries/`, `lib/mutations/`, `app/api/` | All Supabase and OpenAI calls live here |
+| Zone | Root path | Who can import it | Responsibility |
+|---|---|---|---|
+| **Client** | `lib/client/` | Client components & hooks only | React hooks, Zustand stores, navigation strategies |
+| **Server** | `lib/server/` | API routes & server components only | Business-logic services, parsers, matching, caches |
+| **Shared** | `lib/shared/` | Client and server | Types, utils, error mapping, logging, monitoring |
+| **Generated** | `lib/generated/` | Never edit manually | Prisma-generated output — treat as read-only |
 
-- A component that imports directly from `@supabase/supabase-js` is wrong — route through `lib/queries/` or `lib/mutations/`.
+**Breakdown by sub-folder:**
+
+- `lib/client/hooks/` — all React hooks (voice pipeline, VAD, debounce, etc.)
+- `lib/client/stores/` — Zustand stores (UI state, table state, etc.)
+- `lib/client/navigation/` — pointer/navigation strategies
+- `lib/server/services/` — DB queries + OpenAI calls; the only place Prisma/Supabase is called from inside API routes
+- `lib/server/parsers/` — value parsing (boolean, number, text normalizer)
+- `lib/server/matching/` — entity recognition and fuzzy/phonetic matching
+- `lib/server/cache/` — server-side in-memory caches
+- `lib/shared/types/` — shared TypeScript interfaces and Zod schemas
+- `lib/shared/utils/` — pure utility functions safe on both sides
+- `lib/shared/errors/` — error mapping and classification
+- `lib/shared/monitoring/` — monitoring/metrics helpers
+- `lib/shared/logging/` — logger (client-side safe)
+- `lib/prisma.ts`, `lib/supabase.ts`, `lib/query-keys.ts` — singleton clients and the TanStack Query key factory; kept flat at the root
+
+**Import rules (enforce strictly):**
+- A client component or hook must never import from `lib/server/`.
+- An API route or server component must never import from `lib/client/`.
+- `lib/shared/` is the only zone that may be imported from anywhere.
+- Never import from `lib/generated/` directly — use the re-exports in `lib/shared/generated/` or the Prisma singleton in `lib/prisma.ts`.
+- A component that calls Prisma/Supabase directly is wrong — route through `lib/server/services/`.
 - An API route that contains UI logic is wrong.
 - A hook that renders JSX is wrong.
 
@@ -86,20 +108,22 @@ Keep the three layers strictly separate — never let them bleed into each other
 - Keep components declarative: they receive props and call handlers. The hook drives the logic.
 
 ### Voice Pipeline & Hands-Free Readiness
-- Voice Lifecycle: All audio recording logic must be abstracted into useVoiceEntry.
-- Hands-Free Support: Design hooks to support both hold-to-talk and continuous-listening (silence detection) modes.
-- Processing State: The UI must react to states: idle, listening, processing, confirming, error.
-- Smart Pointer: The logic to move the active cell (advancePointer) must be decoupled from the recording logic, triggered by a successful data mutation.
+- Voice Lifecycle: All audio recording logic must be abstracted into `useVoiceEntry` (`lib/client/hooks/use-voice-entry.ts`).
+- Hands-Free Support: Design hooks to support both hold-to-talk and continuous-listening (VAD) modes.
+- Processing State: The UI must react to states: `idle`, `listening`, `processing`, `confirming`, `error`.
+- Smart Pointer: The logic to move the active cell (`advancePointer`) must be decoupled from the recording logic, triggered by a successful data mutation.
 
 ### Hooks for logic
-- Any state machine, derived state, or multi-step async flow that belongs to a component must be extracted into a custom hook in `lib/hooks/`.
-- The voice recording lifecycle (`useVoiceEntry`), pointer advancement (`useSmartPointer`), and keyboard shortcuts (`useKeyboardShortcuts`) are examples of logic that must never live inline in a component.
+- Any state machine, derived state, or multi-step async flow that belongs to a component must be extracted into a custom hook in `lib/client/hooks/`.
+- The voice recording lifecycle (`useVoiceEntry`), VAD (`useVad`), and continuous voice mode (`useContinuousVoice`) are examples of logic that must never live inline in a component.
 - Hooks should return a clean, stable interface — the component should not need to know implementation details.
 
 ### DRY — extract at second repetition
 - If a piece of logic or JSX appears in **more than one place**, extract it immediately:
-  - Shared logic → `lib/` utility or custom hook.
-  - Shared UI → `components/ui/` (primitive) or `components/` (feature-level).
+  - Shared pure logic → `lib/shared/utils/`
+  - Client-only logic → `lib/client/hooks/` or a new custom hook
+  - Server-only logic → `lib/server/services/` or the relevant `lib/server/` sub-folder
+  - Shared UI → `components/ui/` (primitive) or `components/` (feature-level)
 - Do not wait until it appears three times. Two is already a pattern.
 - Before writing a new utility, search `lib/` to confirm it does not already exist.
 
@@ -125,7 +149,7 @@ Keep the three layers strictly separate — never let them bleed into each other
 - Prefer editing the minimal surface area needed. Do not refactor unrelated code as a side effect.
 
 ### 7. Documentation & File Creation Rules
-- **Source of Truth:** The `docs/` folder contains the project's core specifications (files 00-14). These are the absolute Source of Truth.
+- **Source of Truth:** The `docs/` folder contains the project's core specifications (files 00-14, and `docs/features/`). These are the absolute Source of Truth.
 - **No Junk Files:** Do not create new standalone `.md` files in the root directory or `docs/` folder for summaries, refactoring notes, or implementation checklists.
 - **Logging Changes:** If you need to provide a summary or log of your changes, place them ONLY in the `docs/logs/` directory.
 - **Spec Updates:** If a change impacts the project's architecture or logic, update the existing relevant specification file in `docs/` (e.g., `03_DATABASE.md` or `05_VOICE_PIPELINE.md`) instead of creating a new file, and always ask me for approvement before updating them.
