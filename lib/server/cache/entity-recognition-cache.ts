@@ -82,6 +82,36 @@ class EntityRecognitionCache {
   }
 
   /**
+   * Returns the most recently matched entity labels for a table, most
+   * recent first. Used to prioritize the Whisper context prompt vocabulary
+   * (docs/features/10_voice-pipeline-hardening.md §2.2).
+   */
+  getRecentEntities(tableId: string, limit = 20): string[] {
+    const prefix = `${tableId}:`;
+    const entries: { entity: string; timestamp: number }[] = [];
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (key.startsWith(prefix)) {
+        entries.push({ entity: entry.entity, timestamp: entry.timestamp });
+      }
+    }
+
+    entries.sort((a, b) => b.timestamp - a.timestamp);
+
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const { entity } of entries) {
+      const key = entity.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(entity);
+      if (result.length >= limit) break;
+    }
+
+    return result;
+  }
+
+  /**
    * Get cache statistics
    */
   getStats(): {

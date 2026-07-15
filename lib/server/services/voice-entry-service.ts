@@ -27,6 +27,11 @@ import { match } from '@/lib/server/matching/matcher';
 import { transcriptCache } from '@/lib/server/cache/transcript-cache';
 import { entityCache } from '@/lib/server/cache/entity-recognition-cache';
 import { ErrorCodes, ErrorSeverity, ErrorCategory, VocalGridError } from '@/lib/shared/types/voice-errors';
+import { buildWhisperPrompt as buildContextPrompt } from '@/lib/server/stt/context-prompt';
+
+// Default ON — set ENABLE_STT_CONTEXT_PROMPT=false to disable vocabulary
+// injection (e.g. to A/B the exact-match rate per docs/features/10 §2.3).
+const STT_CONTEXT_PROMPT_ENABLED = process.env.ENABLE_STT_CONTEXT_PROMPT !== 'false';
 
 // ProcessingPath, VoiceEntryPayload, and VoiceEntryResult are defined in
 // @/lib/shared/types/voice-pipeline and re-exported below for convenience.
@@ -101,15 +106,16 @@ export async function processVoiceEntry(
 
   // ── Stage 1: Transcription ─────────────────────────────────────────────────
   const transcriptionStartTime = Date.now();
-  const { transcript, transcriptionDuration } = await transcribeAudio(
+  const { transcript, transcriptionDuration, audioDurationSec, promptEntities } = await transcribeAudio(
     audioFile,
     tableSchema,
     language,
+    tableId,
     transcriptionStartTime
   );
 
   // ── Stage 2: Hallucination guard ──────────────────────────────────────────
-  if (isWhisperHallucination(transcript)) {
+  if (isWhisperHallucination(transcript, { audioDurationSec, promptEntities })) {
     console.log('[VoiceEntryService] Detected Whisper hallucination, skipping GPT call:', transcript);
     return {
       entity: null,
@@ -376,42 +382,59 @@ interface TranscriptionResult {
   transcriptionDuration: number;
   /** True when the result was served from the transcript cache. */
   transcriptFromCache: boolean;
+  /** Audio duration in seconds, when known (verbose_json only). */
+  audioDurationSec?: number;
+  /** Vocabulary entities injected into the Whisper prompt, for the hallucination guard. */
+  promptEntities: string[];
 }
 
 async function transcribeAudio(
   audioFile: File,
   tableSchema: TableSchema,
   language: string | undefined,
+  tableId: string,
   startTime: number
 ): Promise<TranscriptionResult> {
   const cached = await transcriptCache.get(audioFile);
 
   if (cached) {
     console.log('[VoiceEntryService] 🚀 TRANSCRIPT_CACHE_HIT: Saved 1300ms transcription');
-    return { transcript: cached.text, transcriptionDuration: 0, transcriptFromCache: true };
+    return { transcript: cached.text, transcriptionDuration: 0, transcriptFromCache: true, promptEntities: [] };
   }
 
   try {
-    const whisperPrompt = buildWhisperPrompt(tableSchema);
+    const whisperPrompt = buildWhisperPrompt(tableSchema, tableId);
+    const promptUsed = STT_CONTEXT_PROMPT_ENABLED && whisperPrompt.length > 0;
 
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
       language: language as 'en' | 'he' | undefined,
-      response_format: 'json',
-      prompt: whisperPrompt,
+      response_format: 'verbose_json',
+      // temperature: 0 is required whenever a prompt is supplied — reduces
+      // hallucination amplification (docs/features/10 §2.3).
+      temperature: 0,
+      ...(promptUsed ? { prompt: whisperPrompt } : {}),
     });
 
-    const transcript = transcription.text;
     const transcriptionDuration = Date.now() - startTime;
+    const transcript = extractTranscriptFromSegments(transcription);
+    const audioDurationSec = typeof transcription.duration === 'number' ? transcription.duration : undefined;
 
     await transcriptCache.set(audioFile, transcript, transcriptionDuration);
     console.log('[VoiceEntryService] Transcription complete and cached:', {
       transcript,
       duration: transcriptionDuration,
+      promptUsed,
     });
 
-    return { transcript, transcriptionDuration, transcriptFromCache: false };
+    return {
+      transcript,
+      transcriptionDuration,
+      transcriptFromCache: false,
+      audioDurationSec,
+      promptEntities: promptUsed ? tableSchema.rows.map((r) => r.label) : [],
+    };
   } catch (error: unknown) {
     const err = error as { status?: number; message?: string };
 
@@ -452,17 +475,40 @@ async function transcribeAudio(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Builds a domain-specific Whisper prompt to bias transcription against
- * hallucinations by surfacing known entity names.
- * docs/05_VOICE_PIPELINE.md §2.3
+ * Builds a token-budgeted Whisper vocabulary prompt from the table's entity
+ * labels, prioritizing recently-matched entities for this table.
+ * docs/features/10_voice-pipeline-hardening.md §2.1–2.2
  */
-function buildWhisperPrompt(tableSchema: TableSchema): string {
-  const entityExamples = tableSchema.rows.slice(0, 10).map((r) => r.label);
-  const commonPatterns = [
-    'numbers', 'scores', 'grades', '100', '95', '85',
-    'update cell', 'Student A', 'Student B', 'John', 'Mary',
-  ];
-  return [...entityExamples, ...commonPatterns].slice(0, 20).join(', ') + '.';
+function buildWhisperPrompt(tableSchema: TableSchema, tableId: string): string {
+  if (!STT_CONTEXT_PROMPT_ENABLED) return '';
+
+  const entities = tableSchema.rows.map((r) => r.label);
+  const recentEntities = entityCache.getRecentEntities(tableId);
+
+  return buildContextPrompt(entities, { recentEntities });
+}
+
+interface WhisperSegment {
+  text: string;
+  no_speech_prob?: number;
+  avg_logprob?: number;
+}
+
+/**
+ * Discards low-confidence segments (silence/noise echoes) before joining
+ * the transcript. docs/features/10_voice-pipeline-hardening.md §2.3
+ */
+function extractTranscriptFromSegments(transcription: { text: string; segments?: WhisperSegment[] }): string {
+  const segments = transcription.segments;
+  if (!segments || segments.length === 0) return transcription.text;
+
+  const kept = segments.filter(
+    (seg) => (seg.no_speech_prob ?? 0) <= 0.6 && (seg.avg_logprob ?? 0) >= -1.0
+  );
+
+  if (kept.length === 0) return '';
+
+  return kept.map((seg) => seg.text).join(' ').trim();
 }
 
 function buildParsePrompt(params: {
@@ -611,14 +657,25 @@ const WHISPER_HALLUCINATIONS: ReadonlySet<string> = new Set([
 /**
  * Returns true when the transcript is a well-known Whisper hallucination.
  * Exported for unit testing.
- * docs/05_VOICE_PIPELINE.md §2.3
+ * docs/05_VOICE_PIPELINE.md §2.3, docs/features/10_voice-pipeline-hardening.md §2.3
  */
-export function isWhisperHallucination(transcript: string): boolean {
+export function isWhisperHallucination(
+  transcript: string,
+  opts?: { audioDurationSec?: number; promptEntities?: string[] }
+): boolean {
   const normalized = transcript.trim().toLowerCase();
 
   if (normalized.length < 2) return true;
   if (WHISPER_HALLUCINATIONS.has(normalized)) return true;
   if (/^[.,!?;:\s]+$/.test(normalized)) return true;
+
+  // Prompt-echo guard: a bare vocabulary entity with no value component on
+  // a near-silent clip is almost always Whisper parroting the prompt back.
+  const isBareEntityEcho = (opts?.promptEntities ?? []).some(
+    (entity) => entity.trim().toLowerCase() === normalized
+  );
+  const isNearSilent = (opts?.audioDurationSec ?? Infinity) < 0.5;
+  if (isBareEntityEcho && isNearSilent) return true;
 
   return false;
 }
