@@ -3,6 +3,7 @@
 **Project:** VocalGrid | **Stack:** Next.js 15 (App Router) + TypeScript
 **Scope:** STT context biasing, local semantic matching, schema-driven type parsing
 **Related:** `docs/05_VOICE_PIPELINE.md`, `docs/07_MATCHING_ENGINE.md`, `lib/matching/REFACTORING.md`, `docs/features/01_cache_warming.md`
+**Status:** Done
 
 ---
 

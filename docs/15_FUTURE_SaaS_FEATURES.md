@@ -56,15 +56,17 @@
 
 | Feature | Priority | Status | Est. Time |
 |---------|----------|--------|-----------|
-| Cache Warming | High | Not Started | 2 weeks |
+| Cache Warming | High | Done | 2 weeks |
 | Multi-Tenant | High | Not Started | 4 weeks |
 | CSV Import/Export | High | Not Started | 3 weeks |
-| Column Templates | Medium | Not Started | 2 weeks |
+| Column Templates | Medium | Done | 2 weeks |
 | AI Table Agent | Medium | Not Started | 3 weeks |
 | Computed Columns | Medium | Not Started | 2 weeks |
 | Private Columns | Medium | Not Started | 3 weeks |
 | Column Visibility | Low | Not Started | 1 week |
 | Vision-to-Table | Low | Not Started | 4 weeks |
+| Voice-pipeline-hardening | High | Done | 4 weeks |
+| DB loading optimization | High | Not started | ? | 
 
 ---
 
