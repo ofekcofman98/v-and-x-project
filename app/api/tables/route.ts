@@ -83,23 +83,24 @@ export const POST = withErrorHandler(
             },
         });
         
-        const tableColumns = await Promise.all(
-            columns.map((col, index) =>
-                tx.tableColumn.create({
-                    data: {
-                        tableId: table.id,
-                        key: col.label.toLowerCase().replace(/\s+/g, "_"),
-                        label: col.label,
-                        type: col.type,
-                        order: index,
-                        validation: col.validation
-                            ? (col.validation as Prisma.InputJsonValue)
-                            : Prisma.JsonNull,
-                    },
-                })
-            )
-        );
-        
+        await tx.tableColumn.createMany({
+            data: columns.map((col, index) => ({
+                tableId: table.id,
+                key: col.label.toLowerCase().replace(/\s+/g, "_"),
+                label: col.label,
+                type: col.type,
+                order: index,
+                validation: col.validation
+                    ? (col.validation as Prisma.InputJsonValue)
+                    : Prisma.JsonNull,
+            })),
+        });
+
+        const tableColumns = await tx.tableColumn.findMany({
+            where: { tableId: table.id },
+            orderBy: { order: "asc" },
+        });
+
         return {
             ...table,
             columns: tableColumns,
