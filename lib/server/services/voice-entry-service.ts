@@ -20,9 +20,9 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { ColumnType } from '@/lib/shared/types/column-types';
-import type { ColumnDefinition, TableSchema } from '@/lib/shared/types/table-schema';
+import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { ParsedResult, MatchType, ProcessingPath, VoiceEntryPayload, VoiceEntryResult } from '@/lib/shared/types/voice-pipeline';
-import { parseBoolean, parseNaturalDate, parseNumber, validateValue } from '@/lib/server/parsers/value-parsers';
+import { parseForColumn, type ParseContext } from '@/lib/server/parsers/registry';
 import { matchAsync } from '@/lib/server/matching/matcher';
 import { transcriptCache } from '@/lib/server/cache/transcript-cache';
 import { entityCache } from '@/lib/server/cache/entity-recognition-cache';
@@ -161,8 +161,8 @@ export async function processVoiceEntry(
     const parsingDuration = Date.now() - parsingStartTime;
     const totalDuration = Date.now() - totalStartTime;
 
-    const normalizedValue = normalizeValue(cachedEntity.value, activeColumn);
-    const validation = validateValue(normalizedValue, activeColumn.type, activeColumn.validation);
+    const parseCtx = toParseContext(language);
+    const parsed = parseForColumn(cachedEntity.value, activeColumn, parseCtx);
 
     const result: VoiceEntryResult = {
       entity: cachedEntity.entity,
@@ -172,8 +172,8 @@ export async function processVoiceEntry(
         confidence: cachedEntity.confidence,
         matchType: cachedEntity.matchType,
       },
-      value: validation.valid ? normalizedValue : null,
-      valueValid: validation.valid,
+      value: parsed.value,
+      valueValid: parsed.valid,
       action: 'UPDATE_CELL',
       reasoning: 'Cached result (saved ~1500ms LLM call)',
       duration: totalDuration,
@@ -221,8 +221,7 @@ export async function processVoiceEntry(
       const parsingDuration = Date.now() - parsingStartTime;
       const totalDuration = Date.now() - totalStartTime;
 
-      const normalizedValue = normalizeValue(quickExtract.value, activeColumn);
-      const validation = validateValue(normalizedValue, activeColumn.type, activeColumn.validation);
+      const parsed = parseForColumn(quickExtract.value, activeColumn, toParseContext(language));
 
       // matchType is narrowed to MatchType by the !== 'none' guard above
       const safeMatchType: MatchType = matchResult.matchType;
@@ -243,8 +242,8 @@ export async function processVoiceEntry(
           confidence: matchResult.confidence,
           matchType: safeMatchType,
         },
-        value: validation.valid ? normalizedValue : null,
-        valueValid: validation.valid,
+        value: parsed.value,
+        valueValid: parsed.valid,
         action: 'UPDATE_CELL',
         reasoning: `Fast path: ${safeMatchType} match`,
         duration: totalDuration,
@@ -319,8 +318,7 @@ export async function processVoiceEntry(
   // back to either of those on a matcher miss would report a fabricated
   // high-confidence match for an entity that doesn't exist in the schema.
   const matchedEntity = finalMatch.matched;
-  const normalizedValue = normalizeValue(parsedResult.value, activeColumn);
-  const validation = validateValue(normalizedValue, activeColumn.type, activeColumn.validation);
+  const parsed = parseForColumn(parsedResult.value, activeColumn, toParseContext(language));
   const totalDuration = Date.now() - totalStartTime;
 
   const responsePayload: VoiceEntryResult = {
@@ -332,13 +330,13 @@ export async function processVoiceEntry(
       confidence: finalMatch.confidence,
       matchType: matchedEntity ? 'semantic' : null,
     },
-    value: validation.valid ? normalizedValue : null,
-    valueValid: validation.valid,
+    value: parsed.value,
+    valueValid: parsed.valid,
     // No real match against the schema — ask the user instead of silently
     // committing (or crashing downstream on) an unresolved entity.
     action: matchedEntity ? parsedResult.action : 'AMBIGUOUS',
     duration: totalDuration,
-    error: validation.valid ? parsedResult.error : (validation.error ?? parsedResult.error),
+    error: parsed.valid ? parsedResult.error : (parsed.error ?? parsedResult.error),
     transcript,
     transcriptionDuration,
     parsingDuration,
@@ -567,33 +565,8 @@ RESPOND ONLY IN JSON (strictly matching this schema):
 // Private – value normalisation & LLM output parsing
 // ─────────────────────────────────────────────────────────────────────────────
 
-function normalizeValue(value: unknown, column: ColumnDefinition): unknown {
-  if (value === null || value === undefined) return null;
-
-  switch (column.type) {
-    case ColumnType.NUMBER:
-      if (typeof value === 'number') return value;
-      if (typeof value === 'string') return parseNumber(value);
-      return null;
-
-    case ColumnType.BOOLEAN:
-      if (typeof value === 'boolean') return value;
-      if (typeof value === 'string') return parseBoolean(value);
-      return null;
-
-    case ColumnType.DATE:
-      if (typeof value === 'string') {
-        const date = parseNaturalDate(value);
-        return date ? date.toISOString() : null;
-      }
-      if (value instanceof Date) return value.toISOString();
-      return null;
-
-    case ColumnType.TEXT:
-    default:
-      if (typeof value === 'string') return value.trim();
-      return value;
-  }
+function toParseContext(language: string | undefined): ParseContext {
+  return { language: language === 'he' || language === 'en' ? language : 'auto' };
 }
 
 function parseCompletion(content: string): ParsedResult {

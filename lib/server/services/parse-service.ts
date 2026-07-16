@@ -14,14 +14,9 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { ColumnType } from '@/lib/shared/types/column-types';
-import type { ColumnDefinition, TableSchema } from '@/lib/shared/types/table-schema';
+import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
-import {
-  parseBoolean,
-  parseNaturalDate,
-  parseNumber,
-  validateValue,
-} from '@/lib/server/parsers/value-parsers';
+import { parseForColumn } from '@/lib/server/parsers/registry';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Module-level singleton
@@ -119,15 +114,14 @@ export async function executeTranscriptParse(
   }
 
   const parsedResult = parseCompletion(rawContent);
-  const normalizedValue = normalizeValue(parsedResult.value, activeColumn);
-  const validation = validateValue(normalizedValue, activeColumn.type, activeColumn.validation);
+  const parsed = parseForColumn(parsedResult.value, activeColumn, { language: 'auto' });
 
   return {
     ...parsedResult,
-    value: validation.valid ? normalizedValue : null,
-    valueValid: validation.valid,
+    value: parsed.value,
+    valueValid: parsed.valid,
     duration,
-    error: validation.valid ? parsedResult.error : (validation.error ?? parsedResult.error),
+    error: parsed.valid ? parsedResult.error : (parsed.error ?? parsedResult.error),
   };
 }
 
@@ -191,33 +185,4 @@ function parseCompletion(content: string): ParsedResult {
   }
 
   return validated.data;
-}
-
-function normalizeValue(value: unknown, column: ColumnDefinition): unknown {
-  if (value === null || value === undefined) return null;
-
-  switch (column.type) {
-    case ColumnType.NUMBER:
-      if (typeof value === 'number') return value;
-      if (typeof value === 'string') return parseNumber(value);
-      return null;
-
-    case ColumnType.BOOLEAN:
-      if (typeof value === 'boolean') return value;
-      if (typeof value === 'string') return parseBoolean(value);
-      return null;
-
-    case ColumnType.DATE:
-      if (typeof value === 'string') {
-        const date = parseNaturalDate(value);
-        return date ? date.toISOString() : null;
-      }
-      if (value instanceof Date) return value.toISOString();
-      return null;
-
-    case ColumnType.TEXT:
-    default:
-      if (typeof value === 'string') return value.trim();
-      return value;
-  }
 }
