@@ -248,6 +248,7 @@ export function DynamicTemplateCreator({
             rows={rows}
             representativeColumnId={representativeColumnId}
             onRepresentativeColumnChange={setRepresentativeColumnId}
+            showRepresentativeColumn={false}
             allowRows={allowRows}
             allowDataEntry={allowDataEntry}
             {...gridActions}

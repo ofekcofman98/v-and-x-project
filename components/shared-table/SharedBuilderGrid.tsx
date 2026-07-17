@@ -22,6 +22,8 @@ interface SharedBuilderGridProps {
   allowRows?: boolean;
   /** Enable cell data entry. Defaults to true. */
   allowDataEntry?: boolean;
+  /** Show the representative-column ("Voice Key") picker UI. Defaults to true. */
+  showRepresentativeColumn?: boolean;
 }
 
 export function SharedBuilderGrid({
@@ -37,6 +39,7 @@ export function SharedBuilderGrid({
   onUpdateCell,
   allowRows = true,
   allowDataEntry = true,
+  showRepresentativeColumn = true,
 }: SharedBuilderGridProps) {
   
   if (columns.length === 0) {
@@ -69,8 +72,10 @@ export function SharedBuilderGrid({
                   onTypeChange={(type) => onUpdateColumn(col.id, { type })}
                   onDelete={() => onRemoveColumn(col.id)}
                   showTypeSelector={false}
-                  isRepresentative={representativeColumnId === col.id}
-                  onRepresentativeClick={() => onRepresentativeColumnChange(col.id)}
+                  isRepresentative={showRepresentativeColumn && representativeColumnId === col.id}
+                  onRepresentativeClick={
+                    showRepresentativeColumn ? () => onRepresentativeColumnChange(col.id) : undefined
+                  }
                 />
               ))}
               <th className="w-12 bg-slate-50 border-l border-slate-200">
