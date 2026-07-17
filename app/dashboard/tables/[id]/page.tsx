@@ -12,6 +12,8 @@ import { AppHeader } from '@/components/AppHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
 import type { StatCardConfig } from '@/components/shared/DetailPageHeader';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useTableStore } from '@/lib/client/stores/table-store';
 import { TableGridSection } from '@/components/shared-table/TableGridSection';
@@ -253,6 +255,17 @@ export default function TableDetailsPage() {
                     : null
                 }
               />
+              {hasData && (
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => window.open(`/api/tables/${id}/export?format=csv`, '_blank')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+              )}
                 <TableGridSection
                     tableId={id}
                     columns={columns}
