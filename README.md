@@ -70,6 +70,14 @@ The `/docs` folder contains comprehensive technical documentation:
 - API contracts
 - Implementation roadmap
 
+## Screenshots 
+
+<img width="2713" height="1477" alt="image" src="https://github.com/user-attachments/assets/b71ef6eb-1a3e-4bce-ae68-8aed762c81f5" />
+
+<img width="2812" height="1473" alt="image" src="https://github.com/user-attachments/assets/8b550c85-5e6f-41ac-b7db-b49711590e87" />
+
+<img width="2796" height="1470" alt="image" src="https://github.com/user-attachments/assets/34d26a7f-e857-4537-ad65-b8664a7d5edd" />
+
 ## Scripts
 
 - `npm run dev` - Start development server with Turbopack
