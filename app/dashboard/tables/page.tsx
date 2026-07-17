@@ -14,10 +14,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
-import { ImportCsvDialog } from '@/components/import/ImportCsvDialog';
 import { InlineErrorState } from '@/components/states/error-state';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Table as TableIcon, Trash2, Upload } from 'lucide-react';
+import { Plus, Table as TableIcon, Trash2 } from 'lucide-react';
 
 /**
  * Loading skeleton for table cards
@@ -69,7 +68,6 @@ export default function TablesDashboardPage() {
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isImportOpen, setIsImportOpen] = useState(false);
 
   useEffect(() => {
     fetchTables();
@@ -116,18 +114,12 @@ export default function TablesDashboardPage() {
                   View and manage all your data tables
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Import CSV
+              <Link href="/dashboard/tables/new">
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New Table
                 </Button>
-                <Link href="/dashboard/tables/new">
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create New Table
-                  </Button>
-                </Link>
-              </div>
+              </Link>
             </div>
           </div>
 
@@ -222,12 +214,6 @@ export default function TablesDashboardPage() {
         title="Delete Table"
         itemName={pendingTable?.name || ''}
         isDeleting={isDeleting}
-      />
-
-      <ImportCsvDialog
-        isOpen={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        onImported={() => fetchTables()}
       />
     </>
   );

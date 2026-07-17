@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppHeader } from '@/components/AppHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
+import { ImportCsvButton } from '@/components/import/ImportCsvButton';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -140,9 +141,12 @@ export default function DashboardPage() {
                   Manage your entity lists and track data across tables
                 </p>
               </div>
-              <Link href="/dashboard/base-lists/new">
-                <Button>Create New List</Button>
-              </Link>
+              <div className="flex gap-2">
+                <ImportCsvButton />
+                <Link href="/dashboard/base-lists/new">
+                  <Button>Create New List</Button>
+                </Link>
+              </div>
             </div>
           </div>
 

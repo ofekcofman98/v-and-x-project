@@ -4,21 +4,28 @@ import { useColumnManager } from './useColumnManager';
 import { useRowManager } from './useRowManager';
 import type { ColumnDef, RowData } from '../types';
 
+export interface UseGridBuilderOptions {
+    initialColumns?: ColumnDef[];
+    initialRows?: RowData[];
+    initialName?: string;
+}
+
 /**
  * useGridBuilder - A unified hook to manage Form state and Grid logic
  * Prevents duplication between Base List Creator and Table Creator
  */
-export function useGridBuilder(defaultColumn?: ColumnDef) {
-    const [name, setName] = useState('');
+export function useGridBuilder(options?: UseGridBuilderOptions) {
+    const [name, setName] = useState(options?.initialName ?? '');
     const [description, setDescription] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { toast } = useToast();
 
-    const initialColumns = defaultColumn ? [defaultColumn] : [];
-    const { columns, setColumns, addColumn, updateColumn, removeColumn } = useColumnManager(initialColumns);
+    const { columns, setColumns, addColumn, updateColumn, removeColumn } = useColumnManager(
+        options?.initialColumns ?? []
+    );
 
     const { rows, setRows, addRow, updateCell, removeRow } = useRowManager(
-        [{ id: 'row_1', values: {}, metadata: { source: 'inline' } }], 
+        options?.initialRows ?? [{ id: 'row_1', values: {}, metadata: { source: 'inline' } }],
         columns
     );
 

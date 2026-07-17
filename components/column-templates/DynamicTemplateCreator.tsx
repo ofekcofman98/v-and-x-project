@@ -53,7 +53,7 @@ export function DynamicTemplateCreator({
     state: { name: templateName, description, isSubmitting, columns, rows },
     setters: { setName: setTemplateName, setDescription, setIsSubmitting, setColumns, setRows },
     gridActions,
-  } = useGridBuilder(DEFAULT_COLUMN);
+  } = useGridBuilder({ initialColumns: [DEFAULT_COLUMN] });
 
   const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(
     DEFAULT_COLUMN.id
