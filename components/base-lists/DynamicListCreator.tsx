@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useBaseListStore } from '@/lib/client/stores/base-list-store';
-import type { ColumnDef } from '@/components/shared-table/types';
+import type { ColumnDef, RowData } from '@/components/shared-table/types';
 import { validateGridSchema } from '@/lib/shared/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
@@ -28,6 +28,10 @@ interface DynamicListCreatorProps {
   allowRows?: boolean;
   /** Allow cell data entry. Defaults to true. */
   allowDataEntry?: boolean;
+  /** Pre-seed the grid (e.g. from a CSV import) instead of starting from DEFAULT_COLUMN. */
+  initialColumns?: ColumnDef[];
+  initialRows?: RowData[];
+  initialName?: string;
 }
 
 /**
@@ -49,6 +53,9 @@ export function DynamicListCreator({
   onSuccess,
   allowRows = true,
   allowDataEntry = true,
+  initialColumns,
+  initialRows,
+  initialName,
 }: DynamicListCreatorProps) {
   const { toast } = useToast();
   const { fetchLists } = useBaseListStore();
@@ -57,12 +64,16 @@ export function DynamicListCreator({
     state: { name: listName, description, isSubmitting, columns, rows },
     setters: { setName: setListName, setDescription, setIsSubmitting, setColumns, setRows },
     gridActions
-  } = useGridBuilder(DEFAULT_COLUMN);
+  } = useGridBuilder({
+    initialColumns: initialColumns ?? [DEFAULT_COLUMN],
+    initialRows,
+    initialName,
+  });
 
   const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(
-    DEFAULT_COLUMN.id
+    (initialColumns ?? [DEFAULT_COLUMN])[0]?.id ?? null
   );
-  
+
   if (!open) return null;
 
   /**
@@ -132,10 +143,10 @@ export function DynamicListCreator({
    * Reset and close
    */
   const handleClose = () => {
-    setListName('');
+    setListName(initialName ?? '');
     setDescription('');
-    setColumns([DEFAULT_COLUMN]);
-    setRows([{ id: 'row_1', values: {}, metadata: { source: 'inline' } }]);
+    setColumns(initialColumns ?? [DEFAULT_COLUMN]);
+    setRows(initialRows ?? [{ id: 'row_1', values: {}, metadata: { source: 'inline' } }]);
     onClose();
   };
 

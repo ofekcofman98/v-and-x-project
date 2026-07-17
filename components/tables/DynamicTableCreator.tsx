@@ -42,7 +42,7 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
     state: { name: tableName, description, isSubmitting, columns, rows },
     setters: { setName: setTableName, setDescription, setIsSubmitting, setColumns, setRows },
     gridActions
-  } = useGridBuilder();
+  } = useGridBuilder({});
 
   const { templates, isLoading: templatesLoading, fetchTemplates } = useColumnTemplateStore();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
