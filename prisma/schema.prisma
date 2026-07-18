@@ -69,6 +69,7 @@ model TableColumn {
   type       ColumnType  @default(TEXT)
   order      Int         @default(0)
   validation Json?
+  access     Json?
   createdAt  DateTime    @default(now()) @map("created_at")
   updatedAt  DateTime    @updatedAt @map("updated_at")
   cells      TableCell[]

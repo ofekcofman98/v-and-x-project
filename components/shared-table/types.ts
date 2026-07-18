@@ -7,6 +7,7 @@ export interface ColumnDef {
     baseListColumnId?: string;
     locked?: boolean;
   };
+  isPrivate?: boolean;
 }
 
 export interface RowData {

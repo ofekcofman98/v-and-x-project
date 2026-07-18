@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/lib/shared/generated/prisma/client";
+import { Prisma, OrgRole } from "@/lib/shared/generated/prisma/client";
 import { ownershipWhere } from "@/lib/server/services/auth";
+import { filterAccessibleColumns, getUserRoleInOrg } from "@/lib/server/services/column-access";
+import { ColumnAccessUpdate } from "@/lib/shared/types/column-access";
 
 type ColumnType = "TEXT" | "NUMBER" | "DATE" | "BOOLEAN";
 
@@ -97,7 +99,12 @@ export async function getTableById(userId: string, organizationIds: string[], id
   });
 
   if (!table) throw new Error(`Table with ID ${id} not found`);
-  return table;
+
+  const isOwner = table.userId === userId;
+  const role = table.organizationId ? await getUserRoleInOrg(userId, table.organizationId) : null;
+  const columns = filterAccessibleColumns(table.columns, userId, isOwner, role);
+
+  return { ...table, columns };
 }
 
 export async function deleteTable(userId: string, organizationIds: string[], id: string) {
@@ -156,5 +163,51 @@ export async function getTableForExport(userId: string, organizationIds: string[
   });
 
   if (!table) throw new Error(`Table with ID ${id} not found`);
-  return table;
+
+  const isOwner = table.userId === userId;
+  const role = table.organizationId ? await getUserRoleInOrg(userId, table.organizationId) : null;
+  const columns = filterAccessibleColumns(table.columns, userId, isOwner, role);
+
+  return { ...table, columns };
+}
+
+/**
+ * Updates a column's visibility rule. Only the table owner or an org admin/owner may call this.
+ */
+export async function updateColumnAccess(
+  userId: string,
+  organizationIds: string[],
+  tableId: string,
+  columnId: string,
+  access: ColumnAccessUpdate
+) {
+  const table = await prisma.table.findFirst({
+    where: { id: tableId, ...ownershipWhere(userId, organizationIds) },
+    select: { id: true, userId: true, organizationId: true },
+  });
+
+  if (!table) throw new Error(`Table with ID ${tableId} not found`);
+
+  const isOwner = table.userId === userId;
+  const role = table.organizationId ? await getUserRoleInOrg(userId, table.organizationId) : null;
+  const canManage = isOwner || role === OrgRole.OWNER || role === OrgRole.ADMIN;
+
+  if (!canManage) throw new Error("Forbidden: only the table owner or an org admin can change column access");
+
+  const column = await prisma.tableColumn.findUnique({
+    where: { id: columnId },
+    select: { id: true, tableId: true },
+  });
+
+  if (!column || column.tableId !== tableId) {
+    throw new Error(`Column with ID ${columnId} not found on table ${tableId}`);
+  }
+
+  const updated = await prisma.tableColumn.update({
+    where: { id: columnId },
+    data: { access: access as unknown as Prisma.InputJsonValue },
+    select: { id: true, access: true },
+  });
+
+  return updated;
 }

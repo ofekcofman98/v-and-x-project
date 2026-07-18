@@ -166,7 +166,7 @@ export type BaseListGroupByOutputType = {
   name: string
   description: string | null
   schema: runtime.JsonValue
-  userId: string | null
+  userId: string
   organizationId: string | null
   createdAt: Date
   updatedAt: Date
@@ -198,7 +198,7 @@ export type BaseListWhereInput = {
   name?: Prisma.StringFilter<"BaseList"> | string
   description?: Prisma.StringNullableFilter<"BaseList"> | string | null
   schema?: Prisma.JsonFilter<"BaseList">
-  userId?: Prisma.UuidNullableFilter<"BaseList"> | string | null
+  userId?: Prisma.UuidFilter<"BaseList"> | string
   organizationId?: Prisma.UuidNullableFilter<"BaseList"> | string | null
   createdAt?: Prisma.DateTimeFilter<"BaseList"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"BaseList"> | Date | string
@@ -212,7 +212,7 @@ export type BaseListOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   schema?: Prisma.SortOrder
-  userId?: Prisma.SortOrderInput | Prisma.SortOrder
+  userId?: Prisma.SortOrder
   organizationId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -229,7 +229,7 @@ export type BaseListWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"BaseList"> | string
   description?: Prisma.StringNullableFilter<"BaseList"> | string | null
   schema?: Prisma.JsonFilter<"BaseList">
-  userId?: Prisma.UuidNullableFilter<"BaseList"> | string | null
+  userId?: Prisma.UuidFilter<"BaseList"> | string
   organizationId?: Prisma.UuidNullableFilter<"BaseList"> | string | null
   createdAt?: Prisma.DateTimeFilter<"BaseList"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"BaseList"> | Date | string
@@ -243,7 +243,7 @@ export type BaseListOrderByWithAggregationInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   schema?: Prisma.SortOrder
-  userId?: Prisma.SortOrderInput | Prisma.SortOrder
+  userId?: Prisma.SortOrder
   organizationId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -260,7 +260,7 @@ export type BaseListScalarWhereWithAggregatesInput = {
   name?: Prisma.StringWithAggregatesFilter<"BaseList"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"BaseList"> | string | null
   schema?: Prisma.JsonWithAggregatesFilter<"BaseList">
-  userId?: Prisma.UuidNullableWithAggregatesFilter<"BaseList"> | string | null
+  userId?: Prisma.UuidWithAggregatesFilter<"BaseList"> | string
   organizationId?: Prisma.UuidNullableWithAggregatesFilter<"BaseList"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"BaseList"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"BaseList"> | Date | string
@@ -271,7 +271,7 @@ export type BaseListCreateInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -285,7 +285,7 @@ export type BaseListUncheckedCreateInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -299,7 +299,7 @@ export type BaseListUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -313,7 +313,7 @@ export type BaseListUncheckedUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -327,7 +327,7 @@ export type BaseListCreateManyInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -338,7 +338,7 @@ export type BaseListUpdateManyMutationInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -349,7 +349,7 @@ export type BaseListUncheckedUpdateManyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -457,7 +457,7 @@ export type BaseListCreateWithoutEntitiesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -470,7 +470,7 @@ export type BaseListUncheckedCreateWithoutEntitiesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -499,7 +499,7 @@ export type BaseListUpdateWithoutEntitiesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -512,7 +512,7 @@ export type BaseListUncheckedUpdateWithoutEntitiesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -525,7 +525,7 @@ export type BaseListCreateWithoutTablesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -538,7 +538,7 @@ export type BaseListUncheckedCreateWithoutTablesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -567,7 +567,7 @@ export type BaseListUpdateWithoutTablesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -580,7 +580,7 @@ export type BaseListUncheckedUpdateWithoutTablesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -593,7 +593,7 @@ export type BaseListCreateWithoutTemplatesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -606,7 +606,7 @@ export type BaseListUncheckedCreateWithoutTemplatesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -635,7 +635,7 @@ export type BaseListUpdateWithoutTemplatesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -648,7 +648,7 @@ export type BaseListUncheckedUpdateWithoutTemplatesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -775,7 +775,7 @@ export type $BaseListPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     name: string
     description: string | null
     schema: runtime.JsonValue
-    userId: string | null
+    userId: string
     organizationId: string | null
     createdAt: Date
     updatedAt: Date

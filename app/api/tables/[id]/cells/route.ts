@@ -64,6 +64,7 @@ export const PATCH = withErrorHandler(async (
     try {
       const cell = await upsertCell({
         tableId: parsedTableId.data,
+        userId: user.id,
         rowKey,
         tableColumnId,
         value,
@@ -74,6 +75,9 @@ export const PATCH = withErrorHandler(async (
     } catch (error) {
       // Handle known errors with appropriate status codes
       if (error instanceof Error) {
+        if (error.message.includes("Forbidden")) {
+          return apiError(error.message, 403);
+        }
         if (error.message.includes("not found")) {
           return apiError(error.message, 404);
         }
@@ -125,6 +129,7 @@ export const GET = withErrorHandler(async (
     try {
         const cells = await getCells({
             tableId: parsedTableId.data,
+            userId: user.id,
             rowKey: queryResult.data.rowKey,
         });
         

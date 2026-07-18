@@ -13,6 +13,7 @@ import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { useToast } from '@/components/ui/use-toast';
 import { DataTableCell } from './DataTableCell';
 import { ColumnHeaderCell } from './ColumnHeaderCell';
+import { ColumnAccessModal } from '@/components/tables/ColumnAccessModal';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 import type { ColumnDef } from './types';
@@ -31,6 +32,7 @@ function toColumnDef(col: ColumnDefinition): ColumnDef {
       source: col.isBaseColumn ? 'base_list' : 'user_defined',
       locked: true,
     },
+    isPrivate: col.access?.visibility === 'private',
   };
 }
 
@@ -65,6 +67,8 @@ export const DataTable = memo(function DataTable({
   const { toast } = useToast();
 
   const [localRepKey, setLocalRepKey] = useState<string | null>(representativeColumnKey ?? null);
+  const [accessModalColumnId, setAccessModalColumnId] = useState<string | null>(null);
+  const accessModalColumn = columns.find((col) => col.id === accessModalColumnId) ?? null;
 
   // Keep local state in sync if the prop changes (e.g. parent refetch)
   useEffect(() => {
@@ -146,6 +150,11 @@ export const DataTable = memo(function DataTable({
                           ? () => handleRepresentativeColumnChange(column.id)
                           : undefined
                       }
+                      onAccessClick={
+                        !isReadOnly && tableId && column.isBaseColumn !== true
+                          ? () => setAccessModalColumnId(column.id)
+                          : undefined
+                      }
                       // No-ops: column structure editing belongs to the builder, not the data view
                       onNameChange={() => {}}
                       onTypeChange={() => {}}
@@ -190,6 +199,18 @@ export const DataTable = memo(function DataTable({
             </tbody>
           </table>
         </div>
+      )}
+
+      {accessModalColumn && tableId && (
+        <ColumnAccessModal
+          tableId={tableId}
+          columnId={accessModalColumn.id}
+          columnLabel={accessModalColumn.label}
+          access={accessModalColumn.access}
+          open={accessModalColumnId !== null}
+          onOpenChange={(open) => !open && setAccessModalColumnId(null)}
+          onSaved={() => setAccessModalColumnId(null)}
+        />
       )}
     </div>
   );

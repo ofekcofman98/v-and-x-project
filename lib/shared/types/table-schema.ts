@@ -1,4 +1,5 @@
 import { ColumnType } from '@/lib/shared/types/column-types';
+import type { ColumnAccess } from '@/lib/shared/types/column-access';
 
 /**
  * Optional validation rules for a column
@@ -20,7 +21,8 @@ export interface ColumnDefinition {
   label: string;
   type: ColumnType;
   validation?: ColumnValidation;
-  isBaseColumn?: boolean;  
+  isBaseColumn?: boolean;
+  access?: ColumnAccess | null;
 }
 
 /**

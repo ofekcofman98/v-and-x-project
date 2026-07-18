@@ -180,7 +180,7 @@ export type TableGroupByOutputType = {
   name: string
   description: string | null
   baseListId: string | null
-  userId: string | null
+  userId: string
   organizationId: string | null
   representativeColumnKey: string
   schema: runtime.JsonValue
@@ -215,7 +215,7 @@ export type TableWhereInput = {
   name?: Prisma.StringFilter<"Table"> | string
   description?: Prisma.StringNullableFilter<"Table"> | string | null
   baseListId?: Prisma.UuidNullableFilter<"Table"> | string | null
-  userId?: Prisma.UuidNullableFilter<"Table"> | string | null
+  userId?: Prisma.UuidFilter<"Table"> | string
   organizationId?: Prisma.UuidNullableFilter<"Table"> | string | null
   representativeColumnKey?: Prisma.StringFilter<"Table"> | string
   schema?: Prisma.JsonFilter<"Table">
@@ -233,7 +233,7 @@ export type TableOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   baseListId?: Prisma.SortOrderInput | Prisma.SortOrder
-  userId?: Prisma.SortOrderInput | Prisma.SortOrder
+  userId?: Prisma.SortOrder
   organizationId?: Prisma.SortOrderInput | Prisma.SortOrder
   representativeColumnKey?: Prisma.SortOrder
   schema?: Prisma.SortOrder
@@ -254,7 +254,7 @@ export type TableWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"Table"> | string
   description?: Prisma.StringNullableFilter<"Table"> | string | null
   baseListId?: Prisma.UuidNullableFilter<"Table"> | string | null
-  userId?: Prisma.UuidNullableFilter<"Table"> | string | null
+  userId?: Prisma.UuidFilter<"Table"> | string
   organizationId?: Prisma.UuidNullableFilter<"Table"> | string | null
   representativeColumnKey?: Prisma.StringFilter<"Table"> | string
   schema?: Prisma.JsonFilter<"Table">
@@ -272,7 +272,7 @@ export type TableOrderByWithAggregationInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   baseListId?: Prisma.SortOrderInput | Prisma.SortOrder
-  userId?: Prisma.SortOrderInput | Prisma.SortOrder
+  userId?: Prisma.SortOrder
   organizationId?: Prisma.SortOrderInput | Prisma.SortOrder
   representativeColumnKey?: Prisma.SortOrder
   schema?: Prisma.SortOrder
@@ -292,7 +292,7 @@ export type TableScalarWhereWithAggregatesInput = {
   name?: Prisma.StringWithAggregatesFilter<"Table"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"Table"> | string | null
   baseListId?: Prisma.UuidNullableWithAggregatesFilter<"Table"> | string | null
-  userId?: Prisma.UuidNullableWithAggregatesFilter<"Table"> | string | null
+  userId?: Prisma.UuidWithAggregatesFilter<"Table"> | string
   organizationId?: Prisma.UuidNullableWithAggregatesFilter<"Table"> | string | null
   representativeColumnKey?: Prisma.StringWithAggregatesFilter<"Table"> | string
   schema?: Prisma.JsonWithAggregatesFilter<"Table">
@@ -305,7 +305,7 @@ export type TableCreateInput = {
   id?: string
   name: string
   description?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -323,7 +323,7 @@ export type TableUncheckedCreateInput = {
   name: string
   description?: string | null
   baseListId?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -339,7 +339,7 @@ export type TableUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -357,7 +357,7 @@ export type TableUncheckedUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   baseListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -374,7 +374,7 @@ export type TableCreateManyInput = {
   name: string
   description?: string | null
   baseListId?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -387,7 +387,7 @@ export type TableUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -401,7 +401,7 @@ export type TableUncheckedUpdateManyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   baseListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -551,7 +551,7 @@ export type TableCreateWithoutBaseListInput = {
   id?: string
   name: string
   description?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -567,7 +567,7 @@ export type TableUncheckedCreateWithoutBaseListInput = {
   id?: string
   name: string
   description?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -613,7 +613,7 @@ export type TableScalarWhereInput = {
   name?: Prisma.StringFilter<"Table"> | string
   description?: Prisma.StringNullableFilter<"Table"> | string | null
   baseListId?: Prisma.UuidNullableFilter<"Table"> | string | null
-  userId?: Prisma.UuidNullableFilter<"Table"> | string | null
+  userId?: Prisma.UuidFilter<"Table"> | string
   organizationId?: Prisma.UuidNullableFilter<"Table"> | string | null
   representativeColumnKey?: Prisma.StringFilter<"Table"> | string
   schema?: Prisma.JsonFilter<"Table">
@@ -626,7 +626,7 @@ export type TableCreateWithoutColumnsInput = {
   id?: string
   name: string
   description?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -643,7 +643,7 @@ export type TableUncheckedCreateWithoutColumnsInput = {
   name: string
   description?: string | null
   baseListId?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -674,7 +674,7 @@ export type TableUpdateWithoutColumnsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -691,7 +691,7 @@ export type TableUncheckedUpdateWithoutColumnsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   baseListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -706,7 +706,7 @@ export type TableCreateWithoutCellsInput = {
   id?: string
   name: string
   description?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -723,7 +723,7 @@ export type TableUncheckedCreateWithoutCellsInput = {
   name: string
   description?: string | null
   baseListId?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -754,7 +754,7 @@ export type TableUpdateWithoutCellsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -771,7 +771,7 @@ export type TableUncheckedUpdateWithoutCellsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   baseListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -786,7 +786,7 @@ export type TableCreateWithoutEntityEmbeddingInput = {
   id?: string
   name: string
   description?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -803,7 +803,7 @@ export type TableUncheckedCreateWithoutEntityEmbeddingInput = {
   name: string
   description?: string | null
   baseListId?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -834,7 +834,7 @@ export type TableUpdateWithoutEntityEmbeddingInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -851,7 +851,7 @@ export type TableUncheckedUpdateWithoutEntityEmbeddingInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   baseListId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -866,7 +866,7 @@ export type TableCreateManyBaseListInput = {
   id?: string
   name: string
   description?: string | null
-  userId?: string | null
+  userId: string
   organizationId?: string | null
   representativeColumnKey: string
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -879,7 +879,7 @@ export type TableUpdateWithoutBaseListInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -895,7 +895,7 @@ export type TableUncheckedUpdateWithoutBaseListInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -911,7 +911,7 @@ export type TableUncheckedUpdateManyWithoutBaseListInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   representativeColumnKey?: Prisma.StringFieldUpdateOperationsInput | string
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -1051,7 +1051,7 @@ export type $TablePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     name: string
     description: string | null
     baseListId: string | null
-    userId: string | null
+    userId: string
     organizationId: string | null
     representativeColumnKey: string
     schema: runtime.JsonValue

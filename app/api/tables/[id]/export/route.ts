@@ -77,7 +77,7 @@ export const GET = withErrorHandler(async (
           ...table.columns.map((col) => ({ id: col.id, label: col.label, isBaseColumn: false })),
         ];
 
-  const cells = await getCells({ tableId: parsedId.data });
+  const cells = await getCells({ tableId: parsedId.data, userId: user.id });
   const cellValueByRowAndColumn = new Map<string, string>();
   for (const cell of cells) {
     const value = (cell.value as { value: string | number | boolean | null } | null)?.value;

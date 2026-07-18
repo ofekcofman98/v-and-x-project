@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { EntrySource } from "@/lib/shared/generated/prisma/client";
+import { canAccessColumn, getUserRoleInOrg } from "@/lib/server/services/column-access";
 
 export interface UpsertCellInput {
   tableId: string;
+  userId: string;
   rowKey: string;
   tableColumnId: string;
   value: string | number | boolean | null;
@@ -12,6 +14,7 @@ export interface UpsertCellInput {
 
 export interface GetCellsInput {
     tableId: string;
+    userId: string;
     rowKey?: string;
 }
   
@@ -24,24 +27,27 @@ export interface GetCellsInput {
    * @throws Error if the table doesn't exist
    */
   export async function getCells(input: GetCellsInput) {
-    const { tableId, rowKey } = input;
-  
+    const { tableId, userId, rowKey } = input;
+
     // Validate that the table exists
     const table = await prisma.table.findUnique({
       where: { id: tableId },
-      select: { id: true },
+      select: { id: true, userId: true, organizationId: true },
     });
-  
+
     if (!table) {
       throw new Error(`Table with ID ${tableId} not found`);
     }
-  
+
+    const isOwner = table.userId === userId;
+    const role = table.organizationId ? await getUserRoleInOrg(userId, table.organizationId) : null;
+
     // Build the query filters
     const where = {
       tableId,
       ...(rowKey && { rowKey }), // Only add rowKey filter if provided
     };
-  
+
     // Fetch cells with related data
     const cells = await prisma.tableCell.findMany({
       where,
@@ -53,6 +59,7 @@ export interface GetCellsInput {
             label: true,
             type: true,
             order: true,
+            access: true,
           },
         },
         entity: {
@@ -67,8 +74,8 @@ export interface GetCellsInput {
         { tableColumn: { order: 'asc' } }, // Then by column order
       ],
     });
-  
-    return cells;
+
+    return cells.filter((cell) => canAccessColumn(cell.tableColumn, userId, isOwner, role));
   }
 
 /**
@@ -83,6 +90,7 @@ export interface GetCellsInput {
 export async function upsertCell(input: UpsertCellInput) {
   const {
     tableId,
+    userId,
     rowKey,
     tableColumnId,
     value,
@@ -93,7 +101,7 @@ export async function upsertCell(input: UpsertCellInput) {
   // Validate that the table exists
   const table = await prisma.table.findUnique({
     where: { id: tableId },
-    select: { id: true },
+    select: { id: true, userId: true, organizationId: true },
   });
 
   if (!table) {
@@ -103,7 +111,7 @@ export async function upsertCell(input: UpsertCellInput) {
   // Validate that the column exists and belongs to this table
   const column = await prisma.tableColumn.findUnique({
     where: { id: tableColumnId },
-    select: { id: true, tableId: true },
+    select: { id: true, tableId: true, access: true },
   });
 
   if (!column) {
@@ -112,6 +120,13 @@ export async function upsertCell(input: UpsertCellInput) {
 
   if (column.tableId !== tableId) {
     throw new Error(`Column ${tableColumnId} does not belong to table ${tableId}`);
+  }
+
+  const isOwner = table.userId === userId;
+  const role = table.organizationId ? await getUserRoleInOrg(userId, table.organizationId) : null;
+
+  if (!canAccessColumn(column, userId, isOwner, role)) {
+    throw new Error(`Forbidden: you do not have access to column ${tableColumnId}`);
   }
 
   // Validate entityId if provided

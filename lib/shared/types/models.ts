@@ -26,6 +26,7 @@
 
 import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/shared/types/table-schema';
 import { ColumnType } from '@/lib/shared/types/column-types';
+import type { ColumnAccess } from '@/lib/shared/types/column-access';
 
 // ═══════════════════════════════════════════════════════════
 // PRISMA ENUM MIRRORS (until Prisma Client is generated)
@@ -315,6 +316,7 @@ export interface TableColumn {
   type: PrismaColumnType;
   order: number;
   validation: TableColumnValidation | null;
+  access: ColumnAccess | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -330,6 +332,7 @@ export interface TableColumnDTO {
   type: PrismaColumnType;
   order: number;
   validation: TableColumnValidation | null;
+  access: ColumnAccess | null;
   createdAt: string;
   updatedAt: string;
 }

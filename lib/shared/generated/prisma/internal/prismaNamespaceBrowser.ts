@@ -129,6 +129,7 @@ export const TableColumnScalarFieldEnum = {
   type: 'type',
   order: 'order',
   validation: 'validation',
+  access: 'access',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

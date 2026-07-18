@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Trash2, Lock, Key } from 'lucide-react';
+import { Trash2, Lock, Key, EyeOff } from 'lucide-react';
 import type { ColumnDef } from './types';
 
 interface ColumnHeaderCellProps {
@@ -12,6 +12,7 @@ interface ColumnHeaderCellProps {
   showTypeSelector?: boolean;
   isRepresentative?: boolean;
   onRepresentativeClick?: () => void;
+  onAccessClick?: () => void;
 }
 
 export function ColumnHeaderCell({
@@ -20,6 +21,7 @@ export function ColumnHeaderCell({
   onDelete,
   isRepresentative = false,
   onRepresentativeClick,
+  onAccessClick,
 }: ColumnHeaderCellProps) {
   const isLocked = column.metadata?.locked || false;
   const isFromBaseList = column.metadata?.source === 'base_list';
@@ -69,6 +71,17 @@ export function ColumnHeaderCell({
             <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
               Base List
             </span>
+          )}
+          {onAccessClick && (
+            <Button
+              onClick={onAccessClick}
+              size="icon"
+              variant="ghost"
+              className={`h-5 w-5 shrink-0 ${column.isPrivate ? 'text-amber-600' : 'text-slate-400 opacity-0 group-hover:opacity-100'}`}
+              title={column.isPrivate ? 'Private column — click to edit access' : 'Set column access'}
+            >
+              <EyeOff className="h-3.5 w-3.5" />
+            </Button>
           )}
           {isLocked ? (
             <Lock className="h-3 w-3 text-slate-400" />

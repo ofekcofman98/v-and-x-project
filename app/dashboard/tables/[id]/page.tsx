@@ -109,6 +109,7 @@ export default function TableDetailsPage() {
                       label: col.label,
                       type: prismaColumnTypeToColumnType(col.type),
                       isBaseColumn: false as const,
+                      access: col.access,
                   })),
               ];
     }, [table]);
