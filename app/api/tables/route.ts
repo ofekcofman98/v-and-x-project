@@ -4,13 +4,11 @@
  * Based on: docs/14_PRODUCT_DATA_FLOW.md §4 & §7.2
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/lib/shared/generated/prisma/client";
-import { withErrorHandler, parseBody, apiSuccess, apiError, apiInternalError } from "@/lib/shared/utils/api";
+import { withErrorHandler, parseBody, apiSuccess, apiError } from "@/lib/shared/utils/api";
 import { ColumnTypeSchema } from "@/lib/shared/utils/schemas";
-import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
+import { getAuthenticatedUser, getAccessibleOrganizationIds } from "@/lib/server/services/auth";
+import { createTable, listTables } from "@/lib/server/services/table-service";
 
 export const runtime = "nodejs";
 
@@ -44,7 +42,6 @@ const CreateTableBody = z.object({
 // Create a new table with its columns in a transaction
 // ─────────────────────────────────────────────────────────
 
-
 export const POST = withErrorHandler(
   async (req) => {
     const user = await getAuthenticatedUser();
@@ -53,67 +50,19 @@ export const POST = withErrorHandler(
     const body = await parseBody(req, CreateTableBody);
     if (!body.success) return body.errorResponse;
 
-    const { name, description, baseListId, representativeColumnKey, columns } = body.data;
     const orgIds = await getAccessibleOrganizationIds(user.id);
-
-    if (baseListId) {
-        const baseList = await prisma.baseList.findFirst({
-            where: { id: baseListId, ...ownershipWhere(user.id, orgIds) },
-            select: { id: true, schema: true },
-        });
-        
-        if (!baseList) {
-            return apiError(`BaseList with id '${baseListId}' not found`, 404);
-        }
-
-        const baseListSchema = baseList.schema as { columns: Array<{ id: string }> };
-        const hasRepColumn = baseListSchema.columns.some(
-            (col) => col.id === representativeColumnKey
-        );
-
-        if (!hasRepColumn) {
-            return apiError(`Representative column '${representativeColumnKey}' not found in BaseList schema`, 400);
-        }
+    try {
+      const result = await createTable({ userId: user.id, organizationIds: orgIds, ...body.data });
+      return apiSuccess(result, 201);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return apiError(error.message, 404);
+      }
+      if (error instanceof Error && error.message.includes("Representative column")) {
+        return apiError(error.message, 400);
+      }
+      throw error;
     }
-
-    const result = await prisma.$transaction(async (tx) => {
-        const table = await tx.table.create({
-            data: {
-                name,
-                description,
-                baseListId,
-                userId: user.id,
-                representativeColumnKey,
-                schema: { columns: [] } as Prisma.InputJsonValue,
-                settings: {} as Prisma.InputJsonValue,
-            },
-        });
-        
-        await tx.tableColumn.createMany({
-            data: columns.map((col, index) => ({
-                tableId: table.id,
-                key: col.label.toLowerCase().replace(/\s+/g, "_"),
-                label: col.label,
-                type: col.type,
-                order: index,
-                validation: col.validation
-                    ? (col.validation as Prisma.InputJsonValue)
-                    : Prisma.JsonNull,
-            })),
-        });
-
-        const tableColumns = await tx.tableColumn.findMany({
-            where: { tableId: table.id },
-            orderBy: { order: "asc" },
-        });
-
-        return {
-            ...table,
-            columns: tableColumns,
-        };
-    });
-
-    return apiSuccess(result, 201);
   }
 );
 
@@ -122,32 +71,13 @@ export const POST = withErrorHandler(
 // Fetch all tables with baseList name and column count
 // ─────────────────────────────────────────────────────────
 
-
 export const GET = withErrorHandler(
     async (req) => {
         const user = await getAuthenticatedUser();
         if (!user) return apiError("Unauthorized", 401);
 
         const orgIds = await getAccessibleOrganizationIds(user.id);
-        const tables = await prisma.table.findMany({
-            where: ownershipWhere(user.id, orgIds),
-            include: {
-                baseList: {
-                    select: {
-                        id: true,
-                        name: true 
-                    },
-                },
-                _count: { 
-                    select: { 
-                        columns: true,
-                    } 
-                },
-            },
-            orderBy: { 
-                createdAt: "desc" 
-            },
-        });
+        const tables = await listTables(user.id, orgIds);
         return apiSuccess(tables, 200);
     }
 );

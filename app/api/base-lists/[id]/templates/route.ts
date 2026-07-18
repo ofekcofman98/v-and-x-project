@@ -4,10 +4,10 @@
  * Based on: docs/features/02_column_templates.md
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextRequest } from "next/server";
 import { apiError, apiSuccess, uuidSchema, withErrorHandler } from "@/lib/shared/utils/api";
-import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
+import { getAuthenticatedUser, getAccessibleOrganizationIds } from "@/lib/server/services/auth";
+import { listAppliedTemplates } from "@/lib/server/services/base-list-service";
 
 export const runtime = "nodejs";
 
@@ -27,42 +27,14 @@ export const GET = withErrorHandler(
     if (!user) return apiError("Unauthorized", 401);
 
     const orgIds = await getAccessibleOrganizationIds(user.id);
-    const baseList = await prisma.baseList.findFirst({
-      where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
-      select: { id: true },
-    });
-
-    if (!baseList) return apiError("BaseList not found", 404);
-
-    const applied = await prisma.baseListTemplate.findMany({
-      where: { baseListId: parsedId.data },
-      include: {
-        template: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            category: true,
-            schema: true,
-            isPublic: true,
-          },
-        },
-      },
-      orderBy: { appliedAt: "desc" },
-    });
-
-    return apiSuccess(
-      applied.map((entry) => ({
-        id: entry.id,
-        template_id: entry.template.id,
-        template_name: entry.template.name,
-        template_description: entry.template.description,
-        template_category: entry.template.category,
-        template_schema: entry.template.schema,
-        is_public: entry.template.isPublic,
-        auto_sync: entry.autoSync,
-        applied_at: entry.appliedAt,
-      }))
-    );
+    try {
+      const applied = await listAppliedTemplates(user.id, orgIds, parsedId.data);
+      return apiSuccess(applied);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return apiError("BaseList not found", 404);
+      }
+      throw error;
+    }
   }
 );

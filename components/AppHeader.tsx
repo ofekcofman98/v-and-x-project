@@ -1,4 +1,42 @@
+'use client';
+
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/lib/client/stores/use-auth-store';
+import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
+
+function AuthSlot() {
+  const router = useRouter();
+  const { status, user } = useAuthStore();
+
+  if (status === 'loading') return null;
+
+  if (status === 'unauthenticated') {
+    return (
+      <Link
+        href="/login"
+        className="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+      >
+        Sign In
+      </Link>
+    );
+  }
+
+  const handleLogOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="hidden text-sm text-muted-foreground sm:inline-block">{user?.email}</span>
+      <Button variant="outline" size="sm" onClick={handleLogOut}>
+        Log Out
+      </Button>
+    </div>
+  );
+}
 
 export function AppHeader() {
   return (
@@ -21,6 +59,7 @@ export function AppHeader() {
             >
               Tables
             </Link>
+            <AuthSlot />
           </nav>
         </div>
       </div>
