@@ -15,6 +15,8 @@ import type { ColumnDef, RowData } from '@/components/shared-table/types';
 import { validateGridSchema } from '@/lib/shared/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
+import { ColumnAccessModal } from '@/components/tables/ColumnAccessModal';
+import type { ColumnAccess } from '@/lib/shared/types/column-access';
 import { Save, X, ArrowLeft } from 'lucide-react';
 
 /**
@@ -73,8 +75,15 @@ export function DynamicListCreator({
   const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(
     (initialColumns ?? [DEFAULT_COLUMN])[0]?.id ?? null
   );
+  const [accessModalColumnId, setAccessModalColumnId] = useState<string | null>(null);
+  const accessModalColumn = columns.find((col) => col.id === accessModalColumnId) ?? null;
 
   if (!open) return null;
+
+  const handleAccessSubmit = (access: ColumnAccess) => {
+    if (!accessModalColumn) return;
+    gridActions.onUpdateColumn(accessModalColumn.id, { access });
+  };
 
   /**
    * Handle save - Transform to API format and submit
@@ -102,6 +111,7 @@ export function DynamicListCreator({
             label: col.name,
             type: col.type.toUpperCase(),
             validation: col.id === 'name' ? { required: true } : {},
+            access: col.access ?? undefined,
           })),
         },
         entities: rows
@@ -208,10 +218,21 @@ export function DynamicListCreator({
             onRepresentativeColumnChange={setRepresentativeColumnId}
             allowRows={allowRows}
             allowDataEntry={allowDataEntry}
+            onAccessClick={setAccessModalColumnId}
             {...gridActions}
           />
         </div>
       </div>
+
+      {accessModalColumn && (
+        <ColumnAccessModal
+          columnLabel={accessModalColumn.name}
+          access={accessModalColumn.access}
+          open={accessModalColumnId !== null}
+          onOpenChange={(open) => !open && setAccessModalColumnId(null)}
+          onSubmit={handleAccessSubmit}
+        />
+      )}
     </div>
   );
 }

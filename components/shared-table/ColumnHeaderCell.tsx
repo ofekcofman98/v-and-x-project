@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Trash2, Lock, Key, EyeOff } from 'lucide-react';
+import { Trash2, Lock, Key } from 'lucide-react';
 import type { ColumnDef } from './types';
 
 interface ColumnHeaderCellProps {
@@ -26,6 +26,7 @@ export function ColumnHeaderCell({
   const isLocked = column.metadata?.locked || false;
   const isFromBaseList = column.metadata?.source === 'base_list';
   const isTextColumn = column.type === 'text';
+  const isPrivate = column.access?.visibility === 'private';
 
   return (
     <th 
@@ -72,18 +73,17 @@ export function ColumnHeaderCell({
               Base List
             </span>
           )}
-          {onAccessClick && (
+          {onAccessClick ? (
             <Button
               onClick={onAccessClick}
               size="icon"
               variant="ghost"
-              className={`h-5 w-5 shrink-0 ${column.isPrivate ? 'text-amber-600' : 'text-slate-400 opacity-0 group-hover:opacity-100'}`}
-              title={column.isPrivate ? 'Private column — click to edit access' : 'Set column access'}
+              className={`h-5 w-5 shrink-0 ${isPrivate ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+              title={isPrivate ? 'Private column — click to edit access' : 'Set column access'}
             >
-              <EyeOff className="h-3.5 w-3.5" />
+              <Lock className="h-3 w-3" />
             </Button>
-          )}
-          {isLocked ? (
+          ) : isLocked ? (
             <Lock className="h-3 w-3 text-slate-400" />
           ) : (
             <Button

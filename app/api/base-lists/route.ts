@@ -5,10 +5,11 @@
  */
 
 import { z } from "zod";
-import { apiSuccess, apiError, withErrorHandler, parseBody } from "@/lib/shared/utils/api";
+import { apiSuccess, apiError, withErrorHandler, parseBody, uuidSchema } from "@/lib/shared/utils/api";
 import { ColumnTypeSchema } from "@/lib/shared/utils/schemas";
 import { getAuthenticatedUser, getAccessibleOrganizationIds } from "@/lib/server/services/auth";
 import { createBaseList, listBaseLists } from "@/lib/server/services/base-list-service";
+import { OrgRole } from "@/lib/shared/generated/prisma/client";
 
 export const runtime = "nodejs";
 
@@ -16,11 +17,18 @@ export const runtime = "nodejs";
 // Zod schemas
 // ─────────────────────────────────────────────────────────
 
+const ColumnAccessSchema = z.object({
+  visibility: z.enum(["public", "private"]),
+  allowedRoles: z.array(z.nativeEnum(OrgRole)).optional(),
+  allowedUserIds: z.array(uuidSchema).optional(),
+});
+
 const EntityFieldSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   type: ColumnTypeSchema,
   validation: z.record(z.string(), z.unknown()).optional(),
+  access: ColumnAccessSchema.optional(),
 });
 
 const BaseListSchemaField = z.object({

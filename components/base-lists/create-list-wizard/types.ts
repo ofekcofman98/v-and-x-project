@@ -5,6 +5,12 @@
 import { z } from 'zod';
 import { ColumnType } from '@/lib/shared/types/column-types';
 
+const columnAccessSchema = z.object({
+  visibility: z.enum(['public', 'private']),
+  allowedRoles: z.array(z.enum(['OWNER', 'ADMIN', 'EDITOR', 'VIEWER'])).optional(),
+  allowedUserIds: z.array(z.string()).optional(),
+});
+
 export const columnSchema = z.object({
   id: z.string(),
   label: z.string().min(1, 'Column name is required'),
@@ -12,6 +18,7 @@ export const columnSchema = z.object({
   validation: z.object({
     required: z.boolean().optional(),
   }).optional(),
+  access: columnAccessSchema.optional().nullable(),
 });
 
 export const entitySchema = z.object({

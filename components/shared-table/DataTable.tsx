@@ -16,6 +16,7 @@ import { ColumnHeaderCell } from './ColumnHeaderCell';
 import { ColumnAccessModal } from '@/components/tables/ColumnAccessModal';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
+import type { ColumnAccess } from '@/lib/shared/types/column-access';
 import type { ColumnDef } from './types';
 
 /**
@@ -32,7 +33,7 @@ function toColumnDef(col: ColumnDefinition): ColumnDef {
       source: col.isBaseColumn ? 'base_list' : 'user_defined',
       locked: true,
     },
-    isPrivate: col.access?.visibility === 'private',
+    access: col.access,
   };
 }
 
@@ -109,6 +110,23 @@ export const DataTable = memo(function DataTable({
     setActiveCell({ rowKey, tableColumnId });
     onCellClick?.(rowKey, tableColumnId);
   }, [setActiveCell, onCellClick]);
+
+  const handleAccessSubmit = useCallback(async (access: ColumnAccess) => {
+    if (!tableId || !accessModalColumn) return;
+
+    const response = await fetch(`/api/tables/${tableId}/columns/${accessModalColumn.id}/access`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(access),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error?.[0] ?? 'Failed to update column access');
+    }
+
+    toast({ title: `"${accessModalColumn.label}" access updated` });
+  }, [tableId, accessModalColumn, toast]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
@@ -203,13 +221,11 @@ export const DataTable = memo(function DataTable({
 
       {accessModalColumn && tableId && (
         <ColumnAccessModal
-          tableId={tableId}
-          columnId={accessModalColumn.id}
           columnLabel={accessModalColumn.label}
           access={accessModalColumn.access}
           open={accessModalColumnId !== null}
           onOpenChange={(open) => !open && setAccessModalColumnId(null)}
-          onSaved={() => setAccessModalColumnId(null)}
+          onSubmit={handleAccessSubmit}
         />
       )}
     </div>

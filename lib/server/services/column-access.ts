@@ -13,7 +13,7 @@ export async function getUserRoleInOrg(userId: string, organizationId: string): 
 }
 
 interface AccessCheckColumn {
-  access: unknown;
+  access?: unknown;
 }
 
 /**
@@ -44,4 +44,46 @@ export function filterAccessibleColumns<T extends AccessCheckColumn>(
   role: OrgRole | null
 ): T[] {
   return columns.filter((column) => canAccessColumn(column, userId, isOwner, role));
+}
+
+interface SchemaWithAccessColumns<T extends AccessCheckColumn & { id: string }> {
+  columns: T[];
+}
+
+interface EntityWithValues {
+  values: unknown;
+}
+
+/**
+ * Filters a BaseList-shaped schema (columns embedded in JSONB) down to the
+ * caller's accessible columns, and strips the corresponding keys out of every
+ * entity's `values`. Shared between base-list-service.ts (viewing a BaseList
+ * directly) and table-service.ts (a Table's embedded BaseList).
+ */
+export function filterBaseListSchemaAndEntities<
+  C extends AccessCheckColumn & { id: string },
+  E extends EntityWithValues,
+>(
+  schema: SchemaWithAccessColumns<C>,
+  entities: E[],
+  userId: string,
+  isOwner: boolean,
+  role: OrgRole | null
+): { columns: C[]; entities: E[] } {
+  const hiddenColumnIds = new Set(
+    schema.columns.filter((col) => !canAccessColumn(col, userId, isOwner, role)).map((col) => col.id)
+  );
+
+  if (hiddenColumnIds.size === 0) return { columns: schema.columns, entities };
+
+  const columns = schema.columns.filter((col) => !hiddenColumnIds.has(col.id));
+  const filteredEntities = entities.map((entity) => {
+    const values = entity.values as Record<string, unknown>;
+    const filteredValues = Object.fromEntries(
+      Object.entries(values).filter(([key]) => !hiddenColumnIds.has(key))
+    );
+    return { ...entity, values: filteredValues };
+  });
+
+  return { columns, entities: filteredEntities };
 }

@@ -5,10 +5,11 @@
  */
 
 import { z } from "zod";
-import { withErrorHandler, parseBody, apiSuccess, apiError } from "@/lib/shared/utils/api";
+import { withErrorHandler, parseBody, apiSuccess, apiError, uuidSchema } from "@/lib/shared/utils/api";
 import { ColumnTypeSchema } from "@/lib/shared/utils/schemas";
 import { getAuthenticatedUser, getAccessibleOrganizationIds } from "@/lib/server/services/auth";
 import { createTable, listTables } from "@/lib/server/services/table-service";
+import { OrgRole } from "@/lib/shared/generated/prisma/client";
 
 export const runtime = "nodejs";
 
@@ -20,10 +21,17 @@ export const runtime = "nodejs";
  * Schema for a single column in the table
  * Example: { label: "Score", type: "NUMBER" }
  */
+const ColumnAccessSchema = z.object({
+  visibility: z.enum(["public", "private"]),
+  allowedRoles: z.array(z.nativeEnum(OrgRole)).optional(),
+  allowedUserIds: z.array(uuidSchema).optional(),
+});
+
 const ColumnSchema = z.object({
   label: z.string().min(1, "Column label is required"),
   type: ColumnTypeSchema,
   validation: z.record(z.string(), z.unknown()).optional(),
+  access: ColumnAccessSchema.optional(),
 });
 
 /**

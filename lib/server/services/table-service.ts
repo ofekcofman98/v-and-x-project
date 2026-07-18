@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, OrgRole } from "@/lib/shared/generated/prisma/client";
 import { ownershipWhere } from "@/lib/server/services/auth";
-import { filterAccessibleColumns, getUserRoleInOrg } from "@/lib/server/services/column-access";
+import { filterAccessibleColumns, getUserRoleInOrg, filterBaseListSchemaAndEntities } from "@/lib/server/services/column-access";
 import { ColumnAccessUpdate } from "@/lib/shared/types/column-access";
 
 type ColumnType = "TEXT" | "NUMBER" | "DATE" | "BOOLEAN";
@@ -10,6 +10,7 @@ interface CreateTableColumnInput {
   label: string;
   type: ColumnType;
   validation?: Record<string, unknown>;
+  access?: ColumnAccessUpdate;
 }
 
 interface CreateTableInput {
@@ -64,6 +65,7 @@ export async function createTable(input: CreateTableInput) {
         type: col.type,
         order: index,
         validation: col.validation ? (col.validation as Prisma.InputJsonValue) : Prisma.JsonNull,
+        access: col.access ? (col.access as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
       })),
     });
 
@@ -103,8 +105,27 @@ export async function getTableById(userId: string, organizationIds: string[], id
   const isOwner = table.userId === userId;
   const role = table.organizationId ? await getUserRoleInOrg(userId, table.organizationId) : null;
   const columns = filterAccessibleColumns(table.columns, userId, isOwner, role);
+  const baseList = filterEmbeddedBaseList(table.baseList, userId, isOwner, role);
 
-  return { ...table, columns };
+  return { ...table, columns, baseList };
+}
+
+/** Filters a Table's embedded BaseList (schema.columns + entities) to what the caller may see. */
+function filterEmbeddedBaseList<
+  T extends { schema: unknown; entities: Array<{ values: unknown }> } | null,
+>(baseList: T, userId: string, isOwner: boolean, role: OrgRole | null): T {
+  if (!baseList) return baseList;
+
+  const schema = baseList.schema as { columns: Array<{ id: string; access?: unknown }> };
+  const { columns, entities } = filterBaseListSchemaAndEntities(
+    schema,
+    baseList.entities,
+    userId,
+    isOwner,
+    role
+  );
+
+  return { ...baseList, schema: { ...schema, columns }, entities };
 }
 
 export async function deleteTable(userId: string, organizationIds: string[], id: string) {
@@ -167,8 +188,9 @@ export async function getTableForExport(userId: string, organizationIds: string[
   const isOwner = table.userId === userId;
   const role = table.organizationId ? await getUserRoleInOrg(userId, table.organizationId) : null;
   const columns = filterAccessibleColumns(table.columns, userId, isOwner, role);
+  const baseList = filterEmbeddedBaseList(table.baseList, userId, isOwner, role);
 
-  return { ...table, columns };
+  return { ...table, columns, baseList };
 }
 
 /**

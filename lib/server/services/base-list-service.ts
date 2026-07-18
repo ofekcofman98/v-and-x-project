@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/lib/shared/generated/prisma/client";
+import { Prisma, OrgRole } from "@/lib/shared/generated/prisma/client";
 import { ownershipWhere } from "@/lib/server/services/auth";
+import { getUserRoleInOrg, filterBaseListSchemaAndEntities } from "@/lib/server/services/column-access";
+import { ColumnAccessUpdate } from "@/lib/shared/types/column-access";
 
 type ColumnType = "TEXT" | "NUMBER" | "DATE" | "BOOLEAN";
 
@@ -9,6 +11,7 @@ interface EntityField {
   label: string;
   type: ColumnType;
   validation?: Record<string, unknown>;
+  access?: ColumnAccessUpdate | null;
 }
 
 interface CreateBaseListInput {
@@ -51,7 +54,61 @@ export async function getBaseListById(userId: string, organizationIds: string[],
   });
 
   if (!baseList) throw new Error("BaseList not found");
-  return baseList;
+
+  const isOwner = baseList.userId === userId;
+  const role = baseList.organizationId ? await getUserRoleInOrg(userId, baseList.organizationId) : null;
+
+  const schema = baseList.schema as unknown as { columns: EntityField[] };
+  const { columns, entities } = filterBaseListSchemaAndEntities(
+    schema,
+    baseList.entities,
+    userId,
+    isOwner,
+    role
+  );
+
+  return {
+    ...baseList,
+    schema: { ...schema, columns } as unknown as typeof baseList.schema,
+    entities,
+  };
+}
+
+/**
+ * Updates a BaseList column's visibility rule. Only the list owner or an org admin/owner may call this.
+ */
+export async function updateBaseListColumnAccess(
+  userId: string,
+  organizationIds: string[],
+  baseListId: string,
+  columnId: string,
+  access: ColumnAccessUpdate
+) {
+  const baseList = await prisma.baseList.findFirst({
+    where: { id: baseListId, ...ownershipWhere(userId, organizationIds) },
+    select: { id: true, userId: true, organizationId: true, schema: true },
+  });
+
+  if (!baseList) throw new Error("BaseList not found");
+
+  const isOwner = baseList.userId === userId;
+  const role = baseList.organizationId ? await getUserRoleInOrg(userId, baseList.organizationId) : null;
+  const canManage = isOwner || role === OrgRole.OWNER || role === OrgRole.ADMIN;
+
+  if (!canManage) throw new Error("Forbidden: only the list owner or an org admin can change column access");
+
+  const schema = baseList.schema as unknown as { columns: EntityField[] };
+  const columnExists = schema.columns.some((col) => col.id === columnId);
+  if (!columnExists) throw new Error(`Column with ID ${columnId} not found on BaseList ${baseListId}`);
+
+  const updatedColumns = schema.columns.map((col) => (col.id === columnId ? { ...col, access } : col));
+
+  await prisma.baseList.update({
+    where: { id: baseListId },
+    data: { schema: { ...schema, columns: updatedColumns } as unknown as Prisma.InputJsonValue },
+  });
+
+  return { id: columnId, access };
 }
 
 export async function deleteBaseList(userId: string, organizationIds: string[], id: string) {

@@ -16,23 +16,23 @@ import type { ColumnAccess, OrgRole } from '@/lib/shared/types/column-access';
 const ASSIGNABLE_ROLES: OrgRole[] = ['ADMIN', 'EDITOR', 'VIEWER'];
 
 interface ColumnAccessModalProps {
-  tableId: string;
-  columnId: string;
   columnLabel: string;
   access: ColumnAccess | null | undefined;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved: (access: ColumnAccess) => void;
+  /**
+   * Persists the new access rule. Callers on an existing table/list do a
+   * live PATCH here; builder callers (unsaved columns) just update local state.
+   */
+  onSubmit: (access: ColumnAccess) => Promise<void> | void;
 }
 
 export function ColumnAccessModal({
-  tableId,
-  columnId,
   columnLabel,
   access,
   open,
   onOpenChange,
-  onSaved,
+  onSubmit,
 }: ColumnAccessModalProps) {
   const { toast } = useToast();
   const [visibility, setVisibility] = useState<'public' | 'private'>(access?.visibility ?? 'public');
@@ -51,24 +51,12 @@ export function ColumnAccessModal({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const body = {
+      const nextAccess: ColumnAccess = {
         visibility,
         allowedRoles: Array.from(allowedRoles),
       };
 
-      const response = await fetch(`/api/tables/${tableId}/columns/${columnId}/access`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error?.[0] ?? 'Failed to update column access');
-      }
-
-      onSaved(body as ColumnAccess);
-      toast({ title: `"${columnLabel}" access updated` });
+      await onSubmit(nextAccess);
       onOpenChange(false);
     } catch (error) {
       toast({

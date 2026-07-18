@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { OrgRole } from '@/lib/shared/generated/prisma/client';
-import { canAccessColumn, filterAccessibleColumns } from './column-access';
+import { canAccessColumn, filterAccessibleColumns, filterBaseListSchemaAndEntities } from './column-access';
 
 const OWNER_ID = 'owner-1';
 const ADMIN_ID = 'admin-1';
@@ -65,5 +65,42 @@ describe('filterAccessibleColumns', () => {
     const result = filterAccessibleColumns(columns, OWNER_ID, true, null);
 
     expect(result).toHaveLength(2);
+  });
+});
+
+describe('filterBaseListSchemaAndEntities', () => {
+  const schema = {
+    columns: [
+      { id: 'name', access: null },
+      { id: 'salary', access: { visibility: 'private', allowedRoles: [OrgRole.ADMIN] } },
+    ],
+  };
+  const entities = [
+    { id: 'e1', values: { name: 'Alice', salary: 90000 } },
+    { id: 'e2', values: { name: 'Bob', salary: 85000 } },
+  ];
+
+  it('strips inaccessible columns from the schema and every entity value', () => {
+    const result = filterBaseListSchemaAndEntities(schema, entities, OTHER_ID, false, OrgRole.VIEWER);
+
+    expect(result.columns.map((c) => c.id)).toEqual(['name']);
+    expect(result.entities).toEqual([
+      { id: 'e1', values: { name: 'Alice' } },
+      { id: 'e2', values: { name: 'Bob' } },
+    ]);
+  });
+
+  it('leaves everything untouched when the caller can see every column', () => {
+    const result = filterBaseListSchemaAndEntities(schema, entities, ADMIN_ID, false, OrgRole.ADMIN);
+
+    expect(result.columns).toHaveLength(2);
+    expect(result.entities).toEqual(entities);
+  });
+
+  it('leaves everything untouched for the BaseList owner', () => {
+    const result = filterBaseListSchemaAndEntities(schema, entities, OWNER_ID, true, null);
+
+    expect(result.columns).toHaveLength(2);
+    expect(result.entities).toEqual(entities);
   });
 });

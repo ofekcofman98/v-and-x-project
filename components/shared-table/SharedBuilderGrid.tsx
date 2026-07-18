@@ -24,6 +24,8 @@ interface SharedBuilderGridProps {
   allowDataEntry?: boolean;
   /** Show the representative-column ("Voice Key") picker UI. Defaults to true. */
   showRepresentativeColumn?: boolean;
+  /** Opens the access-control modal for a column. Omit to hide the access trigger. */
+  onAccessClick?: (colId: string) => void;
 }
 
 export function SharedBuilderGrid({
@@ -40,6 +42,7 @@ export function SharedBuilderGrid({
   allowRows = true,
   allowDataEntry = true,
   showRepresentativeColumn = true,
+  onAccessClick,
 }: SharedBuilderGridProps) {
   
   if (columns.length === 0) {
@@ -76,6 +79,7 @@ export function SharedBuilderGrid({
                   onRepresentativeClick={
                     showRepresentativeColumn ? () => onRepresentativeColumnChange(col.id) : undefined
                   }
+                  onAccessClick={onAccessClick ? () => onAccessClick(col.id) : undefined}
                 />
               ))}
               <th className="w-12 bg-slate-50 border-l border-slate-200">

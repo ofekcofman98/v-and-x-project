@@ -1,3 +1,5 @@
+import type { ColumnAccess } from '@/lib/shared/types/column-access';
+
 export interface ColumnDef {
   id: string;
   name: string;
@@ -7,7 +9,7 @@ export interface ColumnDef {
     baseListColumnId?: string;
     locked?: boolean;
   };
-  isPrivate?: boolean;
+  access?: ColumnAccess | null;
 }
 
 export interface RowData {

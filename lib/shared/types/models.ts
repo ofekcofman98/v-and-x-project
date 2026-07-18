@@ -103,6 +103,7 @@ export interface BaseListColumn {
     max?: number;
     pattern?: string;
   };
+  access?: ColumnAccess | null;
 }
 
 /**

@@ -16,6 +16,8 @@ import { validateGridSchema } from '@/lib/shared/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
 import { BaseListSidebar } from './BaseListSidebar';
+import { ColumnAccessModal } from './ColumnAccessModal';
+import type { ColumnAccess } from '@/lib/shared/types/column-access';
 import { Database, X } from 'lucide-react';
 
 import { cn } from '@/lib/shared/utils/cn';
@@ -49,6 +51,8 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
   const [selectedBaseListId, setSelectedBaseListId] = useState<string | null>(null);
   const [tableMetadata, setTableMetadata] = useState<TableMetadata>({});
   const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(null);
+  const [accessModalColumnId, setAccessModalColumnId] = useState<string | null>(null);
+  const accessModalColumn = columns.find((col) => col.id === accessModalColumnId) ?? null;
 
   /**
    * Auto-select first TEXT column as representative if none is selected
@@ -220,6 +224,15 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
   };
 
   /**
+   * Access rules for unsaved columns live only in local grid state — they're
+   * bundled into the create payload on Save, not PATCHed live (the column/table don't exist yet).
+   */
+  const handleAccessSubmit = (access: ColumnAccess) => {
+    if (!accessModalColumn) return;
+    gridActions.onUpdateColumn(accessModalColumn.id, { access });
+  };
+
+  /**
    * Handle cancel - Navigate back with confirmation
    */
   const handleCancel = () => {
@@ -262,6 +275,7 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
         label: col.name,
         type: col.type.toUpperCase() as 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'DATE',
         validation: col.metadata?.source === 'base_list' ? {} : undefined,
+        access: col.access ?? undefined,
       }));
 
       // Build payload
@@ -403,6 +417,7 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
               rows={rows}
               representativeColumnId={representativeColumnId}
               onRepresentativeColumnChange={handleRepresentativeColumnChange}
+              onAccessClick={setAccessModalColumnId}
               {...gridActions}
             />
           </div>
@@ -419,6 +434,16 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
           </Button>
         </div>
       </div>
+
+      {accessModalColumn && (
+        <ColumnAccessModal
+          columnLabel={accessModalColumn.name}
+          access={accessModalColumn.access}
+          open={accessModalColumnId !== null}
+          onOpenChange={(open) => !open && setAccessModalColumnId(null)}
+          onSubmit={handleAccessSubmit}
+        />
+      )}
     </div>
   );
 }
