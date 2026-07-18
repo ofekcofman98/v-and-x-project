@@ -7,7 +7,6 @@
 
 import { z } from "zod";
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
 import {
   apiSuccess,
   apiError,
@@ -15,7 +14,8 @@ import {
   uuidSchema,
   parseBody,
 } from "@/lib/shared/utils/api";
-import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
+import { getAuthenticatedUser, getAccessibleOrganizationIds } from "@/lib/server/services/auth";
+import { updateRepresentativeColumn } from "@/lib/server/services/table-service";
 
 export const runtime = "nodejs";
 
@@ -38,44 +38,22 @@ export const PATCH = withErrorHandler(async (
   const body = await parseBody(req, patchSchema);
   if (!body.success) return body.errorResponse;
 
-  const { representative_column } = body.data;
-
-  // Load the table with its BaseList schema to validate the column key
   const orgIds = await getAccessibleOrganizationIds(user.id);
-  const table = await prisma.table.findFirst({
-    where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
-    select: {
-      id: true,
-      representativeColumnKey: true,
-      baseList: { select: { schema: true } },
-    },
-  });
-
-  if (!table) return apiError(`Table with ID ${parsedId.data} not found`, 404);
-
-  // Validate that the chosen key exists as a column in the BaseList schema
-  if (table.baseList) {
-    const schema = table.baseList.schema as { columns?: { id: string }[] };
-    const validColumnIds = (schema.columns ?? []).map((c) => c.id);
-    if (!validColumnIds.includes(representative_column)) {
-      return apiError(
-        `Column '${representative_column}' is not a valid Base List column for this table`,
-        422,
-      );
+  try {
+    const updated = await updateRepresentativeColumn(
+      user.id,
+      orgIds,
+      parsedId.data,
+      body.data.representative_column
+    );
+    return apiSuccess(updated);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found") && !error.message.includes("valid Base List column")) {
+      return apiError(error.message, 404);
     }
+    if (error instanceof Error && error.message.includes("valid Base List column")) {
+      return apiError(error.message, 422);
+    }
+    throw error;
   }
-
-  const updated = await prisma.table.update({
-    where: { id: parsedId.data },
-    data: { representativeColumnKey: representative_column },
-    select: {
-      id: true,
-      representativeColumnKey: true,
-    },
-  });
-
-  return apiSuccess({
-    id: updated.id,
-    representative_column: updated.representativeColumnKey,
-  });
 });

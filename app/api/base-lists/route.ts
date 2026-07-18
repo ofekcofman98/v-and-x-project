@@ -4,13 +4,11 @@
  * Based on: docs/14_PRODUCT_DATA_FLOW.md §3 & §7.1
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/lib/shared/generated/prisma/client";
-import { apiSuccess, apiError, apiInternalError, withErrorHandler, parseBody } from "@/lib/shared/utils/api";
+import { apiSuccess, apiError, withErrorHandler, parseBody } from "@/lib/shared/utils/api";
 import { ColumnTypeSchema } from "@/lib/shared/utils/schemas";
-import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
+import { getAuthenticatedUser, getAccessibleOrganizationIds } from "@/lib/server/services/auth";
+import { createBaseList, listBaseLists } from "@/lib/server/services/base-list-service";
 
 export const runtime = "nodejs";
 
@@ -45,7 +43,6 @@ const CreateBaseListBody = z.object({
 // POST /api/base-lists
 // ─────────────────────────────────────────────────────────
 
-
 export const POST = withErrorHandler(
   async (req) => {
     const user = await getAuthenticatedUser();
@@ -54,22 +51,7 @@ export const POST = withErrorHandler(
     const body = await parseBody(req, CreateBaseListBody);
     if (!body.success) return body.errorResponse;
 
-    const { name, description, schema, entities } = body.data;
-
-    const baseList = await prisma.baseList.create({
-      data: {
-        name,
-        description,
-        userId: user.id,
-        schema: schema as Prisma.InputJsonValue,
-        entities: {
-          create: entities.map((e) => ({
-            values: e.values as Prisma.InputJsonValue,
-          })),
-        },
-      },
-      include: { entities: true },
-    });
+    const baseList = await createBaseList({ userId: user.id, ...body.data });
 
     return apiSuccess(baseList, 201);
   }
@@ -86,9 +68,7 @@ export const GET = withErrorHandler(
     if (!user) return apiError("Unauthorized", 401);
 
     const orgIds = await getAccessibleOrganizationIds(user.id);
-    const baseLists = await prisma.baseList.findMany({
-      where: ownershipWhere(user.id, orgIds),
-    });
+    const baseLists = await listBaseLists(user.id, orgIds);
     return apiSuccess(baseLists, 200);
   }
 );

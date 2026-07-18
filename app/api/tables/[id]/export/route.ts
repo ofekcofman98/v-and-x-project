@@ -14,10 +14,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
-import { prisma } from "@/lib/prisma";
 import { apiError, withErrorHandler, uuidSchema } from "@/lib/shared/utils/api";
 import { getCells } from "@/lib/server/services/cells";
-import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
+import { getAuthenticatedUser, getAccessibleOrganizationIds } from "@/lib/server/services/auth";
+import { getTableForExport } from "@/lib/server/services/table-service";
 
 export const runtime = "nodejs";
 
@@ -48,15 +48,15 @@ export const GET = withErrorHandler(async (
   if (!user) return apiError("Unauthorized", 401);
 
   const orgIds = await getAccessibleOrganizationIds(user.id);
-  const table = await prisma.table.findFirst({
-    where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
-    include: {
-      columns: { orderBy: { order: "asc" } },
-      baseList: { include: { entities: { orderBy: { createdAt: "asc" } } } },
-    },
-  });
-
-  if (!table) return apiError(`Table with ID ${parsedId.data} not found`, 404);
+  let table;
+  try {
+    table = await getTableForExport(user.id, orgIds, parsedId.data);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return apiError(error.message, 404);
+    }
+    throw error;
+  }
 
   const baseListSchemaColumns =
     (table.baseList?.schema as { columns: Array<{ id: string; label: string }> } | null)?.columns ?? [];

@@ -2,15 +2,15 @@
  * Dynamic Table API Route
  * Handles fetching and deletion of individual tables.
  * Based on: docs/14_PRODUCT_DATA_FLOW.md §4 & §7.2
- * 
+ *
  * CRITICAL: GET includes both table columns AND baseList entities
  * for Grid UI rendering (rows come from BaseList, data columns from Table)
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextRequest } from "next/server";
 import { apiSuccess, apiError, withErrorHandler, uuidSchema } from "@/lib/shared/utils/api";
-import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
+import { getAuthenticatedUser, getAccessibleOrganizationIds } from "@/lib/server/services/auth";
+import { getTableById, deleteTable } from "@/lib/server/services/table-service";
 
 export const runtime = "nodejs";
 
@@ -19,9 +19,8 @@ export const runtime = "nodejs";
 // Fetch a single table with its columns and parent BaseList entities
 // ─────────────────────────────────────────────────────────
 
-
 export const GET = withErrorHandler(async (
-    req: NextRequest, 
+    req: NextRequest,
     {params}: { params: Promise<{ id: string }> }
 ) => {
   const { id } = await params;
@@ -32,21 +31,15 @@ export const GET = withErrorHandler(async (
   if (!user) return apiError("Unauthorized", 401);
 
   const orgIds = await getAccessibleOrganizationIds(user.id);
-  const table = await prisma.table.findFirst({
-    where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
-    include: {
-      columns: true,
-      baseList: {
-        include: {
-          entities: { orderBy: { createdAt: "asc" } },
-        },
-      },
-    },
-  });
-
-  if (!table) return apiError(`Table with ID ${parsedId.data} not found`, 404);
-
-  return apiSuccess(table, 200);
+  try {
+    const table = await getTableById(user.id, orgIds, parsedId.data);
+    return apiSuccess(table, 200);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return apiError(error.message, 404);
+    }
+    throw error;
+  }
 });
 
 
@@ -55,9 +48,8 @@ export const GET = withErrorHandler(async (
 // Delete a table and all its associated records
 // ─────────────────────────────────────────────────────────
 
-
 export const DELETE = withErrorHandler(async (
-  req: NextRequest, 
+  req: NextRequest,
   {params}: { params: Promise<{ id: string }> }
 ) => {
   const { id } = await params;
@@ -69,14 +61,13 @@ export const DELETE = withErrorHandler(async (
   if (!user) return apiError("Unauthorized", 401);
 
   const orgIds = await getAccessibleOrganizationIds(user.id);
-  const existingTable = await prisma.table.findFirst({
-    where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
-    select: { id: true, name: true },
-  });
-
-  if (!existingTable) return apiError(`Table with ID ${parsedId.data} not found`, 404);
-
-  await prisma.table.delete({ where: { id: parsedId.data } });
-
-  return apiSuccess(`Table '${existingTable.name}' deleted successfully`, 200);
+  try {
+    const existingTable = await deleteTable(user.id, orgIds, parsedId.data);
+    return apiSuccess(`Table '${existingTable.name}' deleted successfully`, 200);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return apiError(error.message, 404);
+    }
+    throw error;
+  }
 });

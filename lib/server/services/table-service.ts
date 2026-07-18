@@ -1,0 +1,160 @@
+import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/lib/shared/generated/prisma/client";
+import { ownershipWhere } from "@/lib/server/services/auth";
+
+type ColumnType = "TEXT" | "NUMBER" | "DATE" | "BOOLEAN";
+
+interface CreateTableColumnInput {
+  label: string;
+  type: ColumnType;
+  validation?: Record<string, unknown>;
+}
+
+interface CreateTableInput {
+  userId: string;
+  organizationIds: string[];
+  name: string;
+  description?: string;
+  baseListId?: string;
+  representativeColumnKey: string;
+  columns: CreateTableColumnInput[];
+}
+
+export async function createTable(input: CreateTableInput) {
+  const { userId, organizationIds, name, description, baseListId, representativeColumnKey, columns } = input;
+
+  if (baseListId) {
+    const baseList = await prisma.baseList.findFirst({
+      where: { id: baseListId, ...ownershipWhere(userId, organizationIds) },
+      select: { id: true, schema: true },
+    });
+
+    if (!baseList) {
+      throw new Error(`BaseList with id '${baseListId}' not found`);
+    }
+
+    const baseListSchema = baseList.schema as { columns: Array<{ id: string }> };
+    const hasRepColumn = baseListSchema.columns.some((col) => col.id === representativeColumnKey);
+
+    if (!hasRepColumn) {
+      throw new Error(`Representative column '${representativeColumnKey}' not found in BaseList schema`);
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const table = await tx.table.create({
+      data: {
+        name,
+        description,
+        baseListId,
+        userId,
+        representativeColumnKey,
+        schema: { columns: [] } as Prisma.InputJsonValue,
+        settings: {} as Prisma.InputJsonValue,
+      },
+    });
+
+    await tx.tableColumn.createMany({
+      data: columns.map((col, index) => ({
+        tableId: table.id,
+        key: col.label.toLowerCase().replace(/\s+/g, "_"),
+        label: col.label,
+        type: col.type,
+        order: index,
+        validation: col.validation ? (col.validation as Prisma.InputJsonValue) : Prisma.JsonNull,
+      })),
+    });
+
+    const tableColumns = await tx.tableColumn.findMany({
+      where: { tableId: table.id },
+      orderBy: { order: "asc" },
+    });
+
+    return { ...table, columns: tableColumns };
+  });
+}
+
+export async function listTables(userId: string, organizationIds: string[]) {
+  return prisma.table.findMany({
+    where: ownershipWhere(userId, organizationIds),
+    include: {
+      baseList: { select: { id: true, name: true } },
+      _count: { select: { columns: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getTableById(userId: string, organizationIds: string[], id: string) {
+  const table = await prisma.table.findFirst({
+    where: { id, ...ownershipWhere(userId, organizationIds) },
+    include: {
+      columns: true,
+      baseList: {
+        include: { entities: { orderBy: { createdAt: "asc" } } },
+      },
+    },
+  });
+
+  if (!table) throw new Error(`Table with ID ${id} not found`);
+  return table;
+}
+
+export async function deleteTable(userId: string, organizationIds: string[], id: string) {
+  const existing = await prisma.table.findFirst({
+    where: { id, ...ownershipWhere(userId, organizationIds) },
+    select: { id: true, name: true },
+  });
+
+  if (!existing) throw new Error(`Table with ID ${id} not found`);
+
+  await prisma.table.delete({ where: { id } });
+  return existing;
+}
+
+export async function updateRepresentativeColumn(
+  userId: string,
+  organizationIds: string[],
+  tableId: string,
+  representativeColumn: string
+) {
+  const table = await prisma.table.findFirst({
+    where: { id: tableId, ...ownershipWhere(userId, organizationIds) },
+    select: {
+      id: true,
+      representativeColumnKey: true,
+      baseList: { select: { schema: true } },
+    },
+  });
+
+  if (!table) throw new Error(`Table with ID ${tableId} not found`);
+
+  if (table.baseList) {
+    const schema = table.baseList.schema as { columns?: { id: string }[] };
+    const validColumnIds = (schema.columns ?? []).map((c) => c.id);
+    if (!validColumnIds.includes(representativeColumn)) {
+      throw new Error(`Column '${representativeColumn}' is not a valid Base List column for this table`);
+    }
+  }
+
+  const updated = await prisma.table.update({
+    where: { id: tableId },
+    data: { representativeColumnKey: representativeColumn },
+    select: { id: true, representativeColumnKey: true },
+  });
+
+  return { id: updated.id, representative_column: updated.representativeColumnKey };
+}
+
+export async function getTableForExport(userId: string, organizationIds: string[], id: string) {
+  const table = await prisma.table.findFirst({
+    where: { id, ...ownershipWhere(userId, organizationIds) },
+    include: {
+      columns: { orderBy: { order: "asc" } },
+      baseList: { include: { entities: { orderBy: { createdAt: "asc" } } } },
+    },
+  });
+
+  if (!table) throw new Error(`Table with ID ${id} not found`);
+  return table;
+}
