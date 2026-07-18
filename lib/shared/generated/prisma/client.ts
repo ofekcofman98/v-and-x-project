@@ -81,3 +81,13 @@ export type BaseListTemplate = Prisma.BaseListTemplateModel
  * 
  */
 export type EntityEmbedding = Prisma.EntityEmbeddingModel
+/**
+ * Model Organization
+ * 
+ */
+export type Organization = Prisma.OrganizationModel
+/**
+ * Model OrganizationMember
+ * 
+ */
+export type OrganizationMember = Prisma.OrganizationMemberModel

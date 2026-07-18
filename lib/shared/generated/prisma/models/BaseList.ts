@@ -28,6 +28,8 @@ export type BaseListMinAggregateOutputType = {
   id: string | null
   name: string | null
   description: string | null
+  userId: string | null
+  organizationId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -36,6 +38,8 @@ export type BaseListMaxAggregateOutputType = {
   id: string | null
   name: string | null
   description: string | null
+  userId: string | null
+  organizationId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -45,6 +49,8 @@ export type BaseListCountAggregateOutputType = {
   name: number
   description: number
   schema: number
+  userId: number
+  organizationId: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -55,6 +61,8 @@ export type BaseListMinAggregateInputType = {
   id?: true
   name?: true
   description?: true
+  userId?: true
+  organizationId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -63,6 +71,8 @@ export type BaseListMaxAggregateInputType = {
   id?: true
   name?: true
   description?: true
+  userId?: true
+  organizationId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -72,6 +82,8 @@ export type BaseListCountAggregateInputType = {
   name?: true
   description?: true
   schema?: true
+  userId?: true
+  organizationId?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -154,6 +166,8 @@ export type BaseListGroupByOutputType = {
   name: string
   description: string | null
   schema: runtime.JsonValue
+  userId: string | null
+  organizationId: string | null
   createdAt: Date
   updatedAt: Date
   _count: BaseListCountAggregateOutputType | null
@@ -184,6 +198,8 @@ export type BaseListWhereInput = {
   name?: Prisma.StringFilter<"BaseList"> | string
   description?: Prisma.StringNullableFilter<"BaseList"> | string | null
   schema?: Prisma.JsonFilter<"BaseList">
+  userId?: Prisma.UuidNullableFilter<"BaseList"> | string | null
+  organizationId?: Prisma.UuidNullableFilter<"BaseList"> | string | null
   createdAt?: Prisma.DateTimeFilter<"BaseList"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"BaseList"> | Date | string
   templates?: Prisma.BaseListTemplateListRelationFilter
@@ -196,6 +212,8 @@ export type BaseListOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   schema?: Prisma.SortOrder
+  userId?: Prisma.SortOrderInput | Prisma.SortOrder
+  organizationId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   templates?: Prisma.BaseListTemplateOrderByRelationAggregateInput
@@ -211,6 +229,8 @@ export type BaseListWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"BaseList"> | string
   description?: Prisma.StringNullableFilter<"BaseList"> | string | null
   schema?: Prisma.JsonFilter<"BaseList">
+  userId?: Prisma.UuidNullableFilter<"BaseList"> | string | null
+  organizationId?: Prisma.UuidNullableFilter<"BaseList"> | string | null
   createdAt?: Prisma.DateTimeFilter<"BaseList"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"BaseList"> | Date | string
   templates?: Prisma.BaseListTemplateListRelationFilter
@@ -223,6 +243,8 @@ export type BaseListOrderByWithAggregationInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   schema?: Prisma.SortOrder
+  userId?: Prisma.SortOrderInput | Prisma.SortOrder
+  organizationId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.BaseListCountOrderByAggregateInput
@@ -238,6 +260,8 @@ export type BaseListScalarWhereWithAggregatesInput = {
   name?: Prisma.StringWithAggregatesFilter<"BaseList"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"BaseList"> | string | null
   schema?: Prisma.JsonWithAggregatesFilter<"BaseList">
+  userId?: Prisma.UuidNullableWithAggregatesFilter<"BaseList"> | string | null
+  organizationId?: Prisma.UuidNullableWithAggregatesFilter<"BaseList"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"BaseList"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"BaseList"> | Date | string
 }
@@ -247,6 +271,8 @@ export type BaseListCreateInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: string | null
+  organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   templates?: Prisma.BaseListTemplateCreateNestedManyWithoutBaseListInput
@@ -259,6 +285,8 @@ export type BaseListUncheckedCreateInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: string | null
+  organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   templates?: Prisma.BaseListTemplateUncheckedCreateNestedManyWithoutBaseListInput
@@ -271,6 +299,8 @@ export type BaseListUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   templates?: Prisma.BaseListTemplateUpdateManyWithoutBaseListNestedInput
@@ -283,6 +313,8 @@ export type BaseListUncheckedUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   templates?: Prisma.BaseListTemplateUncheckedUpdateManyWithoutBaseListNestedInput
@@ -295,6 +327,8 @@ export type BaseListCreateManyInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: string | null
+  organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -304,6 +338,8 @@ export type BaseListUpdateManyMutationInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -313,6 +349,8 @@ export type BaseListUncheckedUpdateManyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -322,6 +360,8 @@ export type BaseListCountOrderByAggregateInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
   schema?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
+  organizationId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -330,6 +370,8 @@ export type BaseListMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
+  organizationId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -338,6 +380,8 @@ export type BaseListMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
+  organizationId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -413,6 +457,8 @@ export type BaseListCreateWithoutEntitiesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: string | null
+  organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   templates?: Prisma.BaseListTemplateCreateNestedManyWithoutBaseListInput
@@ -424,6 +470,8 @@ export type BaseListUncheckedCreateWithoutEntitiesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: string | null
+  organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   templates?: Prisma.BaseListTemplateUncheckedCreateNestedManyWithoutBaseListInput
@@ -451,6 +499,8 @@ export type BaseListUpdateWithoutEntitiesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   templates?: Prisma.BaseListTemplateUpdateManyWithoutBaseListNestedInput
@@ -462,6 +512,8 @@ export type BaseListUncheckedUpdateWithoutEntitiesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   templates?: Prisma.BaseListTemplateUncheckedUpdateManyWithoutBaseListNestedInput
@@ -473,6 +525,8 @@ export type BaseListCreateWithoutTablesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: string | null
+  organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   templates?: Prisma.BaseListTemplateCreateNestedManyWithoutBaseListInput
@@ -484,6 +538,8 @@ export type BaseListUncheckedCreateWithoutTablesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: string | null
+  organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   templates?: Prisma.BaseListTemplateUncheckedCreateNestedManyWithoutBaseListInput
@@ -511,6 +567,8 @@ export type BaseListUpdateWithoutTablesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   templates?: Prisma.BaseListTemplateUpdateManyWithoutBaseListNestedInput
@@ -522,6 +580,8 @@ export type BaseListUncheckedUpdateWithoutTablesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   templates?: Prisma.BaseListTemplateUncheckedUpdateManyWithoutBaseListNestedInput
@@ -533,6 +593,8 @@ export type BaseListCreateWithoutTemplatesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: string | null
+  organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   entities?: Prisma.ListEntityCreateNestedManyWithoutBaseListInput
@@ -544,6 +606,8 @@ export type BaseListUncheckedCreateWithoutTemplatesInput = {
   name: string
   description?: string | null
   schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: string | null
+  organizationId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   entities?: Prisma.ListEntityUncheckedCreateNestedManyWithoutBaseListInput
@@ -571,6 +635,8 @@ export type BaseListUpdateWithoutTemplatesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   entities?: Prisma.ListEntityUpdateManyWithoutBaseListNestedInput
@@ -582,6 +648,8 @@ export type BaseListUncheckedUpdateWithoutTemplatesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   entities?: Prisma.ListEntityUncheckedUpdateManyWithoutBaseListNestedInput
@@ -642,6 +710,8 @@ export type BaseListSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   name?: boolean
   description?: boolean
   schema?: boolean
+  userId?: boolean
+  organizationId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   templates?: boolean | Prisma.BaseList$templatesArgs<ExtArgs>
@@ -655,6 +725,8 @@ export type BaseListSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   name?: boolean
   description?: boolean
   schema?: boolean
+  userId?: boolean
+  organizationId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["baseList"]>
@@ -664,6 +736,8 @@ export type BaseListSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   name?: boolean
   description?: boolean
   schema?: boolean
+  userId?: boolean
+  organizationId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["baseList"]>
@@ -673,11 +747,13 @@ export type BaseListSelectScalar = {
   name?: boolean
   description?: boolean
   schema?: boolean
+  userId?: boolean
+  organizationId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type BaseListOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "description" | "schema" | "createdAt" | "updatedAt", ExtArgs["result"]["baseList"]>
+export type BaseListOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "description" | "schema" | "userId" | "organizationId" | "createdAt" | "updatedAt", ExtArgs["result"]["baseList"]>
 export type BaseListInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   templates?: boolean | Prisma.BaseList$templatesArgs<ExtArgs>
   entities?: boolean | Prisma.BaseList$entitiesArgs<ExtArgs>
@@ -699,6 +775,8 @@ export type $BaseListPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     name: string
     description: string | null
     schema: runtime.JsonValue
+    userId: string | null
+    organizationId: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["baseList"]>
@@ -1131,6 +1209,8 @@ export interface BaseListFieldRefs {
   readonly name: Prisma.FieldRef<"BaseList", 'String'>
   readonly description: Prisma.FieldRef<"BaseList", 'String'>
   readonly schema: Prisma.FieldRef<"BaseList", 'Json'>
+  readonly userId: Prisma.FieldRef<"BaseList", 'String'>
+  readonly organizationId: Prisma.FieldRef<"BaseList", 'String'>
   readonly createdAt: Prisma.FieldRef<"BaseList", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"BaseList", 'DateTime'>
 }

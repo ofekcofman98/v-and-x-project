@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/shared/generated/prisma/client";
 import { apiSuccess, apiError, apiInternalError, withErrorHandler, parseBody } from "@/lib/shared/utils/api";
 import { ColumnTypeSchema } from "@/lib/shared/utils/schemas";
+import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
 
 export const runtime = "nodejs";
 
@@ -47,6 +48,9 @@ const CreateBaseListBody = z.object({
 
 export const POST = withErrorHandler(
   async (req) => {
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError("Unauthorized", 401);
+
     const body = await parseBody(req, CreateBaseListBody);
     if (!body.success) return body.errorResponse;
 
@@ -56,6 +60,7 @@ export const POST = withErrorHandler(
       data: {
         name,
         description,
+        userId: user.id,
         schema: schema as Prisma.InputJsonValue,
         entities: {
           create: entities.map((e) => ({
@@ -65,19 +70,25 @@ export const POST = withErrorHandler(
       },
       include: { entities: true },
     });
-  
+
     return apiSuccess(baseList, 201);
   }
 );
 
 // ─────────────────────────────────────────────────────────
 // GET /api/base-lists
-// Fetch all base-lists
+// Fetch all base-lists the user owns or has org access to
 // ─────────────────────────────────────────────────────────
 
 export const GET = withErrorHandler(
   async (req) => {
-    const baseLists = await prisma.baseList.findMany();
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError("Unauthorized", 401);
+
+    const orgIds = await getAccessibleOrganizationIds(user.id);
+    const baseLists = await prisma.baseList.findMany({
+      where: ownershipWhere(user.id, orgIds),
+    });
     return apiSuccess(baseLists, 200);
   }
 );

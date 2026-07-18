@@ -17,6 +17,7 @@ import Papa from "papaparse";
 import { prisma } from "@/lib/prisma";
 import { apiError, withErrorHandler, uuidSchema } from "@/lib/shared/utils/api";
 import { getCells } from "@/lib/server/services/cells";
+import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
 
 export const runtime = "nodejs";
 
@@ -43,8 +44,12 @@ export const GET = withErrorHandler(async (
     return apiError(`Unsupported export format: ${format}`, 400);
   }
 
-  const table = await prisma.table.findUnique({
-    where: { id: parsedId.data },
+  const user = await getAuthenticatedUser();
+  if (!user) return apiError("Unauthorized", 401);
+
+  const orgIds = await getAccessibleOrganizationIds(user.id);
+  const table = await prisma.table.findFirst({
+    where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
     include: {
       columns: { orderBy: { order: "asc" } },
       baseList: { include: { entities: { orderBy: { createdAt: "asc" } } } },

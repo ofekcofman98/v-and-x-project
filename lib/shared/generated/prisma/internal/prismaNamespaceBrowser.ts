@@ -58,7 +58,9 @@ export const ModelName = {
   TableCell: 'TableCell',
   ColumnTemplate: 'ColumnTemplate',
   BaseListTemplate: 'BaseListTemplate',
-  EntityEmbedding: 'EntityEmbedding'
+  EntityEmbedding: 'EntityEmbedding',
+  Organization: 'Organization',
+  OrganizationMember: 'OrganizationMember'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -82,6 +84,8 @@ export const BaseListScalarFieldEnum = {
   name: 'name',
   description: 'description',
   schema: 'schema',
+  userId: 'userId',
+  organizationId: 'organizationId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -105,6 +109,8 @@ export const TableScalarFieldEnum = {
   name: 'name',
   description: 'description',
   baseListId: 'baseListId',
+  userId: 'userId',
+  organizationId: 'organizationId',
   representativeColumnKey: 'representativeColumnKey',
   schema: 'schema',
   settings: 'settings',
@@ -184,6 +190,32 @@ export const EntityEmbeddingScalarFieldEnum = {
 } as const
 
 export type EntityEmbeddingScalarFieldEnum = (typeof EntityEmbeddingScalarFieldEnum)[keyof typeof EntityEmbeddingScalarFieldEnum]
+
+
+export const OrganizationScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  slug: 'slug',
+  ownerId: 'ownerId',
+  settings: 'settings',
+  subscriptionTier: 'subscriptionTier',
+  maxMembers: 'maxMembers',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type OrganizationScalarFieldEnum = (typeof OrganizationScalarFieldEnum)[keyof typeof OrganizationScalarFieldEnum]
+
+
+export const OrganizationMemberScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  userId: 'userId',
+  role: 'role',
+  joinedAt: 'joinedAt'
+} as const
+
+export type OrganizationMemberScalarFieldEnum = (typeof OrganizationMemberScalarFieldEnum)[keyof typeof OrganizationMemberScalarFieldEnum]
 
 
 export const SortOrder = {

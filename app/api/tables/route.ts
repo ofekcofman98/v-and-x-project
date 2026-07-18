@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/shared/generated/prisma/client";
 import { withErrorHandler, parseBody, apiSuccess, apiError, apiInternalError } from "@/lib/shared/utils/api";
 import { ColumnTypeSchema } from "@/lib/shared/utils/schemas";
+import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
 
 export const runtime = "nodejs";
 
@@ -46,14 +47,18 @@ const CreateTableBody = z.object({
 
 export const POST = withErrorHandler(
   async (req) => {
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError("Unauthorized", 401);
+
     const body = await parseBody(req, CreateTableBody);
     if (!body.success) return body.errorResponse;
-    
+
     const { name, description, baseListId, representativeColumnKey, columns } = body.data;
+    const orgIds = await getAccessibleOrganizationIds(user.id);
 
     if (baseListId) {
-        const baseList = await prisma.baseList.findUnique({
-            where: { id: baseListId },
+        const baseList = await prisma.baseList.findFirst({
+            where: { id: baseListId, ...ownershipWhere(user.id, orgIds) },
             select: { id: true, schema: true },
         });
         
@@ -77,6 +82,7 @@ export const POST = withErrorHandler(
                 name,
                 description,
                 baseListId,
+                userId: user.id,
                 representativeColumnKey,
                 schema: { columns: [] } as Prisma.InputJsonValue,
                 settings: {} as Prisma.InputJsonValue,
@@ -119,7 +125,12 @@ export const POST = withErrorHandler(
 
 export const GET = withErrorHandler(
     async (req) => {
+        const user = await getAuthenticatedUser();
+        if (!user) return apiError("Unauthorized", 401);
+
+        const orgIds = await getAccessibleOrganizationIds(user.id);
         const tables = await prisma.table.findMany({
+            where: ownershipWhere(user.id, orgIds),
             include: {
                 baseList: {
                     select: {
