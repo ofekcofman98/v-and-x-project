@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiError, apiSuccess, uuidSchema, withErrorHandler } from "@/lib/shared/utils/api";
+import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
 
 export const runtime = "nodejs";
 
@@ -21,17 +22,21 @@ export const GET = withErrorHandler(async (
     { params }: { params: Promise<{ id: string }> }
   ) => {
     const { id } = await params;
-    
+
     const parsedId = uuidSchema.safeParse(id);
     if (!parsedId.success) return apiError("Invalid BaseList ID format", 400);
-  
-    const baseList = await prisma.baseList.findUnique({
-      where: { id: parsedId.data },
+
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError("Unauthorized", 401);
+
+    const orgIds = await getAccessibleOrganizationIds(user.id);
+    const baseList = await prisma.baseList.findFirst({
+      where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
       include: { entities: true },
     });
-  
+
     if (!baseList) return apiError("BaseList not found", 404);
-  
+
     return apiSuccess(baseList);
   });
 
@@ -46,18 +51,22 @@ export const DELETE = withErrorHandler(async (
     { params }: { params: Promise<{ id: string }> }
   ) => {
     const { id } = await params;
-  
+
     const parsedId = uuidSchema.safeParse(id);
     if (!parsedId.success) return apiError("Invalid BaseList ID format", 400);
-  
-    const existingBaseList = await prisma.baseList.findUnique({
-      where: { id: parsedId.data },
+
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError("Unauthorized", 401);
+
+    const orgIds = await getAccessibleOrganizationIds(user.id);
+    const existingBaseList = await prisma.baseList.findFirst({
+      where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
       select: { id: true },
     });
-  
+
     if (!existingBaseList) return apiError("BaseList not found", 404);
-  
+
     await prisma.baseList.delete({ where: { id: parsedId.data } });
-  
+
     return apiSuccess({ id: parsedId.data });
   });

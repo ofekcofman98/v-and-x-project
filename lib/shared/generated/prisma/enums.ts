@@ -9,6 +9,16 @@
 * 🟢 You can import this file directly.
 */
 
+export const OrgRole = {
+  OWNER: 'OWNER',
+  ADMIN: 'ADMIN',
+  EDITOR: 'EDITOR',
+  VIEWER: 'VIEWER'
+} as const
+
+export type OrgRole = (typeof OrgRole)[keyof typeof OrgRole]
+
+
 export const ColumnType = {
   TEXT: 'TEXT',
   NUMBER: 'NUMBER',

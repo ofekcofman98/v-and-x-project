@@ -681,6 +681,9 @@ TOTAL LATENCY: ~3-4 seconds (user perception)
 ## 4. Security Architecture
 
 ### 4.1 Authentication Flow
+
+**Updated 2026-07-18:** Session storage moved from client-side `localStorage` to httpOnly cookies via `@supabase/ssr`, so Next.js middleware and Server Components can verify the session on the server without a client round trip. This supersedes the original localStorage/Bearer-token model below.
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ USER: Click "Sign Up"                                       │
@@ -705,17 +708,26 @@ TOTAL LATENCY: ~3-4 seconds (user perception)
                │
                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ SESSION CREATION                                            │
-│ • JWT token stored in localStorage                          │
-│ • Auto-refresh on expiry                                    │
-│ • Expires after 7 days (default)                            │
+│ SESSION CREATION (@supabase/ssr)                             │
+│ • JWT + refresh token stored in httpOnly cookies             │
+│   (set via createServerClient in middleware/route handlers) │
+│ • Auto-refresh on expiry                                     │
+│ • Expires after 7 days (default)                             │
 └──────────────┬──────────────────────────────────────────────┘
                │
                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ AUTHENTICATED REQUESTS                                      │
-│ All API calls include:                                      │
-│   Authorization: Bearer <JWT>                               │
+│ ROUTE PROTECTION (middleware.ts)                             │
+│ • Middleware reads the session cookie on every request to   │
+│   /dashboard/**; no session → redirect to /login             │
+└──────────────┬──────────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ AUTHENTICATED REQUESTS                                       │
+│ Browser sends the session cookie automatically. API routes   │
+│ verify it server-side via                                    │
+│ lib/server/services/auth.ts → getAuthenticatedUser(request)  │
 └─────────────────────────────────────────────────────────────┘
 ```
 

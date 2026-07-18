@@ -9,6 +9,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/shared/generated/prisma/client";
 import { apiError, apiSuccess, uuidSchema, withErrorHandler, parseBody } from "@/lib/shared/utils/api";
+import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
 
 export const runtime = "nodejs";
 
@@ -41,14 +42,18 @@ export const POST = withErrorHandler(
     const parsedId = uuidSchema.safeParse(id);
     if (!parsedId.success) return apiError("Invalid BaseList ID format", 400);
 
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError("Unauthorized", 401);
+
     const body = await parseBody(req, ApplyTemplateBody);
     if (!body.success) return body.errorResponse;
 
     const { templateId, autoSync, selectedBaseListColumnIds } = body.data;
 
+    const orgIds = await getAccessibleOrganizationIds(user.id);
     const [baseList, template] = await Promise.all([
-      prisma.baseList.findUnique({
-        where: { id: parsedId.data },
+      prisma.baseList.findFirst({
+        where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
         select: { id: true, name: true, schema: true },
       }),
       prisma.columnTemplate.findUnique({
@@ -61,10 +66,7 @@ export const POST = withErrorHandler(
     if (!template) return apiError("Column template not found", 404);
 
     // Access check: user must own the template or it must be public
-    const userId = req.headers.get("x-user-id");
-    if (!userId) return apiError("Missing x-user-id header", 401);
-
-    if (template.userId !== userId && !template.isPublic) {
+    if (template.userId !== user.id && !template.isPublic) {
       return apiError("Column template not found", 404);
     }
 
@@ -100,6 +102,7 @@ export const POST = withErrorHandler(
         data: {
           name: tableName,
           baseListId: parsedId.data,
+          userId: user.id,
           schema: { columns: newColumns } as unknown as Prisma.InputJsonValue,
           representativeColumnKey,
           settings: {} as unknown as Prisma.InputJsonValue,

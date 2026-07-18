@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError, withErrorHandler, uuidSchema } from "@/lib/shared/utils/api";
+import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
 
 export const runtime = "nodejs";
 
@@ -27,8 +28,12 @@ export const GET = withErrorHandler(async (
   const parsedId = uuidSchema.safeParse(id);
   if (!parsedId.success) return apiError(`Invalid table ID format: ${id}`, 400);
 
-  const table = await prisma.table.findUnique({
-    where: { id: parsedId.data },
+  const user = await getAuthenticatedUser();
+  if (!user) return apiError("Unauthorized", 401);
+
+  const orgIds = await getAccessibleOrganizationIds(user.id);
+  const table = await prisma.table.findFirst({
+    where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
     include: {
       columns: true,
       baseList: {
@@ -60,8 +65,12 @@ export const DELETE = withErrorHandler(async (
   const parsedId = uuidSchema.safeParse(id);
   if (!parsedId.success) return apiError(`Invalid table ID format: ${id}`, 400);
 
-  const existingTable = await prisma.table.findUnique({
-    where: { id: parsedId.data },
+  const user = await getAuthenticatedUser();
+  if (!user) return apiError("Unauthorized", 401);
+
+  const orgIds = await getAccessibleOrganizationIds(user.id);
+  const existingTable = await prisma.table.findFirst({
+    where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
     select: { id: true, name: true },
   });
 

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiError, apiSuccess, uuidSchema, withErrorHandler } from "@/lib/shared/utils/api";
+import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
 
 export const runtime = "nodejs";
 
@@ -22,8 +23,12 @@ export const GET = withErrorHandler(
     const parsedId = uuidSchema.safeParse(id);
     if (!parsedId.success) return apiError("Invalid BaseList ID format", 400);
 
-    const baseList = await prisma.baseList.findUnique({
-      where: { id: parsedId.data },
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError("Unauthorized", 401);
+
+    const orgIds = await getAccessibleOrganizationIds(user.id);
+    const baseList = await prisma.baseList.findFirst({
+      where: { id: parsedId.data, ...ownershipWhere(user.id, orgIds) },
       select: { id: true },
     });
 

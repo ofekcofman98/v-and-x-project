@@ -8,16 +8,20 @@ datasource db {
 }
 
 model BaseList {
-  id          String             @id @default(uuid()) @db.Uuid
-  name        String
-  description String?
-  schema      Json
-  createdAt   DateTime           @default(now()) @map("created_at")
-  updatedAt   DateTime           @updatedAt @map("updated_at")
-  templates   BaseListTemplate[]
-  entities    ListEntity[]
-  tables      Table[]
+  id             String             @id @default(uuid()) @db.Uuid
+  name           String
+  description    String?
+  schema         Json
+  userId         String             @map("user_id") @db.Uuid
+  organizationId String?            @map("organization_id") @db.Uuid
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  templates      BaseListTemplate[]
+  entities       ListEntity[]
+  tables         Table[]
 
+  @@index([userId])
+  @@index([organizationId])
   @@map("base_lists")
 }
 
@@ -35,21 +39,25 @@ model ListEntity {
 }
 
 model Table {
-  id                      String        @id @default(uuid()) @db.Uuid
+  id                      String           @id @default(uuid()) @db.Uuid
   name                    String
   description             String?
-  baseListId              String?       @map("base_list_id") @db.Uuid
-  representativeColumnKey String        @map("representative_column_key")
+  baseListId              String?          @map("base_list_id") @db.Uuid
+  userId                  String           @map("user_id") @db.Uuid
+  organizationId          String?          @map("organization_id") @db.Uuid
+  representativeColumnKey String           @map("representative_column_key")
   schema                  Json
-  settings                Json          @default("{}")
-  createdAt               DateTime      @default(now()) @map("created_at")
-  updatedAt               DateTime      @updatedAt @map("updated_at")
+  settings                Json             @default("{}")
+  createdAt               DateTime         @default(now()) @map("created_at")
+  updatedAt               DateTime         @updatedAt @map("updated_at")
   cells                   TableCell[]
   columns                 TableColumn[]
-  baseList                BaseList?     @relation(fields: [baseListId], references: [id])
+  baseList                BaseList?        @relation(fields: [baseListId], references: [id])
   entityEmbedding         EntityEmbedding?
 
   @@index([baseListId])
+  @@index([userId])
+  @@index([organizationId])
   @@map("tables")
 }
 
@@ -139,6 +147,45 @@ model EntityEmbedding {
   table      Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@map("entity_embeddings")
+}
+
+model Organization {
+  id               String               @id @default(uuid()) @db.Uuid
+  name             String
+  slug             String               @unique
+  ownerId          String               @map("owner_id") @db.Uuid
+  settings         Json                 @default("{}")
+  subscriptionTier String               @default("free") @map("subscription_tier")
+  maxMembers       Int                  @default(5) @map("max_members")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  members          OrganizationMember[]
+
+  @@index([ownerId])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  role           OrgRole      @default(VIEWER)
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+
+  @@map("org_role")
 }
 
 enum ColumnType {

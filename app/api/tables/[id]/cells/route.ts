@@ -3,6 +3,8 @@ import { z } from "zod";
 import { apiSuccess, apiError, withErrorHandler, uuidSchema, parseBody } from "@/lib/shared/utils/api";
 import { upsertCell, getCells } from "@/lib/server/services/cells";
 import { EntrySource } from "@/lib/shared/generated/prisma/client";
+import { getAuthenticatedUser, getAccessibleOrganizationIds, ownershipWhere } from "@/lib/server/services/auth";
+import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 // ─────────────────────────────────────────────────────────
@@ -41,6 +43,17 @@ export const PATCH = withErrorHandler(async (
     if (!parsedTableId.success) {
       return apiError(`Invalid table ID format: ${tableId}`, 400);
     }
+
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError("Unauthorized", 401);
+
+    const orgIds = await getAccessibleOrganizationIds(user.id);
+    const table = await prisma.table.findFirst({
+      where: { id: parsedTableId.data, ...ownershipWhere(user.id, orgIds) },
+      select: { id: true },
+    });
+    if (!table) return apiError(`Table with ID ${parsedTableId.data} not found`, 404);
+
     // Parse and validate request body
     const bodyResult = await parseBody(req, patchCellSchema);
     if (!bodyResult.success) {
@@ -88,6 +101,16 @@ export const GET = withErrorHandler(async (
     if (!parsedTableId.success) {
         return apiError(`Invalid table ID format: ${tableId}`, 400);
     }
+
+    const user = await getAuthenticatedUser();
+    if (!user) return apiError("Unauthorized", 401);
+
+    const orgIds = await getAccessibleOrganizationIds(user.id);
+    const table = await prisma.table.findFirst({
+      where: { id: parsedTableId.data, ...ownershipWhere(user.id, orgIds) },
+      select: { id: true },
+    });
+    if (!table) return apiError(`Table with ID ${parsedTableId.data} not found`, 404);
 
     // Parse and validate query parameters
     const { searchParams } = new URL(req.url);
