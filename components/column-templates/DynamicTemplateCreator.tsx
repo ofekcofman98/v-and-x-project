@@ -10,6 +10,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useColumnTemplateStore } from '@/lib/client/stores/column-template-store';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-keys';
 import type { ColumnDef } from '@/components/shared-table/types';
 import { validateGridSchema } from '@/lib/shared/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
@@ -48,6 +50,7 @@ export function DynamicTemplateCreator({
 }: DynamicTemplateCreatorProps) {
   const { toast } = useToast();
   const { addTemplate } = useColumnTemplateStore();
+  const queryClient = useQueryClient();
 
   const {
     state: { name: templateName, description, isSubmitting, columns, rows },
@@ -120,6 +123,7 @@ export function DynamicTemplateCreator({
         usage_count: 0,
         created_at: data.created_at,
       });
+      queryClient.invalidateQueries({ queryKey: queryKeys.columnTemplates.all });
 
       toast({ title: 'Template saved', description: `"${templateName}" is ready to use.` });
       handleClose();

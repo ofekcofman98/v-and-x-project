@@ -15,7 +15,8 @@ import type { StatCardConfig } from '@/components/shared/DetailPageHeader';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { useTableStore } from '@/lib/client/stores/table-store';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-keys';
 import { TableGridSection } from '@/components/shared-table/TableGridSection';
 import type { TableWithRelations, TableCell, TableColumn, ListEntity, BaseListWithEntities, BaseListSchema } from '@/lib/shared/types/models';
 import { ColumnType } from '@/lib/shared/types/column-types';
@@ -62,7 +63,7 @@ export default function TableDetailsPage() {
     const router = useRouter();
     const id = params?.id as string;
     const { toast } = useToast();
-    const deleteTable = useTableStore((s) => s.deleteTable);
+    const queryClient = useQueryClient();
 
     const [table, setTable] = useState<TableWithRelationsDTO | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -160,7 +161,7 @@ export default function TableDetailsPage() {
                 const data = await response.json().catch(() => ({ error: 'Delete failed' }));
                 throw new Error(data.error || `HTTP ${response.status}`);
             }
-            deleteTable(id);
+            queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
             toast({ title: 'Table deleted', description: `"${table?.name}" was removed successfully.` });
             router.push('/dashboard/tables');
         } catch (err) {

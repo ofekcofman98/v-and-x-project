@@ -1,75 +1,104 @@
- GET /dashboard/tables/150a026c-9f3f-4ae6-a025-61b8816ddbd7 200 in 3.3s (compile: 3.1s, render: 186ms)
- GET /dashboard/tables/150a026c-9f3f-4ae6-a025-61b8816ddbd7 200 in 102ms (compile: 11ms, render: 91ms)
- GET / 200 in 66ms (compile: 30ms, render: 36ms)
- GET /dashboard 200 in 61ms (compile: 25ms, render: 36ms)
- GET /dashboard/tables 200 in 123ms (compile: 90ms, render: 32ms)
- GET /api/base-lists 200 in 767ms (compile: 349ms, render: 418ms)
- GET /api/base-lists 200 in 82ms (compile: 5ms, render: 76ms)
- GET /api/tables 200 in 864ms (compile: 194ms, render: 670ms)
- GET /api/tables 200 in 152ms (compile: 3ms, render: 149ms)
- GET /dashboard/tables/d0f1f1b9-924a-4cf1-ba0a-600c34d8c466 200 in 1276ms (compile: 1239ms, render: 37ms)
- GET /api/tables/d0f1f1b9-924a-4cf1-ba0a-600c34d8c466 200 in 1576ms (compile: 1347ms, render: 229ms)
- GET / 200 in 46ms (compile: 7ms, render: 39ms)
- GET /api/tables/d0f1f1b9-924a-4cf1-ba0a-600c34d8c466/cells 200 in 1597ms (compile: 1357ms, render: 241ms)
- GET /api/tables/d0f1f1b9-924a-4cf1-ba0a-600c34d8c466/cells 200 in 225ms (compile: 5ms, render: 220ms)
- GET /api/tables/d0f1f1b9-924a-4cf1-ba0a-600c34d8c466 200 in 1910ms (compile: 5ms, render: 1905ms)
- GET /dashboard 200 in 26ms (compile: 4ms, render: 22ms)
- GET /dashboard/tables 200 in 31ms (compile: 6ms, render: 25ms)
- GET /api/base-lists 200 in 96ms (compile: 18ms, render: 77ms)
- GET /api/tables 200 in 170ms (compile: 8ms, render: 162ms)
- GET /api/base-lists 200 in 92ms (compile: 3ms, render: 88ms)
- GET /api/tables 200 in 166ms (compile: 6ms, render: 160ms)
- GET /dashboard/tables/new 200 in 51ms (compile: 24ms, render: 27ms)
- GET /api/base-lists 200 in 181ms (compile: 6ms, render: 174ms)
- GET /api/column-templates 200 in 259ms (compile: 167ms, render: 91ms)
- GET /api/base-lists 200 in 89ms (compile: 3ms, render: 86ms)
- GET /api/column-templates 200 in 81ms (compile: 4ms, render: 77ms)
- GET /api/base-lists/9a60183e-8159-467a-8a47-9b52be41fc75 200 in 1499ms (compile: 1325ms, render: 174ms)
- GET /api/column-templates/08429009-40c2-42dc-9d56-dc8943f67c70 200 in 1418ms (compile: 1329ms, render: 89ms)
- GET /api/base-lists 200 in 399ms (compile: 23ms, render: 376ms)
- GET /api/tables 200 in 477ms (compile: 6ms, render: 471ms)
- GET /api/base-lists 200 in 86ms (compile: 4ms, render: 83ms)
- GET /api/tables 200 in 155ms (compile: 4ms, render: 150ms)
- GET / 200 in 36ms (compile: 4ms, render: 32ms)
- GET /dashboard 200 in 29ms (compile: 5ms, render: 24ms)
- GET /dashboard/templates 200 in 92ms (compile: 62ms, render: 30ms)
- GET /api/column-templates 200 in 84ms (compile: 4ms, render: 79ms)
- GET /api/column-templates 200 in 83ms (compile: 4ms, render: 79ms)
- GET /dashboard/templates/08429009-40c2-42dc-9d56-dc8943f67c70 200 in 1940ms (compile: 1901ms, render: 39ms)
- GET /api/column-templates/08429009-40c2-42dc-9d56-dc8943f67c70 200 in 1308ms (compile: 1227ms, render: 81ms)
- GET /api/column-templates/08429009-40c2-42dc-9d56-dc8943f67c70 200 in 84ms (compile: 5ms, render: 79ms)
- GET /api/column-templates 200 in 375ms (compile: 5ms, render: 370ms)
- GET /api/column-templates 200 in 81ms (compile: 3ms, render: 78ms)
- GET /dashboard/templates/new 200 in 87ms (compile: 58ms, render: 29ms)
- GET /dashboard/templates 200 in 30ms (compile: 6ms, render: 24ms)
- GET /api/column-templates 200 in 410ms (compile: 10ms, render: 400ms)
- GET /api/column-templates 200 in 80ms (compile: 3ms, render: 77ms)
- GET / 200 in 35ms (compile: 6ms, render: 29ms)
- GET /dashboard 200 in 25ms (compile: 4ms, render: 22ms)
- GET /dashboard/tables 200 in 33ms (compile: 4ms, render: 29ms)
- GET /api/base-lists 200 in 86ms (compile: 5ms, render: 81ms)
- GET /api/base-lists 200 in 81ms (compile: 4ms, render: 78ms)
- GET /api/tables 200 in 177ms (compile: 18ms, render: 159ms)
- GET /api/tables 200 in 152ms (compile: 3ms, render: 148ms)
- GET / 200 in 32ms (compile: 6ms, render: 26ms)
- GET /dashboard 200 in 26ms (compile: 4ms, render: 22ms)
- GET /dashboard/base-lists 200 in 55ms (compile: 28ms, render: 27ms)
- GET /api/base-lists 200 in 90ms (compile: 10ms, render: 80ms)
- GET /api/base-lists 200 in 79ms (compile: 3ms, render: 76ms)
- GET /dashboard/base-lists/bf028d89-7b9d-43ab-8745-03b9cb55fa8b 200 in 1931ms (compile: 1882ms, render: 49ms)
- GET /api/base-lists/bf028d89-7b9d-43ab-8745-03b9cb55fa8b 200 in 1381ms (compile: 1226ms, render: 155ms)
- GET /api/base-lists/bf028d89-7b9d-43ab-8745-03b9cb55fa8b 200 in 151ms (compile: 4ms, render: 147ms)
- GET / 200 in 38ms (compile: 5ms, render: 34ms)
- GET /dashboard 200 in 25ms (compile: 4ms, render: 21ms)
- GET /dashboard/tables 200 in 28ms (compile: 4ms, render: 23ms)
- GET /api/base-lists 200 in 435ms (compile: 14ms, render: 421ms)
- GET /api/tables 200 in 512ms (compile: 7ms, render: 505ms)
- GET /api/base-lists 200 in 89ms (compile: 5ms, render: 84ms)
- GET /api/tables 200 in 152ms (compile: 3ms, render: 149ms)
- GET /dashboard/tables/new 200 in 27ms (compile: 4ms, render: 23ms)
- GET /api/base-lists 200 in 84ms (compile: 5ms, render: 79ms)
- GET /api/base-lists 200 in 80ms (compile: 4ms, render: 76ms)
- GET /api/column-templates 200 in 386ms (compile: 12ms, render: 374ms)
- GET /api/column-templates 200 in 82ms (compile: 3ms, render: 79ms)
- GET /api/base-lists/9a60183e-8159-467a-8a47-9b52be41fc75 200 in 1340ms (compile: 1192ms, render: 149ms)
- GET /api/column-templates/08429009-40c2-42dc-9d56-dc8943f67c70 200 in 1303ms (compile: 1223ms, render: 80ms)
+✓ Starting...
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 1821ms
+ GET / 200 in 1038ms (compile: 582ms, render: 455ms)
+ GET /dashboard 200 in 455ms (compile: 60ms, proxy.ts: 345ms, render: 51ms)
+ GET /dashboard/base-lists 200 in 224ms (compile: 80ms, proxy.ts: 105ms, render: 40ms)
+ GET /api/base-lists 200 in 1333ms (compile: 469ms, render: 865ms)
+ GET /dashboard/base-lists/9a60183e-8159-467a-8a47-9b52be41fc75 200 in 844ms (compile: 689ms, proxy.ts: 111ms, render: 44ms)
+ GET /api/base-lists/9a60183e-8159-467a-8a47-9b52be41fc75 200 in 1443ms (compile: 1198ms, render: 244ms)
+ GET /api/base-lists/9a60183e-8159-467a-8a47-9b52be41fc75 200 in 257ms (compile: 23ms, render: 234ms)
+ GET /dashboard/base-lists 200 in 429ms (compile: 8ms, proxy.ts: 380ms, render: 41ms)
+ GET / 200 in 38ms (compile: 7ms, render: 31ms)
+ GET /dashboard 200 in 156ms (compile: 8ms, proxy.ts: 119ms, render: 29ms)
+ GET /dashboard/tables 200 in 262ms (compile: 73ms, proxy.ts: 156ms, render: 33ms)
+ GET /api/tables 200 in 657ms (compile: 89ms, render: 568ms)
+ GET /login 200 in 323ms (compile: 289ms, render: 34ms)
+ GET /dashboard 200 in 234ms (compile: 8ms, proxy.ts: 199ms, render: 27ms)
+ GET /dashboard 200 in 149ms (compile: 8ms, proxy.ts: 101ms, render: 40ms)
+ GET /dashboard/tables 200 in 160ms (compile: 7ms, proxy.ts: 125ms, render: 28ms)
+ GET /dashboard/tables/2b051809-1d69-43cf-8ddf-ce2d4a956d86 200 in 856ms (compile: 713ms, proxy.ts: 96ms, render: 46ms)
+ GET /api/tables/2b051809-1d69-43cf-8ddf-ce2d4a956d86 200 in 2.2s (compile: 1181ms, render: 1007ms)
+ GET /api/tables/2b051809-1d69-43cf-8ddf-ce2d4a956d86 200 in 392ms (compile: 21ms, render: 371ms)
+ GET /api/tables/2b051809-1d69-43cf-8ddf-ce2d4a956d86/cells 200 in 1590ms (compile: 1202ms, render: 388ms)
+ GET /api/tables/2b051809-1d69-43cf-8ddf-ce2d4a956d86/cells 200 in 400ms (compile: 28ms, render: 372ms)
+[VoiceEntry] Parsed activeCell: {
+  rowKey: '47520d46-0fde-48ea-8849-22f259673b00',
+  tableColumnId: 'ea8fc32d-f051-4d1a-90df-8ba35a81a2ae'
+}
+[VoiceEntryService] Transcription complete and cached: { transcript: 'Monica Geller, 24.', duration: 2467, promptUsed: true }
+[VoiceEntryService] Quick extraction found pattern: { entity: 'Monica Geller', value: 24 }
+[Matcher] 🎯 Level reached: exact with confidence 1
+[VoiceEntryService] 🎯 FAST_PATH: Non-LLM match successful
+[EntityCache] SET: "Monica Geller, 24." → Monica Geller (exact)
+[Performance] ✅ {
+  transcript: 'Monica Geller, 24.',
+  pathTaken: 'FAST_PATH',
+  matchType: 'exact',
+  cached: false,
+  transcriptionDuration: '2467ms',
+  parsingDuration: '3ms',
+  llmDuration: 'N/A',
+  totalDuration: '2473ms',
+  budget: '3500ms',
+  exceedsBudget: false,
+  isOptimal: false,
+  recommendation: ''
+}
+ POST /api/voice-entry 200 in 3.2s (compile: 676ms, render: 2.5s)
+ PATCH /api/tables/2b051809-1d69-43cf-8ddf-ce2d4a956d86/cells 200 in 707ms (compile: 24ms, render: 683ms)
+[VoiceEntry] Parsed activeCell: {
+  rowKey: '3c5d6776-ddc7-4abc-bf82-2dfa35bd90a0',
+  tableColumnId: 'ea8fc32d-f051-4d1a-90df-8ba35a81a2ae'
+}
+[VoiceEntryService] Transcription complete and cached: { transcript: 'Noa Cohen, 26.', duration: 1888, promptUsed: true }
+[VoiceEntryService] Quick extraction found pattern: { entity: 'Noa Cohen', value: 26 }
+[Matcher] 🎯 Level reached: exact with confidence 1
+[VoiceEntryService] 🎯 FAST_PATH: Non-LLM match successful
+[EntityCache] SET: "Noa Cohen, 26." → Noa Cohen (exact)
+[Performance] ✅ {
+  transcript: 'Noa Cohen, 26.',
+  pathTaken: 'FAST_PATH',
+  matchType: 'exact',
+  cached: false,
+  transcriptionDuration: '1888ms',
+  parsingDuration: '3ms',
+  llmDuration: 'N/A',
+  totalDuration: '1894ms',
+  budget: '3500ms',
+  exceedsBudget: false,
+  isOptimal: false,
+  recommendation: ''
+}
+[EntityCache] Statistics: {
+  hits: 0,
+  misses: 2,
+  hitRate: '0.0%',
+  size: 2,
+  estimatedTimeSaved: '0.0s'
+}
+ POST /api/voice-entry 200 in 1913ms (compile: 5ms, render: 1908ms)
+ PATCH /api/tables/2b051809-1d69-43cf-8ddf-ce2d4a956d86/cells 200 in 381ms (compile: 22ms, render: 359ms)
+[VoiceEntry] Parsed activeCell: {
+  rowKey: '52f4017d-e19f-4cce-8f54-b994b0c73142',
+  tableColumnId: 'ea8fc32d-f051-4d1a-90df-8ba35a81a2ae'
+}
+[VoiceEntryService] Transcription complete and cached: { transcript: 'John Snow, 10.', duration: 1349, promptUsed: true }
+[VoiceEntryService] Quick extraction found pattern: { entity: 'John Snow', value: 10 }
+[Matcher] 🎯 Level reached: exact with confidence 1
+[VoiceEntryService] 🎯 FAST_PATH: Non-LLM match successful
+[EntityCache] SET: "John Snow, 10." → John Snow (exact)
+[Performance] ✅ {
+  transcript: 'John Snow, 10.',
+  pathTaken: 'FAST_PATH',
+  matchType: 'exact',
+  cached: false,
+  transcriptionDuration: '1349ms',
+  parsingDuration: '2ms',
+  llmDuration: 'N/A',
+  totalDuration: '1354ms',
+  budget: '3500ms',
+  exceedsBudget: false,
+  isOptimal: true,
+  recommendation: '✅ OPTIMAL: Fast path achieved (no LLM). Maintain this pattern.'
+}

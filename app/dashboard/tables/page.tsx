@@ -5,10 +5,10 @@
  * Implements: docs/14_PRODUCT_DATA_FLOW.md §4
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { useTableStore } from '@/lib/client/stores/table-store';
-import { useBaseListStore } from '@/lib/client/stores/base-list-store';
+import { useTablesQuery, useDeleteTableMutation } from '@/lib/client/hooks/use-tables';
+import { useBaseListsQuery } from '@/lib/client/hooks/use-base-lists';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -62,17 +62,12 @@ function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
 }
 
 export default function TablesDashboardPage() {
-  const { tables, isLoading, error, fetchTables, deleteTable } = useTableStore();
-  const { lists, fetchLists } = useBaseListStore();
+  const { data: tables = [], isLoading, error, refetch } = useTablesQuery();
+  const { data: lists = [] } = useBaseListsQuery();
+  const deleteTableMutation = useDeleteTableMutation();
   const { toast } = useToast();
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  useEffect(() => {
-    fetchTables();
-    fetchLists();
-  }, [fetchTables, fetchLists]);
 
   const getBaseListName = (baseListId: string) => {
     const baseList = lists.find((list) => list.id === baseListId);
@@ -83,20 +78,13 @@ export default function TablesDashboardPage() {
 
   const handleDeleteConfirm = async () => {
     if (!pendingDeleteId) return;
-    setIsDeleting(true);
     try {
-      const response = await fetch(`/api/tables/${pendingDeleteId}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: 'Delete failed' }));
-        throw new Error(data.error || `HTTP ${response.status}`);
-      }
-      deleteTable(pendingDeleteId);
+      await deleteTableMutation.mutateAsync(pendingDeleteId);
       toast({ title: 'Table deleted', description: `"${pendingTable?.name}" was removed successfully.` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
     } finally {
-      setIsDeleting(false);
       setPendingDeleteId(null);
     }
   };
@@ -124,7 +112,7 @@ export default function TablesDashboardPage() {
           </div>
 
           {error ? (
-            <InlineErrorState error={error} onRetry={fetchTables} />
+            <InlineErrorState error={error.message} onRetry={() => refetch()} />
           ) : isLoading ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {[...Array(6)].map((_, i) => (
@@ -213,7 +201,7 @@ export default function TablesDashboardPage() {
         onConfirm={handleDeleteConfirm}
         title="Delete Table"
         itemName={pendingTable?.name || ''}
-        isDeleting={isDeleting}
+        isDeleting={deleteTableMutation.isPending}
       />
     </>
   );

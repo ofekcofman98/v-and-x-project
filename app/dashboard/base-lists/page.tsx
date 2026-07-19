@@ -5,10 +5,10 @@
  * Implements: docs/14_PRODUCT_DATA_FLOW.md §1
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useBaseListStore } from '@/lib/client/stores/base-list-store';
+import { useBaseListsQuery, useDeleteBaseListMutation } from '@/lib/client/hooks/use-base-lists';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -97,33 +97,22 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { lists, isLoading, error, fetchLists, deleteList } = useBaseListStore();
+  const { data: lists = [], isLoading, error, refetch } = useBaseListsQuery();
+  const deleteListMutation = useDeleteBaseListMutation();
   const { toast } = useToast();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  useEffect(() => {
-    fetchLists();
-  }, [fetchLists]);
 
   const pendingList = lists.find((l) => l.id === pendingDeleteId);
 
   const handleDeleteConfirm = async () => {
     if (!pendingDeleteId) return;
-    setIsDeleting(true);
     try {
-      const response = await fetch(`/api/base-lists/${pendingDeleteId}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: 'Delete failed' }));
-        throw new Error(data.error || `HTTP ${response.status}`);
-      }
-      deleteList(pendingDeleteId);
+      await deleteListMutation.mutateAsync(pendingDeleteId);
       toast({ title: 'Base list deleted', description: `"${pendingList?.name}" was removed successfully.` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
     } finally {
-      setIsDeleting(false);
       setPendingDeleteId(null);
     }
   };
@@ -151,7 +140,7 @@ export default function DashboardPage() {
           </div>
 
           {error ? (
-            <ErrorState error={error} onRetry={fetchLists} />
+            <ErrorState error={error.message} onRetry={() => refetch()} />
           ) : isLoading ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {[...Array(6)].map((_, i) => (
@@ -234,7 +223,7 @@ export default function DashboardPage() {
         onConfirm={handleDeleteConfirm}
         title="Delete Base List"
         itemName={pendingList?.name || ''}
-        isDeleting={isDeleting}
+        isDeleting={deleteListMutation.isPending}
       />
     </>
   );

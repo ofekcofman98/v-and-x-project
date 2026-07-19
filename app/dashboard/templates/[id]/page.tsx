@@ -15,8 +15,9 @@ import type { StatCardConfig } from '@/components/shared/DetailPageHeader';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Zap } from 'lucide-react';
-import { useColumnTemplateStore } from '@/lib/client/stores/column-template-store';
 import type { ColumnTemplateDTO } from '@/lib/client/stores/column-template-store';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-keys';
 import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
@@ -37,7 +38,7 @@ export default function TemplateDetailsPage() {
   const router = useRouter();
   const id = params?.id as string;
   const { toast } = useToast();
-  const deleteTemplate = useColumnTemplateStore((s) => s.deleteTemplate);
+  const queryClient = useQueryClient();
 
   const [template, setTemplate] = useState<ColumnTemplateDetailsDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,7 +81,7 @@ export default function TemplateDetailsPage() {
         const data = await response.json().catch(() => ({ error: 'Delete failed' }));
         throw new Error(data.error || `HTTP ${response.status}`);
       }
-      deleteTemplate(id);
+      queryClient.invalidateQueries({ queryKey: queryKeys.columnTemplates.all });
       toast({
         title: 'Template deleted',
         description: `"${template?.name}" was removed successfully.`,

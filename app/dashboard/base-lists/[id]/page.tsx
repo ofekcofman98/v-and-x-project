@@ -18,7 +18,8 @@ import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
 import type { StatCardConfig } from '@/components/shared/DetailPageHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { useToast } from '@/components/ui/use-toast';
-import { useBaseListStore } from '@/lib/client/stores/base-list-store';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-keys';
 import { TableGridSection } from '@/components/shared-table/TableGridSection';
 import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 
@@ -41,7 +42,7 @@ export default function BaseListDetailsPage() {
   const router = useRouter();
   const id = params?.id as string;
   const { toast } = useToast();
-  const deleteList = useBaseListStore((s) => s.deleteList);
+  const queryClient = useQueryClient();
 
   const [baseList, setBaseList] = useState<BaseListWithEntitiesDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -120,7 +121,7 @@ export default function BaseListDetailsPage() {
         const data = await response.json().catch(() => ({ error: 'Delete failed' }));
         throw new Error(data.error || `HTTP ${response.status}`);
       }
-      deleteList(id);
+      queryClient.invalidateQueries({ queryKey: queryKeys.baseLists.all });
       toast({ title: 'Base list deleted', description: `"${baseList?.name}" was removed successfully.` });
       router.push('/dashboard/base-lists');
     } catch (err) {

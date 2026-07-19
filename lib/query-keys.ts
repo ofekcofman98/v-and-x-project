@@ -5,10 +5,16 @@
  */
 
 export const queryKeys = {
-  // Add your query keys here
-  // Example:
-  // users: {
-  //   all: ['users'] as const,
-  //   detail: (id: string) => ['users', id] as const,
-  // },
+  tables: {
+    all: ['tables'] as const,
+    detail: (id: string) => ['tables', id] as const,
+  },
+  baseLists: {
+    all: ['baseLists'] as const,
+    detail: (id: string) => ['baseLists', id] as const,
+  },
+  columnTemplates: {
+    all: ['columnTemplates'] as const,
+    detail: (id: string) => ['columnTemplates', id] as const,
+  },
 } as const;

@@ -22,6 +22,10 @@
   Import tables from CSV/Excel files and export to standard formats using xlsx library. Enables legacy data migration.  
   → [Full Specification](./features/08_csv_import_export.md)
 
+- [ ] **Perceived Performance & Navigation UX**  
+  Migrate list/detail data fetching to TanStack Query to eliminate refetch-and-reflash on every navigation, plus profile slow API routes. Fixes the "app feels slow to click around in" problem before more pages are added.  
+  → [Full Specification](./features/11_perf_and_navigation.md)
+
 ### Medium Priority
 
 - [ ] **Column-Template Lists**  
@@ -66,7 +70,7 @@
 | Column Visibility | Low | Not Started | 1 week |
 | Vision-to-Table | Low | Not Started | 4 weeks |
 | Voice-pipeline-hardening | High | Done | 4 weeks |
-| DB loading optimization | High | Not started | ? | 
+| Perceived Performance & Navigation UX | High | Not Started | 1-2 weeks |
 
 ---
 

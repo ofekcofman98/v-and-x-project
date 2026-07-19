@@ -8,6 +8,11 @@ import type { CellData } from '@/lib/shared/types/table-schema';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Matches the TanStack Query staleTime convention set in app/providers.tsx —
+// avoids reflashing "Loading table data..." when the user re-enters a table
+// they were already looking at within the last 5 minutes.
+const CELLS_STALE_TIME_MS = 1000 * 60 * 5;
+
 /**
  * Table Cell Store State
  */
@@ -18,9 +23,15 @@ interface TableCellState {
   isLoading: boolean;      // track loading state
   error: string | null;    // track errors
 
+  // Which table `cellData` currently holds, and when it was fetched —
+  // lets fetchCells skip a redundant network round-trip on remount.
+  loadedTableId: string | null;
+  fetchedAt: number | null;
+
   // Actions
   setCellData: (data: CellData[]) => void;
-  fetchCells: (tableId: string) => Promise<void>;
+  /** Pass `force: true` to bypass the staleness cache (e.g. a manual refresh action). */
+  fetchCells: (tableId: string, options?: { force?: boolean }) => Promise<void>;
   updateCell: (tableId: string, rowKey: string, tableColumnId: string, value: string | number | boolean | null) => Promise<void>;
   getCellValue: (rowKey: string, tableColumnId: string) => string | number | boolean | null | undefined;
   clearLastUpdated: () => void;
@@ -35,25 +46,37 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
   lastUpdatedCell: null,
   isLoading: false,
   error: null,
-  
+  loadedTableId: null,
+  fetchedAt: null,
+
   // Set the entire cell data array
   setCellData: (data) => set({ cellData: data }),
-  
-  fetchCells: async (tableId: string) => {
+
+  fetchCells: async (tableId: string, options) => {
+    const { loadedTableId, fetchedAt, error } = get();
+    const isFresh =
+      !options?.force &&
+      !error &&
+      loadedTableId === tableId &&
+      fetchedAt !== null &&
+      Date.now() - fetchedAt < CELLS_STALE_TIME_MS;
+
+    if (isFresh) return;
+
     set({ isLoading: true, error: null });
-    
+
     try {
       const response = await fetch(`/api/tables/${tableId}/cells`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch cells: ${response.statusText}`);
       }
-      
+
       const result = await response.json();
-      
+
       // The API returns { data: cells } due to apiSuccess wrapper
       const cells = result.data;
-      
+
       // Transform the API response to match CellData interface
       const cellData: CellData[] = cells.map((cell: any) => ({
         rowKey: cell.rowKey,
@@ -62,11 +85,11 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
         entityId: cell.entityId,
         entrySource: cell.entrySource,
       }));
-      
-      set({ cellData, isLoading: false });
+
+      set({ cellData, isLoading: false, loadedTableId: tableId, fetchedAt: Date.now() });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: errorMessage, isLoading: false });
+      set({ error: errorMessage, isLoading: false, loadedTableId: null, fetchedAt: null });
       console.error('Error fetching cells:', error);
     }
   },

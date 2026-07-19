@@ -6,10 +6,11 @@
  * Implements: docs/features/02b_column_templates_ui.md §3.1
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useColumnTemplateStore, type ColumnTemplateDTO } from '@/lib/client/stores/column-template-store';
+import type { ColumnTemplateDTO } from '@/lib/client/stores/column-template-store';
+import { useColumnTemplatesQuery, useDeleteColumnTemplateMutation } from '@/lib/client/hooks/use-column-templates';
 import { Button } from '@/components/ui/button';
 import { AppHeader } from '@/components/AppHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
@@ -26,38 +27,21 @@ import { ApplyTemplateDialog } from '@/components/templates/ApplyTemplateDialog'
 
 export default function TemplatesDashboardPage() {
   const router = useRouter();
-  const { templates, isLoading, error, fetchTemplates, deleteTemplate } =
-    useColumnTemplateStore();
+  const { data: templates = [], isLoading, error, refetch } = useColumnTemplatesQuery();
+  const deleteTemplateMutation = useDeleteColumnTemplateMutation();
   const { toast } = useToast();
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   const [search, setSearch] = useState('');
   const [applyTarget, setApplyTarget] = useState<ColumnTemplateDTO | null>(null);
-
-  useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
 
   const pendingTemplate = templates.find((t) => t.id === pendingDeleteId);
 
   const handleDeleteConfirm = async () => {
     if (!pendingDeleteId) return;
-    setIsDeleting(true);
     try {
-      // TODO: Replace x-user-id with real auth header
-      const response = await fetch(`/api/column-templates/${pendingDeleteId}`, {
-        method: 'DELETE',
-        headers: { 'x-user-id': '00000000-0000-0000-0000-000000000000' },
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: 'Delete failed' }));
-        throw new Error(
-          Array.isArray(data.error) ? data.error.join(', ') : data.error || `HTTP ${response.status}`
-        );
-      }
-      deleteTemplate(pendingDeleteId);
+      await deleteTemplateMutation.mutateAsync(pendingDeleteId);
       toast({
         title: 'Template deleted',
         description: `"${pendingTemplate?.name}" was removed.`,
@@ -66,7 +50,6 @@ export default function TemplatesDashboardPage() {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
     } finally {
-      setIsDeleting(false);
       setPendingDeleteId(null);
     }
   };
@@ -133,7 +116,7 @@ export default function TemplatesDashboardPage() {
 
           {/* Content */}
           {error ? (
-            <InlineErrorState error={error} onRetry={fetchTemplates} />
+            <InlineErrorState error={error.message} onRetry={() => refetch()} />
           ) : isLoading ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(8)].map((_, i) => (
@@ -166,7 +149,7 @@ export default function TemplatesDashboardPage() {
         onConfirm={handleDeleteConfirm}
         title="Delete Template"
         itemName={pendingTemplate?.name || ''}
-        isDeleting={isDeleting}
+        isDeleting={deleteTemplateMutation.isPending}
       />
 
       <ApplyTemplateDialog
