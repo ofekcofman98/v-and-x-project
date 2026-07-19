@@ -62,7 +62,7 @@
 | Column Templates | Medium | Done | 2 weeks |
 | AI Table Agent | Medium | Not Started | 3 weeks |
 | Computed Columns | Medium | Not Started | 2 weeks |
-| Private Columns | Medium | Not Started | 3 weeks |
+| Private Columns | Medium | Done | 3 weeks |
 | Column Visibility | Low | Not Started | 1 week |
 | Vision-to-Table | Low | Not Started | 4 weeks |
 | Voice-pipeline-hardening | High | Done | 4 weeks |
