@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from './DataTable';
+import { NavigationModeToggle } from './NavigationModeToggle';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
 import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 
@@ -38,9 +39,12 @@ export function TableGridSection({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{resolvedDescription}</CardDescription>
+      <CardHeader className={isReadOnly ? undefined : 'flex flex-row items-start justify-between gap-4'}>
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{resolvedDescription}</CardDescription>
+        </div>
+        {!isReadOnly && hasData && <NavigationModeToggle />}
       </CardHeader>
       <CardContent>
         {!hasData ? (

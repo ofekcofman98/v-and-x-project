@@ -11,6 +11,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { useToast } from '@/components/ui/use-toast';
+import { usePointerKeyboardNav } from '@/lib/client/hooks/use-pointer-keyboard-nav';
 import { DataTableCell } from './DataTableCell';
 import { ColumnHeaderCell } from './ColumnHeaderCell';
 import { ColumnAccessModal } from '@/components/tables/ColumnAccessModal';
@@ -75,6 +76,8 @@ export const DataTable = memo(function DataTable({
   useEffect(() => {
     setLocalRepKey(representativeColumnKey ?? null);
   }, [representativeColumnKey]);
+
+  usePointerKeyboardNav({ tableSchema: { columns, rows }, enabled: !isReadOnly });
 
   // Fetch cell data only for editable (Table) views — BaseList has no table_cells rows.
   useEffect(() => {
