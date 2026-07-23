@@ -24,12 +24,39 @@ export interface TranscriptionResult {
   promptEntities: string[];
 }
 
+export interface TranscribeAudioOptions {
+  /**
+   * Row-First mid-row value-only entries never contain an entity name — biasing
+   * Whisper's decoder toward the row-label vocabulary anyway (via the `prompt`
+   * param) appears to push short, non-matching bare-value audio into Whisper's
+   * empty-output behavior. Swap the vocabulary prompt for a lightweight
+   * value-oriented hint for these deterministically value-only requests, so
+   * short spoken numbers/status words aren't discarded as silence either.
+   * docs/06_SMART_POINTER_LOGS.md
+   */
+  suppressVocabPrompt?: boolean;
+}
+
+// Lightweight decoder hint for Row-First mid-row (value-only) utterances —
+// primes Whisper for short numeric/status speech instead of person-name
+// vocabulary, without reintroducing the entity-biasing that caused the
+// empty-transcript regression. docs/06_SMART_POINTER_LOGS.md
+const VALUE_ONLY_PROMPT_HINT = 'Numbers, grades, values, 85, 90, 100, yes, no, כן, לא, מעולה';
+
+// Whisper's `language` param defaults to auto-detection when omitted —
+// on quiet/ambient audio that lets it misidentify silence as speech in the
+// wrong language, amplifying the repetition-loop failure mode. Always pass
+// an explicit language; 'en' is this app's default when the caller doesn't
+// specify 'he'. docs/06_SMART_POINTER_LOGS.md
+const DEFAULT_WHISPER_LANGUAGE: 'en' | 'he' = 'en';
+
 export async function transcribeAudio(
   audioFile: File,
   tableSchema: TableSchema,
   language: string | undefined,
   tableId: string,
-  startTime: number
+  startTime: number,
+  opts?: TranscribeAudioOptions
 ): Promise<TranscriptionResult> {
   const cached = await transcriptCache.get(audioFile);
 
@@ -39,13 +66,22 @@ export async function transcribeAudio(
   }
 
   try {
-    const whisperPrompt = buildWhisperPrompt(tableSchema, tableId);
+    const whisperPrompt = opts?.suppressVocabPrompt
+      ? VALUE_ONLY_PROMPT_HINT
+      : buildWhisperPrompt(tableSchema, tableId);
     const promptUsed = STT_CONTEXT_PROMPT_ENABLED && whisperPrompt.length > 0;
+
+    console.log('[VoiceEntryService] Audio received:', {
+      byteSize: audioFile.size,
+      mimeType: audioFile.type,
+    });
+
+    const whisperLanguage: 'en' | 'he' = language === 'he' ? 'he' : DEFAULT_WHISPER_LANGUAGE;
 
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
-      language: language as 'en' | 'he' | undefined,
+      language: whisperLanguage,
       response_format: 'verbose_json',
       // temperature: 0 is required whenever a prompt is supplied — reduces
       // hallucination amplification (docs/features/10 §2.3).
@@ -58,18 +94,26 @@ export async function transcribeAudio(
     const audioDurationSec = typeof transcription.duration === 'number' ? transcription.duration : undefined;
 
     await transcriptCache.set(audioFile, transcript, transcriptionDuration);
-    console.log('[VoiceEntryService] Transcription complete and cached:', {
+    console.log('[VoiceEntryService] Transcription complete:', {
       transcript,
       duration: transcriptionDuration,
+      audioByteSize: audioFile.size,
+      audioDurationSec,
       promptUsed,
+      language: whisperLanguage,
     });
+
+    // The value-only hint isn't entity vocabulary — only populate
+    // promptEntities (used by the hallucination guard's prompt-echo check)
+    // when the actual row-label vocabulary prompt was used.
+    const usedEntityVocabPrompt = promptUsed && !opts?.suppressVocabPrompt;
 
     return {
       transcript,
       transcriptionDuration,
       transcriptFromCache: false,
       audioDurationSec,
-      promptEntities: promptUsed ? tableSchema.rows.map((r) => r.label) : [],
+      promptEntities: usedEntityVocabPrompt ? tableSchema.rows.map((r) => r.label) : [],
     };
   } catch (error: unknown) {
     const err = error as { status?: number; message?: string };

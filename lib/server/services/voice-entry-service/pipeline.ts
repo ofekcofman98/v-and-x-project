@@ -7,7 +7,7 @@
  *
  * Pipeline stages:
  *   1. Transcript cache check → Whisper transcription
- *   2. Hallucination guard
+ *   2. Hallucination guard (empty transcript or repetition-loop — fail fast)
  *   3. Resolve active column/row (+ 3.5: Row-first mid-row shortcut)
  *   4. Entity recognition cache check
  *   5. Fast-path (regex extraction + non-LLM matching, Levels 1–3)
@@ -25,7 +25,7 @@ import { entityCache } from '@/lib/server/cache/entity-recognition-cache';
 import { ErrorCodes, ErrorSeverity, ErrorCategory, VocalGridError } from '@/lib/shared/types/voice-errors';
 import { openai } from './openai-client';
 import { transcribeAudio } from './transcription';
-import { isWhisperHallucination } from './hallucination';
+import { isWhisperHallucination, isDegenerateRepetition } from './hallucination';
 import { isRowFirstMidRow } from './row-first';
 import { resolveBareValueEntry } from './bare-value';
 import { extractEntityQuick } from './quick-extract';
@@ -49,6 +49,12 @@ export async function processVoiceEntry(
   const totalStartTime = Date.now();
   const { tableSchema, activeCell, navigationMode, tableId, language } = payload;
 
+  // Row-First mid-row entries are deterministically value-only (no entity to
+  // be spoken) — known from navigationMode + activeCell alone, before we even
+  // transcribe. Used both to suppress the entity-vocabulary Whisper prompt
+  // (Stage 1) and to skip entity resolution entirely (Stage 3.5).
+  const isMidRowValueOnly = isRowFirstMidRow(navigationMode, activeCell, tableSchema);
+
   // ── Stage 1: Transcription ─────────────────────────────────────────────────
   const transcriptionStartTime = Date.now();
   const { transcript, transcriptionDuration, audioDurationSec, promptEntities } = await transcribeAudio(
@@ -56,11 +62,16 @@ export async function processVoiceEntry(
     tableSchema,
     language,
     tableId,
-    transcriptionStartTime
+    transcriptionStartTime,
+    { suppressVocabPrompt: isMidRowValueOnly }
   );
 
   // ── Stage 2: Hallucination guard ──────────────────────────────────────────
-  if (isWhisperHallucination(transcript, { audioDurationSec, promptEntities })) {
+  // Fail fast on unusable transcripts (empty or a repetition-loop) rather
+  // than retrying — a retry pass doubles transcription latency (~1.5-4s)
+  // without reliably salvaging genuinely clipped/ambient audio.
+  // docs/06_SMART_POINTER_LOGS.md
+  if (isWhisperHallucination(transcript, { audioDurationSec, promptEntities }) || isDegenerateRepetition(transcript)) {
     console.log('[VoiceEntryService] Detected Whisper hallucination, skipping GPT call:', transcript);
     return {
       entity: null,
@@ -105,7 +116,7 @@ export async function processVoiceEntry(
   // Unlike Optimisation 2.5 below (a content-based guess restricted to
   // non-TEXT columns), this applies to ALL column types, because navigation
   // state — not transcript content — is what tells us no entity is expected.
-  if (isRowFirstMidRow(navigationMode, activeCell, tableSchema)) {
+  if (isMidRowValueOnly) {
     const parseCtx = toParseContext(language);
     const directParse = parseForColumn(transcript.trim(), activeColumn, parseCtx);
 

@@ -11,13 +11,23 @@ export interface VADOptions {
   speechThreshold?: number;
   /** RMS energy level below which audio is considered silence. Default: 8 */
   silenceThreshold?: number;
-  /** Milliseconds of continuous silence before the chunk is considered complete. Default: 1800 */
+  /** Milliseconds of continuous silence before the chunk is considered complete. Default: 700 */
   silenceDurationMs?: number;
   /** Milliseconds of continuous speech required before recording starts (debounce). Default: 150 */
   speechDebounceMs?: number;
   /** Maximum chunk duration in milliseconds before forcing a flush. Default: 15000 */
   maxChunkMs?: number;
 }
+
+// Short, single-word utterances (e.g. a bare "85") were getting clipped right
+// at their start, producing empty Whisper transcripts. The MediaRecorder now
+// starts capturing at the first energy crossing (below) instead of only
+// after the debounce confirms speech, and the stop is delayed by this many
+// ms so trailing consonants aren't cut off at the silence boundary. Kept
+// small — the bulk of trailing-silence trimming now comes from the lower
+// silenceDurationMs default (ui-store.ts), not from this padding.
+// docs/06_SMART_POINTER_LOGS.md
+const POST_SPEECH_PADDING_MS = 200;
 
 export interface VADCallbacks {
   onSpeechStart: () => void;
@@ -34,7 +44,7 @@ export function useVAD(options: VADOptions = {}) {
   const {
     speechThreshold = 15,
     silenceThreshold = 8,
-    silenceDurationMs = 1800,
+    silenceDurationMs = 700,
     speechDebounceMs = 150,
     maxChunkMs = 15_000,
   } = options;
@@ -72,22 +82,42 @@ export function useVAD(options: VADOptions = {}) {
   };
 
   /**
-   * Flush the current recording chunk and trigger onSpeechEnd callback
+   * Stops the given (still-running) recorder and emits its buffered chunks
+   * via onSpeechEnd. Takes the recorder/callbacks as arguments (rather than
+   * reading the refs) so a caller can capture them before scheduling a
+   * delayed call — protecting against stopVAD nulling the refs out from
+   * under a pending setTimeout (see flushChunk below).
    */
-  const flushChunk = useCallback(() => {
-    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') return;
+  const emitChunk = useCallback((recorder: MediaRecorder, callbacks: VADCallbacks | null) => {
+    if (recorder.state !== 'recording') return;
 
-    mediaRecorderRef.current.onstop = () => {
+    recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
       chunksRef.current = [];
-      callbacksRef.current?.onSpeechEnd(blob);
+      callbacks?.onSpeechEnd(blob);
     };
 
-    mediaRecorderRef.current.stop();
+    recorder.stop();
+  }, []);
+
+  /**
+   * Flush the current recording chunk and trigger onSpeechEnd callback.
+   * Keeps capturing a little past the detected silence boundary — the
+   * recorder is still running, so this adds real trailing audio rather
+   * than silence, protecting short trailing sounds from being clipped.
+   */
+  const flushChunk = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === 'inactive') return;
+
+    const callbacks = callbacksRef.current;
+
     isSpeakingRef.current = false;
     silenceStartRef.current = null;
     recordingStartRef.current = null;
-  }, []);
+
+    setTimeout(() => emitChunk(recorder, callbacks), POST_SPEECH_PADDING_MS);
+  }, [emitChunk]);
 
   /**
    * Main VAD loop - runs on every animation frame
@@ -106,18 +136,34 @@ export function useVAD(options: VADOptions = {}) {
       if (rms >= speechThreshold) {
         if (!speechStartRef.current) {
           speechStartRef.current = now;
+
+          // Start capturing immediately at the first energy crossing, rather
+          // than only after the debounce period confirms real speech — this
+          // preserves the debounce window itself as pre-roll instead of
+          // clipping it. False triggers (debounce never confirms) are
+          // discarded below without ever reaching onSpeechEnd.
+          if (mediaRecorderRef.current?.state === 'inactive') {
+            chunksRef.current = [];
+            mediaRecorderRef.current.start(100);
+          }
         } else if (now - speechStartRef.current >= speechDebounceMs) {
-          // Speech confirmed after debounce period - start recording
+          // Speech confirmed after debounce period - recording is already running
           isSpeakingRef.current = true;
           speechStartRef.current = null;
           silenceStartRef.current = null;
           recordingStartRef.current = now;
 
-          chunksRef.current = [];
-          mediaRecorderRef.current?.start(100);
           callbacksRef.current.onSpeechStart();
         }
       } else {
+        // RMS dropped back below threshold before the debounce confirmed —
+        // discard the speculative recording so it never leaks into the next
+        // real utterance's blob.
+        if (speechStartRef.current && mediaRecorderRef.current?.state === 'recording') {
+          mediaRecorderRef.current.onstop = null;
+          mediaRecorderRef.current.stop();
+          chunksRef.current = [];
+        }
         speechStartRef.current = null;
       }
     } else {
@@ -200,8 +246,11 @@ export function useVAD(options: VADOptions = {}) {
       rafRef.current = null;
     }
 
-    // Flush any in-progress recording
-    if (isSpeakingRef.current) flushChunk();
+    // Flush any in-progress recording immediately (no trailing pad) — the
+    // stream is torn down right below, so there's no more audio to wait for.
+    if (isSpeakingRef.current && mediaRecorderRef.current) {
+      emitChunk(mediaRecorderRef.current, callbacksRef.current);
+    }
 
     // Stop microphone stream
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -219,7 +268,7 @@ export function useVAD(options: VADOptions = {}) {
     audioContextRef.current = null;
     analyserRef.current = null;
     mediaRecorderRef.current = null;
-  }, [flushChunk]);
+  }, [emitChunk]);
 
   return { startVAD, stopVAD, volume };
 }

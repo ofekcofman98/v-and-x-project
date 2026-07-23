@@ -48,6 +48,7 @@ export function NavigationModeToggle() {
                   type="button"
                   onClick={() => {
                     if (!isActive) {
+                      console.log('[NavigationModeToggle] Setting navigation mode to', mode);
                       setNavigationMode(mode);
                     }
                   }}

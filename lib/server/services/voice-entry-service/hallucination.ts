@@ -50,3 +50,35 @@ export function isWhisperHallucination(
 
   return false;
 }
+
+// A single token dominating this much of the transcript is treated as a
+// degenerate repetition loop rather than real speech.
+const REPETITION_RATIO_THRESHOLD = 0.4;
+// Below this token count, even a repeated word (e.g. "yes yes yes") is
+// plausibly real speech, not a decoder loop — only flag longer runs.
+const REPETITION_MIN_TOKENS = 8;
+
+/**
+ * Detects Whisper's temperature-0 "repetition loop" failure mode: on
+ * short/ambiguous audio the decoder can get stuck greedily repeating one
+ * token dozens of times (e.g. "no, nie, nie, nie, nie, ...") instead of
+ * admitting uncertainty. Exported for unit testing.
+ * docs/06_SMART_POINTER_LOGS.md
+ */
+export function isDegenerateRepetition(transcript: string): boolean {
+  const tokens = transcript
+    .toLowerCase()
+    .split(/[\s,]+/)
+    .map((t) => t.replace(/^[.,!?;:]+|[.,!?;:]+$/g, ''))
+    .filter(Boolean);
+
+  if (tokens.length < REPETITION_MIN_TOKENS) return false;
+
+  const counts = new Map<string, number>();
+  for (const token of tokens) {
+    counts.set(token, (counts.get(token) ?? 0) + 1);
+  }
+
+  const maxCount = Math.max(...counts.values());
+  return maxCount / tokens.length >= REPETITION_RATIO_THRESHOLD;
+}

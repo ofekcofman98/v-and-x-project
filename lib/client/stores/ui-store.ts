@@ -53,17 +53,22 @@ export interface VADSensitivity {
   speechThreshold: number;
   /** RMS level below which audio is silence. Default: 8 */
   silenceThreshold: number;
-  /** Ms of continuous silence before chunk flushes. Default: 1200 */
+  /** Ms of continuous silence before chunk flushes. Default: 700 */
   silenceDurationMs: number;
 }
 
 /**
- * Default VAD sensitivity values
+ * Default VAD sensitivity values.
+ * silenceDurationMs was 1800ms — for a short single-word value (e.g. "12")
+ * that produced a ~2.5-2.9s blob dominated by trailing silence, which both
+ * slowed transcription and increased the odds of Whisper mistaking the
+ * ambient tail for speech. 700ms is still comfortably longer than a natural
+ * mid-phrase pause (e.g. the comma in "Noa Cohen, 21"). docs/06_SMART_POINTER_LOGS.md
  */
 const defaultVADSensitivity: VADSensitivity = {
   speechThreshold: 15,
   silenceThreshold: 8,
-  silenceDurationMs: 1800,
+  silenceDurationMs: 700,
 };
 
 /**
