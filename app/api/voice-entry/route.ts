@@ -46,6 +46,7 @@ const ColumnSchema = z.object({
       required: z.boolean().optional(),
     })
     .optional(),
+  isBaseColumn: z.boolean().optional(),
 });
 
 const TableSchemaInput = z.object({
