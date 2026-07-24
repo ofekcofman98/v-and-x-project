@@ -1,241 +1,459 @@
-# AI Table Creator Agent
+# VocalGrid AI Agent System — Architecture Spec & PRD
 
-**Priority:** Medium  
-**Dependencies:** OpenAI API, 14_PRODUCT_DATA_FLOW.md  
-**Status:** Not Started
-
----
-
-## Overview
-
-Natural language prompt-to-table creation using GPT-4 for schema inference and optional data generation.
-
-**User Story:**
-- User types: "Create a table for tracking student exam scores with name, ID, and grade columns"
-- AI generates table schema with appropriate column types
-- User reviews and edits schema before confirming
-- Optional: AI can generate sample data for testing
-- Table created with one click
-
-**Impact:**
-- Reduces table creation time from 5 minutes to 30 seconds
-- Lowers barrier to entry for non-technical users
-- Enables rapid prototyping and experimentation
+**Feature:** 03 — AI Table Agent
+**Priority:** High
+**Dependencies:** 02_ARCHITECTURE.md, 03_DATABASE.md, 07_MATCHING_ENGINE.md, 11_API_ROUTES.md, 14_PRODUCT_DATA_FLOW.md, `prisma/schema.prisma`
+**Status:** Spec — Not Started
+**Last Updated:** 2026-07-23
 
 ---
 
-## Database Schema
+## Table of Contents
 
-**No schema changes required.** Uses existing `tables` structure.
+1. [Executive Summary & AI Design Principles](#1-executive-summary--ai-design-principles)
+2. [System Architecture & Context Flow](#2-system-architecture--context-flow)
+3. [Pillar 1: Schema Agent & `@Mention` Resolution](#3-pillar-1-schema-agent--mention-resolution)
+4. [Pillar 2: Grid Agent & MCP / Tool Definitions](#4-pillar-2-grid-agent--mcp--tool-definitions)
+5. [Pillar 3: Multi-Entity Batch Voice Entry](#5-pillar-3-multi-entity-batch-voice-entry)
+6. [Database & Schema Considerations](#6-database--schema-considerations)
+7. [Implementation Milestones & Phasing](#7-implementation-milestones--phasing)
 
-**Optional: Prompt History Table**
+---
 
-```sql
-CREATE TABLE IF NOT EXISTS ai_prompts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  prompt TEXT NOT NULL,
-  response JSONB NOT NULL,  -- Generated schema
-  accepted BOOLEAN DEFAULT FALSE,
-  
-  model TEXT DEFAULT 'gpt-4o-mini',
-  tokens_used INTEGER,
-  
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
-  CONSTRAINT ai_prompts_prompt_not_empty CHECK (length(trim(prompt)) > 0)
-);
+## 1. Executive Summary & AI Design Principles
 
-CREATE INDEX idx_ai_prompts_user_id ON ai_prompts(user_id);
-CREATE INDEX idx_ai_prompts_created_at ON ai_prompts(created_at DESC);
+VocalGrid's AI Agent System extends the existing voice pipeline (Whisper STT → GPT-4o-mini parsing → fuzzy matching) into three agentic capability pillars:
+
+| Pillar | Capability | Entry Point |
+|---|---|---|
+| **1. Schema Agent** | Natural-language table creation with `@Mention` RAG over `BaseList` metadata | `POST /api/ai/schema-agent` |
+| **2. Grid Agent** | Tool-calling agent for querying and batch-updating live grids | `POST /api/ai/grid-agent` |
+| **3. Batch Voice Parser** | Single-roundtrip parsing of multi-entity transcripts ("Dan 85, Noa 90, Yossi 78") | `POST /api/parse-batch` |
+
+### 1.1 Design Principles
+
+1. **LLM proposes, TypeScript disposes.** The model never executes anything. It returns structured intent (a schema draft, a tool call, an extraction list). Deterministic backend services in `lib/server/services/` validate with Zod and execute via the Prisma singleton (`lib/prisma.ts`). Every write is auth-scoped and RLS-backed.
+2. **Context diet.** Prompts carry only the minimal context resolved for the request: the `@Mention`-referenced `BaseList` schema, the active `Table`'s `TableColumn` list, or the entity label set — never a database dump. Target ≤ 2K input tokens per request.
+3. **Latency budgets.**
+
+   | Operation | Budget (p95) | Notes |
+   |---|---|---|
+   | Schema Agent (draft) | ≤ 3.0 s | Interactive but not conversational-blocking |
+   | Grid Agent query (single tool round) | ≤ 2.5 s | One LLM turn + one DB query |
+   | Grid Agent batch update (with confirm) | ≤ 3.5 s + user confirm | Writes gated behind confirmation |
+   | Batch voice parse (post-STT) | ≤ 1.5 s | Must feel like the existing single-entry `/api/parse` |
+
+4. **Cost/token efficiency.** All three pillars use `gpt-4o-mini` ($0.15/1M input, $0.60/1M output). At ≤ 2K input / ≤ 500 output tokens, worst-case cost is ~$0.0006 per request — three orders of magnitude below infra cost concerns at MVP scale. No GPT-4-class model is required; structured output constraints do the heavy lifting.
+5. **Deterministic guardrails.**
+   - Every LLM response is parsed against a Zod schema (`lib/shared/types/`); parse failure triggers one bounded retry with the validation error appended, then a typed error to the client.
+   - `ColumnType` values are constrained to the Prisma enum: `TEXT | NUMBER | DATE | BOOLEAN`.
+   - Destructive or bulk operations (> N cell writes, any delete) always require explicit user confirmation in the UI before execution.
+   - Entity resolution is **never** delegated to the LLM alone — final row targeting goes through the local fuzzy/phonetic matching engine (`lib/server/matching/`), which is deterministic and auditable.
+6. **Architecture compliance.** All OpenAI and Prisma calls live in `lib/server/services/`. Client components talk only to API routes via TanStack Query. Shared Zod schemas and types live in `lib/shared/types/`. Standard response envelope `{ success, data } / { success, error }` per `docs/11_API_ROUTES.md`.
+
+---
+
+## 2. System Architecture & Context Flow
+
+### 2.1 High-Level Flow
+
+```mermaid
+flowchart TD
+    UI[Client UI\nPrompt bar / Voice hook / Grid chat] -->|"text + @mention IDs / transcript"| API[Next.js API Routes\n/api/ai/*, /api/parse-batch]
+    API --> CR[Context Resolver\nlib/server/services/ai-context.ts]
+    CR -->|fetch minimal schema/metadata| DB[(Supabase PostgreSQL\nvia Prisma singleton)]
+    CR -->|"compact context (≤2K tokens)"| LLM[OpenAI gpt-4o-mini\nStructured Output / Tool Calling]
+    LLM -->|structured JSON| VAL[Zod Validation Layer\nlib/shared/types/ai.ts]
+    VAL -->|typed intent| EXEC[Execution Services\nlib/server/services/*]
+    EXEC -->|Prisma transactions| DB
+    EXEC -->|"envelope { success, data }"| UI
+    VAL -->|validation failure| RETRY[Bounded retry ×1\nthen typed error]
+    RETRY --> LLM
 ```
 
+### 2.2 Layer Responsibilities
+
+| Layer | Location | Responsibility |
+|---|---|---|
+| UI | `components/`, `lib/client/hooks/` | Capture prompt/transcript + `@Mention` chips; render previews & confirmations; mutations via TanStack Query |
+| API routes | `app/api/ai/*`, `app/api/parse-batch` | Auth (`getAuthenticatedUser`), rate limiting, input Zod validation, delegate to services |
+| Context Resolver | `lib/server/services/ai-context.ts` | Resolve `@Mention` IDs → minimal `BaseList`/`Table` metadata; build compact prompt context |
+| LLM services | `lib/server/services/ai-schema-agent.ts`, `ai-grid-agent.ts`, `batch-parse.ts` | Prompt construction, OpenAI calls, structured-output enforcement |
+| Validation | `lib/shared/types/ai.ts` | Zod schemas for every LLM boundary (single source of validation truth) |
+| Execution | `lib/server/services/tables.ts`, `table-cells.ts`, etc. | Prisma transactions, ownership checks, batch writes |
+| Matching | `lib/server/matching/` | Deterministic fuzzy/phonetic entity resolution (Levenshtein + Soundex) |
+
+### 2.3 The Context Resolver ("RAG on a Diet")
+
+Instead of vector retrieval over documents, VocalGrid's retrieval unit is **structured metadata keyed by explicit IDs**:
+
+1. The client resolves `@Mention` text to concrete IDs at typing time (autocomplete backed by `GET /api/base-lists`), so the server receives `mentions: [{ type: "baseList", id: "<uuid>" }]` — no server-side name disambiguation needed.
+2. The Context Resolver fetches only: `BaseList.name`, `BaseList.schema` (field definitions), entity **count** (not entities), and — for the Grid Agent — the `Table`'s `TableColumn` rows (`key`, `label`, `type`) and `representativeColumnKey`.
+3. Ownership is enforced before anything reaches a prompt: `userId` (and `organizationId` where applicable) must match the authenticated user.
+
+This keeps prompts small, deterministic, and free of cross-tenant leakage.
+
 ---
 
-## API Contract
+## 3. Pillar 1: Schema Agent & `@Mention` Resolution
 
-**POST /api/ai/generate-table-schema**
+### 3.1 Use Case
 
-Request:
+> "Create a grade table for **@ClassA1** with columns Test1, Test2, FinalGrade"
+
+The agent drafts a `Table` + `TableColumn[]` definition linked to the mentioned `BaseList`, the user reviews/edits the draft in a preview UI, and confirmation triggers deterministic creation.
+
+### 3.2 Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User (Prompt Bar)
+    participant A as POST /api/ai/schema-agent
+    participant C as Context Resolver
+    participant O as gpt-4o-mini (Structured Output)
+    participant P as Prisma (tables service)
+
+    U->>A: { prompt, mentions: [{ type: "baseList", id }] }
+    A->>A: auth + rate limit + Zod input validation
+    A->>C: resolve mentions
+    C->>P: fetch BaseList { name, schema } (ownership-checked)
+    C-->>A: compact context
+    A->>O: system prompt + context + user prompt (JSON Schema strict mode)
+    O-->>A: TableDraft JSON
+    A->>A: Zod parse (retry ×1 on failure)
+    A-->>U: { success: true, data: { draft } }
+    U->>U: Preview & edit draft
+    U->>A: POST /api/tables (existing route) with confirmed draft
+    A->>P: transactional create Table + TableColumn[]
+```
+
+### 3.3 Structured Output Contract
+
+OpenAI Structured Output (`response_format: { type: "json_schema", strict: true }`) with a JSON Schema derived from the Zod contract:
+
+```typescript
+// lib/shared/types/ai.ts
+export const TableColumnDraftSchema = z.object({
+  key: z.string().regex(/^[a-z][a-z0-9_]*$/),        // snake_case, TableColumn.key
+  label: z.string().min(1).max(80),                   // TableColumn.label
+  type: z.enum(['TEXT', 'NUMBER', 'DATE', 'BOOLEAN']), // Prisma ColumnType
+  order: z.number().int().min(0),                     // TableColumn.order
+});
+
+export const TableDraftSchema = z.object({
+  name: z.string().min(1).max(120),                   // Table.name
+  description: z.string().max(500).nullable(),        // Table.description
+  baseListId: z.string().uuid().nullable(),           // Table.baseListId (from @Mention, not LLM)
+  representativeColumnKey: z.string(),                // Table.representativeColumnKey
+  columns: z.array(TableColumnDraftSchema).min(1).max(30),
+});
+export type TableDraft = z.infer<typeof TableDraftSchema>;
+```
+
+**Guardrails applied after parse (deterministic, in TypeScript):**
+
+- `baseListId` is overwritten server-side with the resolved `@Mention` ID — the LLM never controls foreign keys.
+- Column `key` uniqueness enforced (mirrors the `@@unique([tableId, key])` constraint on `table_columns`).
+- `representativeColumnKey` must exist in `columns`; if the table is bound to a `BaseList`, it defaults to the base list's identity field.
+- `order` renumbered sequentially server-side.
+
+### 3.4 API Route
+
+**`POST /api/ai/schema-agent`**
+
 ```json
+// Request
 {
-  "prompt": "Create a table for tracking student exam scores with name, ID, and grade columns",
-  "generate_sample_data": false,
-  "sample_row_count": 5,
-  "base_list_id": null
+  "prompt": "Create a grade table for @ClassA1 with columns Test1, Test2, FinalGrade",
+  "mentions": [{ "type": "baseList", "id": "9f1c...-uuid" }]
 }
-```
 
-Response:
-```json
+// Response
 {
+  "success": true,
   "data": {
-    "table_name": "Student Exam Scores",
-    "description": "Track student performance on exams",
-    "schema": {
+    "draft": {
+      "name": "Class A1 — Grades",
+      "description": "Grade tracking for Class A1",
+      "baseListId": "9f1c...-uuid",
+      "representativeColumnKey": "student_name",
       "columns": [
-        { "id": "student_name", "label": "Student Name", "type": "text" },
-        { "id": "student_id", "label": "Student ID", "type": "text" },
-        { "id": "exam_grade", "label": "Exam Grade", "type": "number" }
+        { "key": "test_1", "label": "Test1", "type": "NUMBER", "order": 0 },
+        { "key": "test_2", "label": "Test2", "type": "NUMBER", "order": 1 },
+        { "key": "final_grade", "label": "FinalGrade", "type": "NUMBER", "order": 2 }
       ]
     },
-    "sample_data": [
-      { "student_name": "Alice Johnson", "student_id": "001", "exam_grade": "92" },
-      { "student_name": "Bob Smith", "student_id": "002", "exam_grade": "85" }
-    ],
-    "confidence": 0.95,
-    "prompt_id": "prompt-uuid"
+    "usage": { "inputTokens": 640, "outputTokens": 180 }
   }
 }
 ```
 
-**OpenAI Prompt Structure:**
+The route **only drafts**. Actual creation reuses the existing `POST /api/tables` flow so validation, RLS, and cache invalidation stay in one place.
+
+### 3.5 `@Mention` UX Contract
+
+- Typing `@` opens an autocomplete popover of the user's `BaseList`s (name + entity count), backed by the existing base-list query key from `lib/query-keys.ts`.
+- Selection inserts a chip; the raw prompt keeps a placeholder token (`@[ClassA1](baseList:<uuid>)`) the client strips into the `mentions[]` array before submit.
+- Future mention types (`table`, `template`) reuse the same `{ type, id }` shape.
+
+---
+
+## 4. Pillar 2: Grid Agent & MCP / Tool Definitions
+
+### 4.1 Use Case
+
+> "Which students missed Assignment 2?" · "Set status to Absent for Dan Cohen" · "What's the class average on Test1?"
+
+A conversational agent scoped to **one active table**. The LLM selects tools and parameters; backend TypeScript executes them.
+
+### 4.2 Tool Interface (v1)
+
+Tools are defined once as Zod schemas and exposed to the LLM via OpenAI function calling. The same definitions can later be surfaced over MCP (see `docs/features/12MCP.md`) without changing the execution layer.
 
 ```typescript
-const systemPrompt = `You are a table schema generator. Given a user's natural language description, generate a valid table schema with appropriate column types.
+// lib/server/services/ai-grid-tools.ts
 
-Rules:
-- Return ONLY valid JSON
-- Include at least 1 column
-- Column types: text, number, date, boolean
-- Use snake_case for column IDs
-- Use Title Case for column labels
-- Infer appropriate data types from context
-- If sample data requested, generate realistic examples
+/** Read cells matching filter criteria. Never returns other tables' data. */
+queryGridData(input: {
+  tableId: string;                 // injected server-side, not LLM-controlled
+  filters: Array<{
+    columnKey: string;             // must match a TableColumn.key of this table
+    operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'isEmpty' | 'isNotEmpty' | 'contains';
+    value?: string | number | boolean;
+  }>;
+  limit?: number;                  // default 50, max 200
+}): Promise<{ rows: Array<{ rowKey: string; representativeLabel: string; cells: Record<string, unknown> }> }>
 
-Output format:
+/** Batch cell writes. Requires user confirmation before execution. */
+updateCellsBatch(input: {
+  tableId: string;
+  updates: Array<{
+    rowKey: string;                // TableCell.rowKey
+    columnKey: string;             // resolved to tableColumnId server-side
+    value: string | number | boolean | null;
+  }>;                              // max 100 per call
+}): Promise<{ updated: number; failed: Array<{ rowKey: string; columnKey: string; reason: string }> }>
+
+/** Aggregate stats: row count, per-NUMBER-column min/max/avg, empty-cell counts. */
+getGridSummary(input: {
+  tableId: string;
+}): Promise<{ rowCount: number; columns: Array<{ key: string; type: ColumnType; filled: number; empty: number; avg?: number; min?: number; max?: number }> }>
+```
+
+### 4.3 Agent Loop & Deterministic Execution
+
+```mermaid
+sequenceDiagram
+    participant U as User (Grid Chat)
+    participant A as POST /api/ai/grid-agent
+    participant O as gpt-4o-mini (tool calling)
+    participant T as Tool Executor (services)
+    participant P as Prisma
+
+    U->>A: { tableId, message, history }
+    A->>A: auth + table ownership check
+    A->>O: system prompt + TableColumn metadata + tools
+    O-->>A: tool_call: queryGridData({ filters })
+    A->>A: Zod-validate args, verify columnKeys exist
+    A->>T: execute (tableId injected from request scope)
+    T->>P: findMany on table_cells (scoped to tableId)
+    T-->>O: tool result (compact rows)
+    O-->>A: final answer OR proposed updateCellsBatch
+    alt read-only answer
+        A-->>U: { success, data: { answer } }
+    else write proposal
+        A-->>U: { success, data: { pendingAction: { updates[] } } }
+        U->>U: Confirmation dialog (diff preview)
+        U->>A: POST /api/ai/grid-agent/execute { actionId }
+        A->>T: updateCellsBatch (transaction)
+        T-->>U: { updated, failed } → TanStack Query invalidation
+    end
+```
+
+**Security & validation rules:**
+
+- `tableId` comes from the authenticated request scope — never from LLM output. Tool args containing a `tableId` are ignored/overwritten.
+- Every `columnKey` in filters/updates is validated against the table's actual `TableColumn` rows; unknown keys return a typed tool error to the model (max 2 correction rounds).
+- Values are coerced/validated against `ColumnType` via the existing parsers in `lib/server/parsers/` before write.
+- Writes execute in a single `prisma.$transaction`, upserting on the `@@unique([tableId, rowKey, tableColumnId])` constraint with `entrySource: 'MANUAL'` (or a future `AI` enum value — see §6.3).
+- Max 3 tool rounds per turn; max 100 cell updates per batch; server-side rate limit 10 agent turns/min/user.
+- Pending write actions are stored server-side (short-TTL cache in `lib/server/cache/`) keyed by `actionId`, so the confirm step executes exactly what was previewed — the LLM is out of the loop at execution time.
+
+### 4.4 Example Payloads
+
+```json
+// Request
+{ "tableId": "3ab0...-uuid", "message": "Which students missed Assignment 2?" }
+
+// Internal tool call chosen by LLM
+{ "name": "queryGridData", "arguments": { "filters": [{ "columnKey": "assignment_2", "operator": "isEmpty" }] } }
+
+// Response (read-only)
 {
-  "table_name": "string",
-  "description": "string",
-  "schema": {
-    "columns": [
-      { "id": "string", "label": "string", "type": "text|number|date|boolean" }
-    ]
-  },
-  "sample_data": [
-    { "column_id": "value", ... }
-  ]
-}`;
+  "success": true,
+  "data": {
+    "answer": "3 students have no value for Assignment 2: Dan Cohen, Noa Levi, Yossi Mizrahi.",
+    "evidence": { "rows": [{ "rowKey": "r-17", "representativeLabel": "Dan Cohen" }, { "rowKey": "r-04", "representativeLabel": "Noa Levi" }, { "rowKey": "r-22", "representativeLabel": "Yossi Mizrahi" }] }
+  }
+}
 
-const userPrompt = `Create a table schema for: ${prompt}`;
+// Response (write proposal — requires confirmation)
+{
+  "success": true,
+  "data": {
+    "pendingAction": {
+      "actionId": "act_8f2e...",
+      "kind": "updateCellsBatch",
+      "summary": "Set status to \"Absent\" for 1 row",
+      "updates": [{ "rowKey": "r-17", "columnKey": "status", "value": "Absent" }]
+    }
+  }
+}
 ```
 
 ---
 
-## Type Definitions
+## 5. Pillar 3: Multi-Entity Batch Voice Entry
+
+### 5.1 Use Case
+
+> Transcript: **"Dan 85, Noa 90, Yossi 78"** → three cell writes in one API roundtrip, targeting the active column.
+
+This extends the existing `/api/parse` single-entry flow (`docs/05_VOICE_PIPELINE.md`) without replacing it: the batch parser detects multi-entity utterances and fans out.
+
+### 5.2 Pipeline Sequence
+
+```mermaid
+sequenceDiagram
+    participant H as useVoiceEntry (client)
+    participant W as POST /api/transcribe (Whisper)
+    participant B as POST /api/parse-batch
+    participant O as gpt-4o-mini (Structured Output)
+    participant M as Matching Engine (lib/server/matching)
+    participant C as Client Confirmation UI
+
+    H->>W: audio blob
+    W-->>H: "Dan 85, Noa 90, Yossi 78"
+    H->>B: { transcript, tableId, activeColumnKey }
+    B->>O: extract entries[] (entityText + rawValue)
+    Note over O: LLM segments the utterance ONLY —\nno entity IDs, no row targeting
+    O-->>B: [{ entityText: "Dan", rawValue: "85" }, ...]
+    B->>M: fuzzy + phonetic match each entityText\nagainst the table's entity labels
+    M-->>B: per-entry { entityId?, rowKey?, matchConfidence, candidates[] }
+    B->>B: value parsing per ColumnType (lib/server/parsers)
+    B-->>H: { entries: [...routed by confidence...] }
+    H->>C: render batch confirmation strip
+    C->>C: auto-commit high-confidence rows,\ninline-resolve ambiguous ones
+    C-->>B: confirmed writes → batch mutation → advancePointer
+```
+
+**Division of labor:** the LLM does *segmentation* ("split this utterance into (name, value) pairs"); the local matching engine (`fastest-levenshtein` + `soundex-code`) does *resolution* against the actual entity list. This keeps resolution fast, deterministic, cheap, and language-robust (phonetic matching handles Whisper's transliteration variance for Hebrew names).
+
+### 5.3 Confidence Routing & Fallbacks
+
+| Match confidence | Behavior |
+|---|---|
+| ≥ 0.85, unique match | Auto-queue for commit (green row in confirmation strip; 2 s undo window, consistent with existing single-entry flow) |
+| 0.60 – 0.85, or 2+ close candidates | Inline disambiguation chip: "Dan → **Dan Cohen** / Dan Levi?" — one tap resolves |
+| < 0.60 | Marked unresolved; entry parked, never silently dropped or guessed |
+| Value fails `ColumnType` parse | Entry flagged with the parse error; entity match preserved so user only re-speaks the value |
+| LLM segmentation fails Zod parse | One retry; then whole transcript falls back to the single-entry `/api/parse` path |
+
+**Partial-commit semantics:** confirmed entries commit as one batch write (one transaction, one TanStack Query invalidation); unresolved entries remain visible until resolved or dismissed. `advancePointer` fires only after the successful mutation, per the smart-pointer rule.
+
+### 5.4 Batch Extraction Contract
 
 ```typescript
-interface AITableGenerationRequest {
-  prompt: string;
-  generate_sample_data?: boolean;
-  sample_row_count?: number;
-  base_list_id?: string;  // Optional: generate from existing BaseList
-}
-
-interface AITableGenerationResponse {
-  table_name: string;
-  description?: string;
-  schema: {
-    columns: Array<{
-      id: string;
-      label: string;
-      type: 'text' | 'number' | 'date' | 'boolean';
-      validation?: Record<string, any>;
-    }>;
-  };
-  sample_data?: Array<Record<string, string>>;
-  confidence: number;
-  prompt_id: string;
-}
-
-interface AIPromptHistory {
-  id: string;
-  user_id: string;
-  prompt: string;
-  response: AITableGenerationResponse;
-  accepted: boolean;
-  model: string;
-  tokens_used: number;
-  created_at: string;
-}
-
-interface SchemaValidationError {
-  field: string;
-  message: string;
-  suggestion?: string;
-}
+export const BatchExtractionSchema = z.object({
+  entries: z.array(z.object({
+    entityText: z.string().min(1),   // as heard, e.g. "Yossi"
+    rawValue: z.string().min(1),     // as heard, e.g. "78"
+  })).min(1).max(30),
+});
 ```
 
----
-
-## Implementation Checklist
-
-**AI Integration:**
-- [ ] Set up OpenAI API client
-- [ ] Create GPT-4 prompt template for schema generation
-- [ ] Implement structured output parsing (JSON mode)
-- [ ] Add validation layer for AI-generated schemas
-- [ ] Implement retry logic for malformed responses (max 3 retries)
-- [ ] Add fallback to GPT-4o-mini for cost optimization
-- [ ] Handle API errors gracefully
-
-**API Route:**
-- [ ] POST `/api/ai/generate-table-schema`
-- [ ] Validate prompt input (min 10 chars, max 500 chars)
-- [ ] Rate limiting (5 requests/minute per user)
-- [ ] Call OpenAI API with schema generation prompt
-- [ ] Parse and validate JSON response
-- [ ] Return sanitized schema
-- [ ] Log prompt and response to database
-
-**UI Components:**
-- [ ] AI prompt input modal with example prompts
-- [ ] "Generate with AI" button in table creator
-- [ ] Schema preview/edit interface
-- [ ] Sample data preview table
-- [ ] Confidence score indicator
-- [ ] Accept/Regenerate/Edit actions
-- [ ] Loading spinner during generation
-- [ ] Error handling UI
-
-**Prompt Engineering:**
-- [ ] Design system prompt for table schema inference
-- [ ] Include 5-10 examples of well-formed schemas
-- [ ] Handle edge cases (ambiguous prompts, invalid types)
-- [ ] Add JSON schema validation
-- [ ] Test with various prompt styles (formal, casual, technical)
-
-**Validation:**
-- [ ] Validate AI response matches expected schema
-- [ ] Check for required fields (table_name, columns)
-- [ ] Validate column types are allowed values
-- [ ] Ensure column IDs are unique
-- [ ] Check for SQL injection patterns in generated IDs
-
-**Cost Management:**
-- [ ] Track API usage per user
-- [ ] Implement monthly usage quotas (free: 10, pro: 100, enterprise: unlimited)
-- [ ] Cache similar prompts (fuzzy matching)
-- [ ] Monitor token consumption
-- [ ] Estimate cost before API call
-- [ ] Show remaining quota in UI
-
-**Testing:**
-- [ ] Test with various prompt types (simple, complex, ambiguous)
-- [ ] Test sample data generation
-- [ ] Test error handling (API timeout, malformed response)
-- [ ] Test rate limiting
-- [ ] Load test: 100 concurrent requests
-- [ ] Test with non-English prompts (future)
-
-**Analytics:**
-- [ ] Track prompt acceptance rate
-- [ ] Track most common prompt patterns
-- [ ] Monitor schema quality (user edits after generation)
-- [ ] A/B test different system prompts
+All committed cells are written with `entrySource: 'VOICE'`.
 
 ---
 
-**Estimated Effort:** 3 weeks  
-**Dependencies:** OpenAI API key, Usage tracking system
+## 6. Database & Schema Considerations
+
+### 6.1 Alignment with Existing Prisma Models
+
+The three pillars require **no changes** to the core data model:
+
+| Prisma model | Role in the AI system |
+|---|---|
+| `BaseList` (`base_lists`) | `@Mention` target; its `schema` Json + `name` are the Schema Agent's retrieval unit; ownership via `userId` / `organizationId` |
+| `ListEntity` (`list_entities`) | Source of entity labels (`values` Json) for the batch parser's matching corpus, scoped by `baseListId` |
+| `Table` (`tables`) | Created by Pillar 1 (`name`, `description`, `baseListId`, `representativeColumnKey`, `schema`, `settings`); scope boundary for Pillars 2–3 |
+| `TableColumn` (`table_columns`) | Drafted by Pillar 1 (`key`, `label`, `type: ColumnType`, `order`); the Grid Agent's tool-arg validation source; `@@unique([tableId, key])` backs draft-time key dedup |
+| `TableCell` (`table_cells`) | Write target for Pillars 2–3; upserts key on `@@unique([tableId, rowKey, tableColumnId])`; `entityId` links resolved entities; `entrySource` records provenance |
+| `EntityEmbedding` (`entity_embeddings`) | Optional Phase-4 upgrade path: semantic entity matching when fuzzy/phonetic confidence is low |
+
+### 6.2 Access-Pattern Notes
+
+- `queryGridData` filters resolve to indexed lookups: `@@index([tableId, tableColumnId])` for column-scoped scans, `@@index([tableId, rowKey])` for row assembly.
+- Batch cell writes use `createMany`/upsert loops inside one transaction; 100-update cap keeps transactions short.
+- The Context Resolver's `BaseList` fetch is a single `findFirst` on the primary key + ownership predicate — no joins into `ListEntity` unless the batch parser needs the label corpus (which should be served from the existing server cache in `lib/server/cache/`).
+
+### 6.3 Proposed (Optional) Schema Additions — require approval before migration
+
+1. **`EntrySource` extension:** add `AI` to the enum so Grid Agent writes are distinguishable from `MANUAL` in provenance/auditing. Low-risk additive enum migration.
+2. **`AiInteraction` audit model** (Phase 3+): `{ id, userId, agent ('SCHEMA' | 'GRID' | 'BATCH_PARSE'), prompt, response Json, accepted Boolean, inputTokens Int, outputTokens Int, createdAt }` mapped to `ai_interactions`, with RLS mirroring `tables`. Powers cost tracking, acceptance-rate analytics, and prompt regression testing. Not required for MVP — structured logs via `lib/shared/monitoring/` suffice initially.
+
+Per `docs/.claude/rules/database.md`: neither addition ships without explicit approval and a corresponding `docs/03_DATABASE.md` update.
+
+---
+
+## 7. Implementation Milestones & Phasing
+
+### Phase 1 — Foundations & Schema Agent (Week 1–2)
+
+- [ ] `lib/shared/types/ai.ts`: Zod contracts (`TableDraftSchema`, `BatchExtractionSchema`, tool-arg schemas)
+- [ ] `lib/server/services/ai-context.ts`: Context Resolver (mention → minimal metadata, ownership-checked)
+- [ ] `lib/server/services/ai-schema-agent.ts`: prompt template + structured-output call + retry logic
+- [ ] `POST /api/ai/schema-agent` route (auth, rate limit, envelope)
+- [ ] `@Mention` autocomplete component + prompt bar (chips → `mentions[]`)
+- [ ] Draft preview/edit UI → confirm via existing `POST /api/tables`
+- [ ] Unit tests: draft validation, guardrail overrides (baseListId injection, key dedup); MSW-mocked OpenAI
+
+### Phase 2 — Batch Voice Parser (Week 3)
+
+- [ ] `POST /api/parse-batch` + `lib/server/services/batch-parse.ts` (segmentation call)
+- [ ] Integrate `lib/server/matching/` for per-entry resolution + confidence routing table (§5.3)
+- [ ] Value parsing per `ColumnType` via `lib/server/parsers/`
+- [ ] Client: batch confirmation strip in the voice flow (auto-commit / disambiguate / park)
+- [ ] Batch mutation with optimistic updates; `advancePointer` on success only
+- [ ] Fallback path to single-entry `/api/parse`; e2e Playwright flow for "Dan 85, Noa 90, Yossi 78"
+
+### Phase 3 — Grid Agent (Week 4–5)
+
+- [ ] Tool definitions + executors: `queryGridData`, `getGridSummary` (read-only first)
+- [ ] `POST /api/ai/grid-agent` agent loop (max 3 tool rounds, columnKey validation)
+- [ ] Grid chat UI panel scoped to active table
+- [ ] `updateCellsBatch` executor + pending-action cache + `POST /api/ai/grid-agent/execute`
+- [ ] Confirmation dialog with cell-diff preview; transaction + invalidation on confirm
+- [ ] Integration tests: tool-arg injection resistance (tableId override, unknown columnKey), batch caps
+
+### Phase 4 — Hardening & Extensions (Week 6+)
+
+- [ ] Token/cost telemetry via `lib/shared/monitoring/`; per-user quotas
+- [ ] `AiInteraction` audit model + acceptance-rate analytics (pending approval, §6.3)
+- [ ] `EntrySource.AI` enum addition (pending approval)
+- [ ] Voice entry point for the Schema Agent (reuse `useVoiceEntry` transcript → prompt)
+- [ ] Expose Grid Agent tools over MCP (align with `docs/features/12MCP.md`)
+- [ ] `EntityEmbedding`-backed semantic fallback for low-confidence entity matches
+
+### Exit Criteria per Phase
+
+| Phase | Done when |
+|---|---|
+| 1 | A prompt with one `@Mention` yields a valid, editable draft that creates a correctly linked `Table` + `TableColumn[]` ≥ 95% of attempts in test-prompt suite |
+| 2 | 10-entity transcript resolves with zero silent misassignments; ambiguous entries always surface for disambiguation |
+| 3 | No write ever executes without confirmation; injection tests (tableId/columnKey tampering) all pass |
+| 4 | Cost per active user observable; audit trail queryable |
+
+---
+
+*End of AI Agent System Spec*

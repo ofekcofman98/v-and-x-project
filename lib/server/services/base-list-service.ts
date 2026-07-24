@@ -3,6 +3,7 @@ import { Prisma, OrgRole } from "@/lib/shared/generated/prisma/client";
 import { ownershipWhere } from "@/lib/server/services/auth";
 import { getUserRoleInOrg, filterBaseListSchemaAndEntities } from "@/lib/server/services/column-access";
 import { ColumnAccessUpdate } from "@/lib/shared/types/column-access";
+import { isIdentityColumn } from "@/lib/shared/utils/identity-column";
 
 type ColumnType = "TEXT" | "NUMBER" | "DATE" | "BOOLEAN";
 
@@ -159,13 +160,6 @@ export async function listAppliedTemplates(userId: string, organizationIds: stri
     auto_sync: entry.autoSync,
     applied_at: entry.appliedAt,
   }));
-}
-
-const IDENTITY_COLUMN_KEYS = new Set(["name", "id", "identifier", "key"]);
-
-function isIdentityColumn(col: { id: string; label: string }): boolean {
-  const norm = (s: string) => s.toLowerCase().trim();
-  return IDENTITY_COLUMN_KEYS.has(norm(col.id)) || IDENTITY_COLUMN_KEYS.has(norm(col.label));
 }
 
 interface ApplyTemplateInput {
