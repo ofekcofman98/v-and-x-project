@@ -8,6 +8,7 @@ export interface UseGridBuilderOptions {
     initialColumns?: ColumnDef[];
     initialRows?: RowData[];
     initialName?: string;
+    initialDescription?: string;
 }
 
 /**
@@ -16,7 +17,7 @@ export interface UseGridBuilderOptions {
  */
 export function useGridBuilder(options?: UseGridBuilderOptions) {
     const [name, setName] = useState(options?.initialName ?? '');
-    const [description, setDescription] = useState('');
+    const [description, setDescription] = useState(options?.initialDescription ?? '');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { toast } = useToast();
 

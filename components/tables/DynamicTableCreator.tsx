@@ -22,6 +22,8 @@ import { Database, X } from 'lucide-react';
 
 import { cn } from '@/lib/shared/utils/cn';
 import { useColumnTemplateStore } from '@/lib/client/stores/column-template-store';
+import type { TableDraft } from '@/lib/shared/types/ai';
+import { draftToColumnDefs } from '@/lib/shared/utils/table-draft';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   education:  '🎓',
@@ -35,22 +37,40 @@ const CATEGORY_EMOJI: Record<string, string> = {
 interface DynamicTableCreatorProps {
   onClose: () => void;
   onSuccess?: (tableId: string) => void;
+  /** Seeds the builder with a Schema Agent draft (docs/features/03_ai_table_agent.md §3). */
+  initialDraft?: TableDraft;
 }
 
-export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorProps) {
+export function DynamicTableCreator({ onClose, onSuccess, initialDraft }: DynamicTableCreatorProps) {
   const { toast } = useToast();
-  
+
   const {
     state: { name: tableName, description, isSubmitting, columns, rows },
     setters: { setName: setTableName, setDescription, setIsSubmitting, setColumns, setRows },
     gridActions
-  } = useGridBuilder({});
+  } = useGridBuilder({
+    initialName: initialDraft?.name,
+    initialDescription: initialDraft?.description ?? undefined,
+    initialColumns: initialDraft && !initialDraft.baseListId ? draftToColumnDefs(initialDraft).columns : undefined,
+  });
 
   const { templates, isLoading: templatesLoading, fetchTemplates } = useColumnTemplateStore();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedBaseListId, setSelectedBaseListId] = useState<string | null>(null);
   const [tableMetadata, setTableMetadata] = useState<TableMetadata>({});
-  const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(null);
+  const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(
+    initialDraft && !initialDraft.baseListId ? draftToColumnDefs(initialDraft).representativeColumnId : null
+  );
+
+  // Seed a base-list-bound draft: injects the mentioned BaseList's locked
+  // columns/rows, then appends the AI-drafted columns after them.
+  useEffect(() => {
+    if (initialDraft?.baseListId) {
+      handleBaseListSelect(initialDraft.baseListId, draftToColumnDefs(initialDraft).columns);
+    }
+    // Only run once on mount for the seeded draft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [accessModalColumnId, setAccessModalColumnId] = useState<string | null>(null);
   const accessModalColumn = columns.find((col) => col.id === accessModalColumnId) ?? null;
 
@@ -80,11 +100,11 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
    * Handle Base List selection - Inject columns and rows
   */
 
-  const handleBaseListSelect = async (baseListId: string) => {
+  const handleBaseListSelect = async (baseListId: string, extraColumns: ColumnDef[] = []) => {
     try {
       const response = await fetch(`/api/base-lists/${baseListId}`);
       if (!response.ok) throw new Error('Failed to fetch base list');
-      
+
       const { data: baseList } = await response.json();
 
       const injectedColumns: ColumnDef[] = baseList.schema.columns.map((col: { id: string; label: string; type: string }) => ({
@@ -102,7 +122,12 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
       const activeTemplateCols = columns.filter(
         (col) => col.metadata?.source === 'template'
       );
-      setColumns([...injectedColumns, ...activeTemplateCols]);
+      // De-duplicate extraColumns (e.g. AI-drafted columns) against injected base-list column ids
+      const occupiedIds = new Set(injectedColumns.map((col) => col.id));
+      const dedupedExtraColumns = extraColumns.map((col) =>
+        occupiedIds.has(col.id) ? { ...col, id: `${col.id}_ai` } : col
+      );
+      setColumns([...injectedColumns, ...dedupedExtraColumns, ...activeTemplateCols]);
 
       const injectedRows: RowData[] = baseList.entities?.map((entity: { id: string; values: Record<string, string> }) => ({
         id: entity.id,
