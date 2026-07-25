@@ -75,22 +75,32 @@ export function DynamicTableCreator({ onClose, onSuccess, initialDraft }: Dynami
   const accessModalColumn = columns.find((col) => col.id === accessModalColumnId) ?? null;
 
   /**
-   * Auto-select first TEXT column as representative if none is selected
+   * When bound to a BaseList, only that BaseList's (locked) columns are
+   * valid voice-matching keys — drafted/manually-added table columns are
+   * never eligible representative columns.
+   */
+  const isBaseListBound = Boolean(tableMetadata.baseListId);
+  const representativeEligibleColumns = isBaseListBound
+    ? columns.filter((col) => col.metadata?.source === 'base_list')
+    : columns;
+  const representativeEligibleColumnIds = isBaseListBound
+    ? new Set(representativeEligibleColumns.map((col) => col.id))
+    : undefined;
+
+  /**
+   * Auto-select first eligible TEXT column as representative if none is
+   * selected, or if the current selection is no longer eligible/text.
    */
   useEffect(() => {
-    if (!representativeColumnId && columns.length > 0) {
-      const firstTextColumn = columns.find(col => col.type === 'text');
-      if (firstTextColumn) {
-        setRepresentativeColumnId(firstTextColumn.id);
-      }
-    }
-    
     const currentRepColumn = columns.find(col => col.id === representativeColumnId);
-    if (representativeColumnId && (!currentRepColumn || currentRepColumn.type !== 'text')) {
-      const firstTextColumn = columns.find(col => col.type === 'text');
+    const isCurrentEligible = !isBaseListBound || currentRepColumn?.metadata?.source === 'base_list';
+
+    if (!representativeColumnId || !currentRepColumn || currentRepColumn.type !== 'text' || !isCurrentEligible) {
+      const firstTextColumn = representativeEligibleColumns.find(col => col.type === 'text');
       setRepresentativeColumnId(firstTextColumn?.id || null);
     }
-  }, [columns, representativeColumnId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns, representativeColumnId, isBaseListBound]);
 
   useEffect(() => {
     fetchTemplates();
@@ -442,6 +452,7 @@ export function DynamicTableCreator({ onClose, onSuccess, initialDraft }: Dynami
               rows={rows}
               representativeColumnId={representativeColumnId}
               onRepresentativeColumnChange={handleRepresentativeColumnChange}
+              representativeEligibleColumnIds={representativeEligibleColumnIds}
               onAccessClick={setAccessModalColumnId}
               {...gridActions}
             />

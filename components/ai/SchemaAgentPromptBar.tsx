@@ -4,6 +4,10 @@
  * Prompt bar for the Schema Agent — natural language table creation with
  * `@Mention` autocomplete over the user's BaseLists.
  * Implements: docs/features/03_ai_table_agent.md §3.5
+ *
+ * The textarea only ever displays clean `@Name` text — mention ids are
+ * tracked separately in `mentionChips` state and cross-referenced against
+ * the visible text (via `resolveMentions`) to build the API payload.
  */
 
 import { useMemo, useRef, useState } from 'react';
@@ -12,9 +16,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useBaseListsQuery } from '@/lib/client/hooks/use-base-lists';
 import {
   findActiveMentionQuery,
-  insertMentionToken,
-  parseMentions,
-  removeMentionToken,
+  insertMentionText,
+  removeMentionText,
+  resolveMentions,
+  type MentionChip,
 } from '@/lib/shared/utils/mentions';
 import { MentionAutocomplete, baseListToMentionItem } from './MentionAutocomplete';
 import { Sparkles, X } from 'lucide-react';
@@ -33,13 +38,14 @@ interface SchemaAgentPromptBarProps {
 
 export function SchemaAgentPromptBar({ onSubmit, isLoading, error, onRetry }: SchemaAgentPromptBarProps) {
   const [raw, setRaw] = useState('');
+  const [mentionChips, setMentionChips] = useState<MentionChip[]>([]);
   const [activeQuery, setActiveQuery] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: baseLists = [] } = useBaseListsQuery();
 
-  const { chips, prompt: displayPrompt } = useMemo(() => parseMentions(raw), [raw]);
+  const { chips, mentions } = useMemo(() => resolveMentions(raw, mentionChips), [raw, mentionChips]);
 
   const suggestions = useMemo(() => {
     if (activeQuery === null) return [];
@@ -66,8 +72,9 @@ export function SchemaAgentPromptBar({ onSubmit, isLoading, error, onRetry }: Sc
   function handleSelectSuggestion(item: { id: string; name: string }) {
     const el = textareaRef.current;
     const caretPos = el?.selectionStart ?? raw.length;
-    const { next, nextCaret } = insertMentionToken(raw, caretPos, activeQuery ?? '', item);
+    const { next, nextCaret } = insertMentionText(raw, caretPos, activeQuery ?? '', item);
     setRaw(next);
+    setMentionChips((prev) => (prev.some((c) => c.id === item.id) ? prev : [...prev, item]));
     setActiveQuery(null);
     requestAnimationFrame(() => {
       el?.focus();
@@ -76,7 +83,10 @@ export function SchemaAgentPromptBar({ onSubmit, isLoading, error, onRetry }: Sc
   }
 
   function handleRemoveChip(id: string) {
-    setRaw((prev) => removeMentionToken(prev, id));
+    const chip = mentionChips.find((c) => c.id === id);
+    if (!chip) return;
+    setRaw((prev) => removeMentionText(prev, chip.name));
+    setMentionChips((prev) => prev.filter((c) => c.id !== id));
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -109,15 +119,14 @@ export function SchemaAgentPromptBar({ onSubmit, isLoading, error, onRetry }: Sc
     }
   }
 
-  const promptLength = displayPrompt.trim().length;
+  const promptLength = raw.trim().length;
   const isTooShort = promptLength < MIN_PROMPT_LENGTH;
   const isTooLong = promptLength > MAX_PROMPT_LENGTH;
   const canSubmit = !isTooShort && !isTooLong && !isLoading;
 
   function handleSubmit() {
     if (!canSubmit) return;
-    const { prompt, mentions } = parseMentions(raw);
-    onSubmit({ prompt, mentions });
+    onSubmit({ prompt: raw.trim(), mentions });
   }
 
   return (

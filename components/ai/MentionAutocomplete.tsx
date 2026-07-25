@@ -28,7 +28,7 @@ export function baseListToMentionItem(list: BaseListDTO): MentionAutocompleteIte
 export function MentionAutocomplete({ items, activeIndex, onSelect, onHoverIndex }: MentionAutocompleteProps) {
   if (items.length === 0) {
     return (
-      <div className="absolute z-20 mt-1 w-72 rounded-md border bg-popover p-3 text-sm text-muted-foreground shadow-md">
+      <div className="absolute z-50 mt-1 w-72 rounded-md border bg-popover p-3 text-sm text-muted-foreground shadow-xl">
         No base lists match
       </div>
     );
@@ -37,7 +37,7 @@ export function MentionAutocomplete({ items, activeIndex, onSelect, onHoverIndex
   return (
     <ul
       role="listbox"
-      className="absolute z-20 mt-1 w-72 max-h-64 overflow-auto rounded-md border bg-popover py-1 shadow-md"
+      className="absolute z-50 mt-1 w-72 max-h-64 overflow-auto rounded-md border bg-popover py-1 shadow-xl"
     >
       {items.map((item, index) => (
         <li key={item.id} role="option" aria-selected={index === activeIndex}>

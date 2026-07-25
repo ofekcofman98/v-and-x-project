@@ -24,6 +24,12 @@ interface SharedBuilderGridProps {
   allowDataEntry?: boolean;
   /** Show the representative-column ("Voice Key") picker UI. Defaults to true. */
   showRepresentativeColumn?: boolean;
+  /**
+   * Restricts which columns can be set as the representative column, e.g. when
+   * a table is bound to a BaseList only that BaseList's (locked) columns are
+   * valid voice-matching keys. Omit to allow any text column (default).
+   */
+  representativeEligibleColumnIds?: Set<string>;
   /** Opens the access-control modal for a column. Omit to hide the access trigger. */
   onAccessClick?: (colId: string) => void;
 }
@@ -42,6 +48,7 @@ export function SharedBuilderGrid({
   allowRows = true,
   allowDataEntry = true,
   showRepresentativeColumn = true,
+  representativeEligibleColumnIds,
   onAccessClick,
 }: SharedBuilderGridProps) {
   
@@ -67,21 +74,28 @@ export function SharedBuilderGrid({
           <thead>
             {/* Row 1: Column Names */}
             <tr className="border-b border-slate-200">
-              {columns.map((col) => (
-                <ColumnHeaderCell
-                  key={col.id}
-                  column={col}
-                  onNameChange={(name) => onUpdateColumn(col.id, { name })}
-                  onTypeChange={(type) => onUpdateColumn(col.id, { type })}
-                  onDelete={() => onRemoveColumn(col.id)}
-                  showTypeSelector={false}
-                  isRepresentative={showRepresentativeColumn && representativeColumnId === col.id}
-                  onRepresentativeClick={
-                    showRepresentativeColumn ? () => onRepresentativeColumnChange(col.id) : undefined
-                  }
-                  onAccessClick={onAccessClick ? () => onAccessClick(col.id) : undefined}
-                />
-              ))}
+              {columns.map((col) => {
+                const isEligible =
+                  !representativeEligibleColumnIds || representativeEligibleColumnIds.has(col.id);
+
+                return (
+                  <ColumnHeaderCell
+                    key={col.id}
+                    column={col}
+                    onNameChange={(name) => onUpdateColumn(col.id, { name })}
+                    onTypeChange={(type) => onUpdateColumn(col.id, { type })}
+                    onDelete={() => onRemoveColumn(col.id)}
+                    showTypeSelector={false}
+                    isRepresentative={showRepresentativeColumn && representativeColumnId === col.id}
+                    onRepresentativeClick={
+                      showRepresentativeColumn && isEligible
+                        ? () => onRepresentativeColumnChange(col.id)
+                        : undefined
+                    }
+                    onAccessClick={onAccessClick ? () => onAccessClick(col.id) : undefined}
+                  />
+                );
+              })}
               <th className="w-12 bg-slate-50 border-l border-slate-200">
                 <div className="flex items-center justify-center p-2">
                   <Button
