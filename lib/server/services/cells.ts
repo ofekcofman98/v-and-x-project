@@ -12,6 +12,17 @@ export interface UpsertCellInput {
   entrySource?: EntrySource;
 }
 
+export interface UpsertCellsBatchInput {
+  tableId: string;
+  userId: string;
+  writes: Array<{
+    rowKey: string;
+    tableColumnId: string;
+    value: string | number | boolean | null;
+  }>;
+  entrySource?: EntrySource;
+}
+
 export interface GetCellsInput {
     tableId: string;
     userId: string;
@@ -166,4 +177,81 @@ export async function upsertCell(input: UpsertCellInput) {
   });
 
   return cell;
+}
+
+/**
+ * Batch-upserts multiple cell writes in a single transaction (one round-trip,
+ * one point of failure) — used by the Multi-Entity Batch Voice Entry flow so
+ * a confirmed batch commits atomically and triggers exactly one TanStack
+ * Query invalidation on the client.
+ * docs/features/03_ai_table_agent.md §5.3 (partial-commit semantics)
+ *
+ * @throws Error if the table doesn't exist, or if any write targets a
+ * column that doesn't exist, belongs to a different table, or is
+ * inaccessible to the user — no partial commit occurs in that case.
+ */
+export async function upsertCellsBatch(input: UpsertCellsBatchInput) {
+  const { tableId, userId, writes, entrySource = EntrySource.VOICE } = input;
+
+  if (writes.length === 0) return [];
+
+  const table = await prisma.table.findUnique({
+    where: { id: tableId },
+    select: { id: true, userId: true, organizationId: true },
+  });
+
+  if (!table) {
+    throw new Error(`Table with ID ${tableId} not found`);
+  }
+
+  const isOwner = table.userId === userId;
+  const role = table.organizationId ? await getUserRoleInOrg(userId, table.organizationId) : null;
+
+  const columnIds = [...new Set(writes.map((w) => w.tableColumnId))];
+  const columns = await prisma.tableColumn.findMany({
+    where: { id: { in: columnIds } },
+    select: { id: true, tableId: true, access: true },
+  });
+  const columnById = new Map(columns.map((c) => [c.id, c]));
+
+  for (const columnId of columnIds) {
+    const column = columnById.get(columnId);
+    if (!column) {
+      throw new Error(`Column with ID ${columnId} not found`);
+    }
+    if (column.tableId !== tableId) {
+      throw new Error(`Column ${columnId} does not belong to table ${tableId}`);
+    }
+    if (!canAccessColumn(column, userId, isOwner, role)) {
+      throw new Error(`Forbidden: you do not have access to column ${columnId}`);
+    }
+  }
+
+  const cells = await prisma.$transaction(
+    writes.map((write) =>
+      prisma.tableCell.upsert({
+        where: {
+          tableId_rowKey_tableColumnId: {
+            tableId,
+            rowKey: write.rowKey,
+            tableColumnId: write.tableColumnId,
+          },
+        },
+        update: {
+          value: { value: write.value },
+          entrySource,
+          updatedAt: new Date(),
+        },
+        create: {
+          tableId,
+          rowKey: write.rowKey,
+          tableColumnId: write.tableColumnId,
+          value: { value: write.value },
+          entrySource,
+        },
+      })
+    )
+  );
+
+  return cells;
 }

@@ -56,10 +56,53 @@ export interface VoiceEntryResult extends ParsedResult {
 /** Standard API response envelope for the voice entry endpoint. */
 export interface VoiceEntryResponse {
   success: boolean;
-  data?: VoiceEntryResult;
+  data?: VoiceEntryResult | VoiceBatchResult;
   error?: {
     code: string;
     message: string;
     details?: unknown;
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-Entity Batch Voice Entry
+// docs/features/03_ai_table_agent.md §5
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** How a single batch entry was routed after resolution. */
+export type BatchConfidenceRoute = 'auto' | 'disambiguate' | 'unresolved' | 'parse_error';
+
+/** One resolved (or unresolved) cell write produced by the batch pipeline. */
+export interface BatchCellWrite {
+  rowKey: string | null;
+  tableColumnId: string;
+  value: unknown;
+  valueValid: boolean;
+  rawValueText: string;
+  entity: string | null;
+  entityMatch: EntityMatch | null;
+  confidenceRoute: BatchConfidenceRoute;
+  candidates?: Array<{ entity: string; rowKey: string; confidence: number }>;
+}
+
+/** Identifies which segmentation tier handled a batch voice entry request. */
+export type BatchProcessingPath = 'BATCH_LOCAL_SEGMENTATION' | 'BATCH_LLM_SEGMENTATION';
+
+/** Full processing result for a detected multi-entity batch utterance. */
+export interface VoiceBatchResult {
+  isBatch: true;
+  writes: BatchCellWrite[];
+  overflowCount: number;
+  transcript: string;
+  transcriptionDuration: number;
+  parsingDuration: number;
+  totalDuration: number;
+  pathTaken: BatchProcessingPath;
+}
+
+/** Type guard distinguishing a batch result from a single-entry ParsedResult/VoiceEntryResult. */
+export function isVoiceBatchResult(
+  result: ParsedResult | VoiceBatchResult
+): result is VoiceBatchResult {
+  return (result as VoiceBatchResult).isBatch === true;
 }

@@ -18,7 +18,12 @@
  *   error codes to status codes without embedding business logic.
  */
 
-import type { MatchType, VoiceEntryPayload, VoiceEntryResult } from '@/lib/shared/types/voice-pipeline';
+import type {
+  MatchType,
+  VoiceEntryPayload,
+  VoiceEntryResult,
+  VoiceBatchResult,
+} from '@/lib/shared/types/voice-pipeline';
 import { parseForColumn } from '@/lib/server/parsers/registry';
 import { matchAsync } from '@/lib/server/matching/matcher';
 import { entityCache } from '@/lib/server/cache/entity-recognition-cache';
@@ -32,6 +37,8 @@ import { extractEntityQuick } from './quick-extract';
 import { toParseContext } from './parse-context';
 import { buildParsePrompt, extractValueOnlyViaLLM, parseCompletion } from './llm-prompts';
 import { logPerformanceStats } from './performance-logging';
+import { looksLikeBatchUtterance } from './batch-detect';
+import { processVoiceEntryBatch, BatchSegmentationFailedError } from './batch-orchestrator';
 
 /**
  * Runs the full voice entry pipeline and returns a structured result.
@@ -45,7 +52,7 @@ import { logPerformanceStats } from './performance-logging';
 export async function processVoiceEntry(
   payload: VoiceEntryPayload,
   audioFile: File
-): Promise<VoiceEntryResult> {
+): Promise<VoiceEntryResult | VoiceBatchResult> {
   const totalStartTime = Date.now();
   const { tableSchema, activeCell, navigationMode, tableId, language } = payload;
 
@@ -86,6 +93,25 @@ export async function processVoiceEntry(
       totalDuration: Date.now() - totalStartTime,
       pathTaken: 'LLM_FALLBACK',
     };
+  }
+
+  // ── Stage 2.5: Batch detection gate ───────────────────────────────────────
+  // Must win over Stage 3.5's mid-row shortcut below: a batch of bare values
+  // in row-first mode IS that shortcut's multi-value generalization. Cost
+  // when false (the overwhelming majority) is one cheap regex scan — the
+  // single-entry cache/fast-path/LLM-fallback stages below are untouched.
+  // docs/features/03_ai_table_agent.md §5.5
+  if (looksLikeBatchUtterance(transcript)) {
+    try {
+      return await processVoiceEntryBatch(transcript, payload, {
+        transcriptionDuration,
+        totalStartTime,
+      });
+    } catch (err) {
+      if (!(err instanceof BatchSegmentationFailedError)) throw err;
+      console.warn('[VoiceEntryService] Batch segmentation failed, degrading to single-entry:', transcript);
+      // Falls through to the single-entry pipeline below.
+    }
   }
 
   // ── Stage 3: Resolve active column / row ──────────────────────────────────

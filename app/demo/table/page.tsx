@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import { DataTable } from '@/components/shared-table/DataTable';
 import { MobileTableView } from '@/components/shared-table/MobileTableView';
 import { NavigationModeToggle } from '@/components/shared-table/NavigationModeToggle';
-import { ConfirmationDialog, VoiceButton } from '@/components/voice';
+import { ConfirmationDialog, BatchConfirmationStrip, VoiceButton } from '@/components/voice';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { ColumnType } from '@/lib/shared/types/column-types';
@@ -255,6 +255,10 @@ export default function DataTableDemoPage() {
         </div>
 
         <ConfirmationDialog />
+
+        <div className="mt-4 flex justify-center">
+          <BatchConfirmationStrip tableId="demo" tableSchema={tableSchema} />
+        </div>
 
         {pendingConfirmation && (
           <div className="mt-4 max-w-md mx-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-sm">

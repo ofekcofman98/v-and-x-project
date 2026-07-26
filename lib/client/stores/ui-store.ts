@@ -6,6 +6,7 @@
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import type { BatchCellWrite } from '@/lib/shared/types/voice-pipeline';
 
 /**
  * Represents a cell position in the table
@@ -111,7 +112,13 @@ interface UIState {
   
   // Confirmation
   pendingConfirmation: PendingConfirmation | null;
-  
+
+  // Batch Confirmation — sibling to pendingConfirmation rather than a union,
+  // so existing single-entry consumers are untouched.
+  // docs/features/03_ai_table_agent.md §5
+  pendingBatchConfirmation: BatchCellWrite[] | null;
+  batchOverflowCount: number;
+
   // Continuous Flow (docs/04_STATE_MANAGEMENT.md §7)
   /** Whether the VAD continuous loop is active */
   continuousMode: boolean;
@@ -124,7 +131,11 @@ interface UIState {
   setRecordingState: (state: RecordingState) => void;
   setNavigationMode: (mode: NavigationMode) => void;
   setPendingConfirmation: (confirmation: PendingConfirmation | null) => void;
-  
+
+  setPendingBatchConfirmation: (writes: BatchCellWrite[] | null, overflowCount?: number) => void;
+  updateBatchWrite: (index: number, write: BatchCellWrite) => void;
+  removeBatchWrite: (index: number) => void;
+
   // Continuous mode actions
   /** Toggle continuous mode on/off */
   setContinuousMode: (enabled: boolean) => void;
@@ -156,6 +167,8 @@ export const useUIStore = create<UIState>()(
         recordingState: 'idle',
         navigationMode: 'column-first',
         pendingConfirmation: null,
+        pendingBatchConfirmation: null,
+        batchOverflowCount: 0,
         continuousMode: false,
         preferences: defaultPreferences,
         
@@ -167,7 +180,25 @@ export const useUIStore = create<UIState>()(
         setNavigationMode: (mode) => set({ navigationMode: mode }),
         
         setPendingConfirmation: (confirmation) => set({ pendingConfirmation: confirmation }),
-        
+
+        setPendingBatchConfirmation: (writes, overflowCount = 0) =>
+          set({ pendingBatchConfirmation: writes, batchOverflowCount: overflowCount }),
+
+        updateBatchWrite: (index, write) =>
+          set((state) => {
+            if (!state.pendingBatchConfirmation) return state;
+            const writes = [...state.pendingBatchConfirmation];
+            writes[index] = write;
+            return { pendingBatchConfirmation: writes };
+          }),
+
+        removeBatchWrite: (index) =>
+          set((state) => {
+            if (!state.pendingBatchConfirmation) return state;
+            const writes = state.pendingBatchConfirmation.filter((_, i) => i !== index);
+            return { pendingBatchConfirmation: writes.length > 0 ? writes : null };
+          }),
+
         // Continuous mode actions
         setContinuousMode: (enabled) => set({ continuousMode: enabled }),
         
@@ -215,6 +246,8 @@ export const useUIStore = create<UIState>()(
             recordingState: 'idle',
             navigationMode: 'column-first',
             pendingConfirmation: null,
+            pendingBatchConfirmation: null,
+            batchOverflowCount: 0,
             continuousMode: false,
           });
         },

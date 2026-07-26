@@ -317,37 +317,51 @@ sequenceDiagram
 
 ### 5.1 Use Case
 
-> Transcript: **"Dan 85, Noa 90, Yossi 78"** → three cell writes in one API roundtrip, targeting the active column.
+> Transcript: **"Dan 85, Noa 90, Yossi 78"** → three cell writes in one API roundtrip.
 
-This extends the existing `/api/parse` single-entry flow (`docs/05_VOICE_PIPELINE.md`) without replacing it: the batch parser detects multi-entity utterances and fans out.
+**Implementation note (supersedes the original single-endpoint framing below):** batch entry is **not** a separate opt-in mode with its own button — it reuses the existing single-entry voice pipeline (`app/api/voice-entry`, `lib/server/services/voice-entry-service/`) for both hold-to-talk and continuous-VAD (`useContinuousVoice`) recording. The backend auto-detects whether an utterance is a batch based on transcript content; the client renders 1 or N confirmation rows through the same `confirming` state. No new recording states, no new endpoint, no new button.
 
-### 5.2 Pipeline Sequence
+Crucially, what a batch utterance *means* depends on the active `NavigationMode` (`lib/client/navigation/strategies.ts`), which the original spec below did not address:
+
+- **Column-first**: the pointer's next writes are naturally different rows, same column. A batch utterance is a sequence of **`(entityText, rawValue)` pairs** — "Dan 85, Noa 90, Yossi 78" — each independently entity-resolved via the matching engine and written to the **same active column**, across matched rows. This is the shape documented in §5.2–§5.4 below.
+- **Row-first**: once the pointer is past a row's first editable column, the single-entry pipeline already knows there's no entity to resolve (`lib/server/services/voice-entry-service/row-first.ts`, `isRowFirstMidRow`) — the row is fixed by the pointer. A batch utterance here is a sequence of **bare values only** — "85, 90, 78" — applied to the **next editable columns in the current row**, in column order, starting at the active cell. If there are more spoken values than remaining columns in the row, the extras are **parked as unresolved and never spill into the next row** — the user sees a "N values didn't fit in this row" notice and can dismiss or re-speak them once the pointer naturally advances.
+
+Row-first batches skip entity resolution entirely, so they also skip the matching engine — see §5.5.
+
+### 5.2 Pipeline Sequence (column-first shape)
 
 ```mermaid
 sequenceDiagram
-    participant H as useVoiceEntry (client)
+    participant H as useVoiceEntry / useContinuousVoice (client)
     participant W as POST /api/transcribe (Whisper)
-    participant B as POST /api/parse-batch
+    participant B as POST /api/voice-entry
+    participant G as Batch Detection Gate
     participant O as gpt-4o-mini (Structured Output)
     participant M as Matching Engine (lib/server/matching)
-    participant C as Client Confirmation UI
+    participant C as Client Confirmation UI (BatchConfirmationStrip)
 
     H->>W: audio blob
     W-->>H: "Dan 85, Noa 90, Yossi 78"
-    H->>B: { transcript, tableId, activeColumnKey }
-    B->>O: extract entries[] (entityText + rawValue)
-    Note over O: LLM segments the utterance ONLY —\nno entity IDs, no row targeting
-    O-->>B: [{ entityText: "Dan", rawValue: "85" }, ...]
-    B->>M: fuzzy + phonetic match each entityText\nagainst the table's entity labels
-    M-->>B: per-entry { entityId?, rowKey?, matchConfidence, candidates[] }
+    H->>B: { transcript, tableId, activeCell, navigationMode, tableSchema }
+    B->>G: looksLikeBatchUtterance(transcript)
+    Note over G: cheap regex gate — ≥2 number tokens\nor ≥2 comma-separated numeric segments.\nRuns before the single-entry pipeline's\nexisting cache/fast-path logic so the\n(overwhelming) single-entry case pays\nno extra cost when the gate is false.
+    G-->>B: true → route to batch orchestrator
+    B->>B: local segmentation first (regex split,\nreuses extractEntityQuick patterns)
+    alt local segmentation ambiguous
+        B->>O: segment entries[] (entityText + rawValue)
+        Note over O: LLM segments the utterance ONLY —\nno entity IDs, no row targeting
+        O-->>B: [{ entityText: "Dan", rawValue: "85" }, ...]
+    end
+    B->>M: fuzzy + phonetic match each entityText\nagainst the table's entity labels (matchAsync)
+    M-->>B: per-entry { entity?, rowKey?, confidence, candidates[] }
     B->>B: value parsing per ColumnType (lib/server/parsers)
-    B-->>H: { entries: [...routed by confidence...] }
+    B-->>H: { isBatch: true, writes: [...routed by confidence...] }
     H->>C: render batch confirmation strip
     C->>C: auto-commit high-confidence rows,\ninline-resolve ambiguous ones
-    C-->>B: confirmed writes → batch mutation → advancePointer
+    C-->>B: PATCH /api/tables/[tableId]/cells/batch\n(one transaction) → pointer advances N steps
 ```
 
-**Division of labor:** the LLM does *segmentation* ("split this utterance into (name, value) pairs"); the local matching engine (`fastest-levenshtein` + `soundex-code`) does *resolution* against the actual entity list. This keeps resolution fast, deterministic, cheap, and language-robust (phonetic matching handles Whisper's transliteration variance for Hebrew names).
+**Division of labor:** local regex segmentation is tried first (no LLM cost); gpt-4o-mini is a fallback for ambiguous transcripts only, doing *segmentation* ("split this utterance into (name, value) pairs"). The local matching engine (`fastest-levenshtein` + `soundex-code`, `lib/server/matching/matcher.ts`'s `matchAsync`) does *resolution* against the actual entity list — the same call the single-entry pipeline's LLM-fallback stage already uses. This keeps resolution fast, deterministic, cheap, and language-robust (phonetic matching handles Whisper's transliteration variance for Hebrew names).
 
 ### 5.3 Confidence Routing & Fallbacks
 
@@ -357,14 +371,17 @@ sequenceDiagram
 | 0.60 – 0.85, or 2+ close candidates | Inline disambiguation chip: "Dan → **Dan Cohen** / Dan Levi?" — one tap resolves |
 | < 0.60 | Marked unresolved; entry parked, never silently dropped or guessed |
 | Value fails `ColumnType` parse | Entry flagged with the parse error; entity match preserved so user only re-speaks the value |
-| LLM segmentation fails Zod parse | One retry; then whole transcript falls back to the single-entry `/api/parse` path |
+| Local segmentation ambiguous | Falls back to gpt-4o-mini segmentation (still entity-less for row-first) before giving up |
+| LLM segmentation fails Zod parse | One retry; then whole transcript falls back to the existing single-entry pipeline logic already in `pipeline.ts` (no duplicate fallback path) |
 
-**Partial-commit semantics:** confirmed entries commit as one batch write (one transaction, one TanStack Query invalidation); unresolved entries remain visible until resolved or dismissed. `advancePointer` fires only after the successful mutation, per the smart-pointer rule.
+**Partial-commit semantics:** confirmed entries commit as one batch write (one transaction via `PATCH /api/tables/[tableId]/cells/batch`, one TanStack Query invalidation); unresolved entries remain visible until resolved or dismissed. The pointer advances (`navigationStrategies[navigationMode].getNext`, looped once per committed write, one `setActiveCell` call at the end) only after the successful mutation, per the smart-pointer rule.
 
 ### 5.4 Batch Extraction Contract
 
+Column-first (entity + value pairs, matches the original spec):
+
 ```typescript
-export const BatchExtractionSchema = z.object({
+export const EntityValueBatchExtractionSchema = z.object({
   entries: z.array(z.object({
     entityText: z.string().min(1),   // as heard, e.g. "Yossi"
     rawValue: z.string().min(1),     // as heard, e.g. "78"
@@ -372,7 +389,32 @@ export const BatchExtractionSchema = z.object({
 });
 ```
 
-All committed cells are written with `entrySource: 'VOICE'`.
+Row-first (bare values only — no entity to extract, the row is already fixed by the pointer):
+
+```typescript
+export const BareValueBatchExtractionSchema = z.object({
+  entries: z.array(z.object({
+    rawValue: z.string().min(1),     // as heard, e.g. "78"
+  })).min(1).max(30),
+});
+```
+
+Both schemas live in `lib/shared/types/voice-pipeline.ts`. All committed cells are written with `entrySource: 'VOICE'`.
+
+### 5.5 Navigation-Mode Divergence & Convergence
+
+Column-first and row-first batches diverge in **segmentation and per-entry resolution**, then converge on a single shared write/commit/pointer path:
+
+| Stage | Column-first | Row-first |
+|---|---|---|
+| Segmentation | `(entityText, rawValue)` pairs | bare `rawValue` sequence |
+| Entity resolution | `matchAsync` against `tableSchema.rows` labels (matching engine) | none — row fixed by the active cell, mirrors the single-entry `isRowFirstMidRow` shortcut |
+| Target resolution | one write per matched row, same active column | walk forward from the active column across the row's editable columns (`resolveRowFirstColumnTargets`), capping at row end |
+| Possible confidence routes | `auto` / `disambiguate` / `unresolved` / `parse_error` (4) | `auto` / `parse_error` only (2 — no entity match means no ambiguity is possible) |
+| Overflow handling | not applicable (each entry targets a distinct row) | values beyond the row's remaining editable columns are parked, never spilled into the next row |
+| Convergence point | Both produce a `BatchCellWrite[]` → one commit transaction → one pointer-advance loop → the same `BatchConfirmationStrip` UI |
+
+This keeps the two modes' genuinely different logic (segmentation shape, whether entity resolution runs at all) isolated to dedicated service files, while everything downstream — the write shape, the transaction, the cache invalidation, and the confirmation UI — is shared and nav-mode-agnostic.
 
 ---
 
@@ -420,12 +462,17 @@ Per `docs/.claude/rules/database.md`: neither addition ships without explicit ap
 
 ### Phase 2 — Batch Voice Parser (Week 3)
 
-- [ ] `POST /api/parse-batch` + `lib/server/services/batch-parse.ts` (segmentation call)
-- [ ] Integrate `lib/server/matching/` for per-entry resolution + confidence routing table (§5.3)
+**Implementation note:** reuses the existing `POST /api/voice-entry` endpoint and `lib/server/services/voice-entry-service/` pipeline rather than a new route — see §5.1–§5.5 for the full design, including the navigation-mode-dependent (column-first vs. row-first) split.
+
+- [ ] `lib/server/services/voice-entry-service/batch-detect.ts`: cheap regex gate (`looksLikeBatchUtterance`) inserted before Stage 3.5 of `pipeline.ts`
+- [ ] `batch-segmentation.ts` (local, deterministic) + `batch-llm-segmentation.ts` (gpt-4o-mini fallback) for both the entity-value (column-first) and bare-value (row-first) shapes
+- [ ] `batch-resolve.ts`: `resolveColumnFirstEntry` (integrates `lib/server/matching/matcher.ts`'s `matchAsync` + confidence routing table, §5.3) and `resolveRowFirstEntry` (no entity resolution, mirrors `row-first.ts`'s `isRowFirstMidRow` shortcut)
+- [ ] `batch-row-first.ts`: `resolveRowFirstColumnTargets` — walks editable columns from the active cell, caps + reports `overflowCount` at row end (never spills into the next row)
+- [ ] `batch-orchestrator.ts`: ties detection → segmentation → resolution into one `VoiceBatchResult`
 - [ ] Value parsing per `ColumnType` via `lib/server/parsers/`
-- [ ] Client: batch confirmation strip in the voice flow (auto-commit / disambiguate / park)
-- [ ] Batch mutation with optimistic updates; `advancePointer` on success only
-- [ ] Fallback path to single-entry `/api/parse`; e2e Playwright flow for "Dan 85, Noa 90, Yossi 78"
+- [ ] `PATCH /api/tables/[tableId]/cells/batch` + `updateCellsBatch` in `lib/client/stores/table-cell-store.ts` (one transaction, one invalidation)
+- [ ] Client: `use-voice-batch-handler.ts` (pointer-advance loop over `navigationStrategies`) + `BatchConfirmationStrip.tsx` (auto-commit / disambiguate / park / overflow notice), reusing existing single-entry confirmation chip primitives
+- [ ] Fallback path degrades to the existing single-entry pipeline logic on repeated LLM segmentation failure; e2e Playwright flows for both "Dan 85, Noa 90, Yossi 78" (column-first) and "85, 90, 78" mid-row (row-first, incl. overflow parking)
 
 ### Phase 3 — Grid Agent (Week 4–5)
 

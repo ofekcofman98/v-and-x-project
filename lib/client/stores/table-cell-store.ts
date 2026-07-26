@@ -33,6 +33,16 @@ interface TableCellState {
   /** Pass `force: true` to bypass the staleness cache (e.g. a manual refresh action). */
   fetchCells: (tableId: string, options?: { force?: boolean }) => Promise<void>;
   updateCell: (tableId: string, rowKey: string, tableColumnId: string, value: string | number | boolean | null) => Promise<void>;
+  /**
+   * Commits multiple cell writes in one transaction/one invalidation, for
+   * the Multi-Entity Batch Voice Entry flow (docs/features/03_ai_table_agent.md §5.3).
+   * Throws on failure so the caller (useVoiceBatchHandler) can decide
+   * whether to retry — the pointer must not advance on a failed commit.
+   */
+  updateCellsBatch: (
+    tableId: string,
+    writes: Array<{ rowKey: string; tableColumnId: string; value: string | number | boolean | null }>
+  ) => Promise<void>;
   getCellValue: (rowKey: string, tableColumnId: string) => string | number | boolean | null | undefined;
   clearLastUpdated: () => void;
 }
@@ -190,6 +200,81 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
   },
   
   
+  // Commit multiple cell writes in one transaction/one invalidation
+  updateCellsBatch: async (tableId, writes) => {
+    // Same UUID guard as updateCell — base-list column IDs (human-readable
+    // slugs) must never reach the API.
+    const invalid = writes.find(
+      (w) => !UUID_REGEX.test(w.rowKey) || !UUID_REGEX.test(w.tableColumnId)
+    );
+    if (invalid) {
+      set({
+        error:
+          'Cannot save: one or more selected cells use a read-only base-list column. ' +
+          'Please select a data-entry column before saving.',
+      });
+      throw new Error('Batch write targeted a non-UUID (base-list) column');
+    }
+
+    if (writes.length === 0) return;
+
+    // 1. SAVE THE PREVIOUS STATE (for rollback)
+    const previousCellData = [...get().cellData];
+
+    // 2. OPTIMISTIC UPDATE: merge all writes into local state at once
+    set((state) => {
+      let newCellData = [...state.cellData];
+
+      for (const { rowKey, tableColumnId, value } of writes) {
+        const existingIndex = newCellData.findIndex(
+          (cell) => cell.rowKey === rowKey && cell.tableColumnId === tableColumnId
+        );
+
+        if (existingIndex >= 0) {
+          newCellData[existingIndex] = { ...newCellData[existingIndex], value };
+        } else {
+          newCellData = [...newCellData, { rowKey, tableColumnId, value }];
+        }
+      }
+
+      const last = writes[writes.length - 1];
+      return {
+        cellData: newCellData,
+        lastUpdatedCell: { rowKey: last.rowKey, tableColumnId: last.tableColumnId },
+      };
+    });
+
+    // 3. SEND ONE BATCH API REQUEST
+    try {
+      const response = await fetch(`/api/tables/${tableId}/cells/batch`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ writes }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update cells: ${response.statusText}`);
+      }
+    } catch (error) {
+      // 4. ROLLBACK: If the API fails, restore previous state — no partial
+      // commit is reflected client-side either, matching the transaction's
+      // all-or-nothing server-side semantics.
+      console.error('Error updating cells (batch):', error);
+
+      set({
+        cellData: previousCellData,
+        error: error instanceof Error ? error.message : 'Failed to update cells',
+      });
+
+      throw error;
+    }
+
+    // 5. CLEAR SUCCESS INDICATOR after animation
+    setTimeout(() => {
+      get().clearLastUpdated();
+    }, 1000);
+  },
+
   // Get a cell value
   getCellValue: (rowKey, tableColumnId) => {
     const cell = get().cellData.find(

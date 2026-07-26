@@ -8,12 +8,14 @@ import { useCallback, useRef } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useVAD } from '@/lib/client/hooks/use-vad';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
-import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
+import type { ParsedResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
+import { isVoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 
 interface UseContinuousVoiceOptions {
   tableId: string;
   tableSchema: TableSchema;
   onResult: (result: ParsedResult) => void;
+  onBatchResult: (result: VoiceBatchResult) => void;
   onError: (error: Error) => void;
 }
 
@@ -26,6 +28,7 @@ export function useContinuousVoice({
   tableId,
   tableSchema,
   onResult,
+  onBatchResult,
   onError,
 }: UseContinuousVoiceOptions) {
   // VAD sensitivity must remain a reactive subscription — changes to these preferences
@@ -87,7 +90,15 @@ export function useContinuousVoice({
         }
 
         const payload = await response.json();
-        const result: ParsedResult = payload.data;
+        const result: ParsedResult | VoiceBatchResult = payload.data;
+
+        // Batch results are routed separately — see docs/features/03_ai_table_agent.md §5.
+        if (result && isVoiceBatchResult(result)) {
+          consecutiveFailuresRef.current = 0;
+          setRecordingState('confirming');
+          onBatchResult(result);
+          return;
+        }
 
         // Handle empty transcripts or hallucinations (early exit from API)
         if (!result || (!result.entity && !result.value)) {
@@ -125,6 +136,7 @@ export function useContinuousVoice({
       tableId,
       tableSchema,
       onResult,
+      onBatchResult,
       onError,
       setRecordingState,
       stopVAD,

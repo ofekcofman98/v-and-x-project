@@ -11,9 +11,11 @@ import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useVoiceEntry } from '@/lib/client/hooks/use-voice-entry';
 import { useContinuousVoice } from '@/lib/client/hooks/use-continuous-voice';
 import { useVoiceActionHandler } from '@/lib/client/hooks/use-voice-action-handler';
+import { useVoiceBatchHandler } from '@/lib/client/hooks/use-voice-batch-handler';
 import { useVoiceErrorHandler } from '@/lib/client/hooks/use-voice-error-handler';
 import { toast } from '@/components/ui/use-toast';
-import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
+import type { ParsedResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
+import { isVoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import { VoiceErrors, VoiceInputError } from '@/lib/shared/types/voice-errors';
 import { trackVoiceMetrics } from '@/lib/shared/monitoring/voice-metrics';
@@ -82,6 +84,15 @@ export function useVoicePipeline({
     onEndOfTable,
   });
 
+  // confirmBatch/resolveDisambiguation/dismissWrite are consumed directly by
+  // BatchConfirmationStrip (its own useVoiceBatchHandler instance, same
+  // store) — only the result-routing callback is needed here.
+  const { handleBatchResult } = useVoiceBatchHandler({
+    tableId,
+    tableSchema,
+    onEndOfTable,
+  });
+
   /**
    * Sends a manual recording through the voice-entry API and delegates result
    * handling to useVoiceActionHandler.
@@ -124,7 +135,15 @@ export function useVoicePipeline({
         throw new VoiceInputError(errorCode, errorMessage, true);
       }
 
-      const parsed = payload.data as ParsedResult;
+      const data = payload.data as ParsedResult | VoiceBatchResult;
+
+      if (isVoiceBatchResult(data)) {
+        trackVoiceMetrics({ phase: 'voice-entry', duration, success: true });
+        handleBatchResult(data);
+        return;
+      }
+
+      const parsed = data;
 
       if (parsed.action === 'AMBIGUOUS') {
         trackVoiceMetrics({ phase: 'voice-entry', duration, success: false, error: 'Ambiguous match' });
@@ -152,7 +171,7 @@ export function useVoicePipeline({
       trackVoiceMetrics({ phase: 'voice-entry', duration, success: true });
       await handleParsedResult(parsed);
     },
-    [tableId, tableSchema, handleParsedResult]
+    [tableId, tableSchema, handleParsedResult, handleBatchResult]
   );
 
   /**
@@ -197,6 +216,7 @@ export function useVoicePipeline({
     tableId,
     tableSchema,
     onResult: handleParsedResult,
+    onBatchResult: handleBatchResult,
     onError: handleVoiceError,
   });
 
