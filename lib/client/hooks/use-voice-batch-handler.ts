@@ -6,7 +6,7 @@
  * Based on: docs/features/03_ai_table_agent.md §5
  */
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import type { BatchCellWrite, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
@@ -46,13 +46,19 @@ export function useVoiceBatchHandler({
 
   const updateCellsBatch = useTableCellStore((s) => s.updateCellsBatch);
 
-  const handleBatchResult = useCallback(
-    (result: VoiceBatchResult) => {
-      setPendingBatchConfirmation(result.writes, result.overflowCount);
-      setRecordingState('confirming');
-    },
-    [setPendingBatchConfirmation, setRecordingState]
-  );
+  // Holds the pending auto-commit timer (see handleBatchResult below) so it
+  // can be cleared on unmount. No cancellation is needed on manual
+  // confirm/cancel — confirmBatch is a no-op once pendingBatchConfirmation
+  // is null, so a stale timer firing late is harmless.
+  const autoCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (autoCommitTimerRef.current) {
+        clearTimeout(autoCommitTimerRef.current);
+      }
+    };
+  }, []);
 
   const resolveDisambiguation = useCallback(
     (index: number, candidate: { entity: string; rowKey: string }) => {
@@ -151,6 +157,35 @@ export function useVoiceBatchHandler({
     setError,
     onEndOfTable,
   ]);
+
+  const handleBatchResult = useCallback(
+    (result: VoiceBatchResult) => {
+      setPendingBatchConfirmation(result.writes, result.overflowCount);
+      setRecordingState('confirming');
+
+      // A fully-resolved batch (every entry already 'auto') has nothing for
+      // the user to disambiguate — auto-commit it after the same delay the
+      // single-entry flow uses for its undo window, rather than waiting
+      // indefinitely for a manual "Confirm" click that a hands-free/
+      // continuous-voice flow will never produce.
+      // docs/features/03_ai_table_agent.md §5.3
+      const isFullyResolved = result.writes.every((w) => w.confidenceRoute === 'auto');
+
+      if (autoCommitTimerRef.current) {
+        clearTimeout(autoCommitTimerRef.current);
+        autoCommitTimerRef.current = null;
+      }
+
+      if (isFullyResolved && result.writes.length > 0) {
+        const { autoAdvanceDelay } = useUIStore.getState().preferences;
+        autoCommitTimerRef.current = setTimeout(() => {
+          autoCommitTimerRef.current = null;
+          void confirmBatch();
+        }, autoAdvanceDelay);
+      }
+    },
+    [setPendingBatchConfirmation, setRecordingState, confirmBatch]
+  );
 
   return { handleBatchResult, confirmBatch, resolveDisambiguation, dismissWrite };
 }
