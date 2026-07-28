@@ -8,7 +8,7 @@
 import { cn } from '@/lib/shared/utils/cn';
 import type { BaseListDTO } from '@/lib/shared/types/models';
 
-interface MentionAutocompleteItem {
+export interface MentionAutocompleteItem {
   id: string;
   name: string;
   columnCount: number;

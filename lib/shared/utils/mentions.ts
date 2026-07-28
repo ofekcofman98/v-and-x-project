@@ -72,14 +72,15 @@ export function removeMentionText(raw: string, name: string): string {
  */
 export function resolveMentions(
   raw: string,
-  chips: MentionChip[]
+  chips: MentionChip[],
+  maxMentions: number = MAX_MENTIONS
 ): { mentions: Mention[]; chips: MentionChip[] } {
   const seen = new Set<string>();
   const resolvedChips: MentionChip[] = [];
   const mentions: Mention[] = [];
 
   for (const chip of chips) {
-    if (seen.has(chip.id) || resolvedChips.length >= MAX_MENTIONS) continue;
+    if (seen.has(chip.id) || resolvedChips.length >= maxMentions) continue;
     if (!raw.includes(`@${chip.name}`)) continue;
 
     seen.add(chip.id);

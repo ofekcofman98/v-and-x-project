@@ -7,6 +7,7 @@
  * - Pillar 1: Schema Agent (@Mention table drafting) — §3
  * - Pillar 2: Grid Agent (MCP-style tool calling)     — §4
  * - Pillar 3: Batch Voice Parser (multi-entity entry) — §5
+ * - Global Agent: multi-table @Mention chat (see plan "Global BaseList Agent")
  *
  * This file lives in the shared zone (lib/shared/types/) and must remain
  * importable from both client and server code — no Node-only or OpenAI SDK
@@ -222,6 +223,96 @@ export interface GetGridSummaryResult {
     max?: number;
   }>;
 }
+
+// ═══════════════════════════════════════════════════════════
+// GLOBAL AGENT — MULTI-TABLE @MENTION CHAT CONTRACT
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * A cell write scoped to one of the mentioned BaseList's linked tables. Same
+ * shape as `CellUpdate` plus the `tableId` it targets — the Global Agent
+ * spans multiple tables per turn, so every write must say which one.
+ */
+export const GlobalCellUpdateSchema = CellUpdateSchema.extend({
+  tableId: z.uuid(),
+});
+export type GlobalCellUpdate = z.infer<typeof GlobalCellUpdateSchema>;
+
+/**
+ * Tool-arg schemas for the Global Agent — identical to their Grid Agent
+ * counterparts (`QueryGridDataArgsSchema` etc.) but with a required
+ * `tableId`, since a Global Agent turn spans every Table linked to the
+ * mentioned BaseList rather than one injected-server-side table. `tableId`
+ * here IS model-supplied — it is validated server-side against the resolved
+ * BaseList's table-id set before any tool executes (never trusted blindly).
+ */
+export const GlobalQueryGridDataArgsSchema = QueryGridDataArgsSchema.extend({
+  tableId: z.uuid(),
+});
+export type GlobalQueryGridDataArgs = z.infer<typeof GlobalQueryGridDataArgsSchema>;
+
+export const GlobalUpdateCellsBatchArgsSchema = z.object({
+  tableId: z.uuid(),
+  updates: z.array(CellUpdateSchema).min(1).max(100),
+});
+export type GlobalUpdateCellsBatchArgs = z.infer<typeof GlobalUpdateCellsBatchArgsSchema>;
+
+export const GlobalGetGridSummaryArgsSchema = z.object({
+  tableId: z.uuid(),
+});
+export type GlobalGetGridSummaryArgs = z.infer<typeof GlobalGetGridSummaryArgsSchema>;
+
+/**
+ * A write action proposed by the Global Agent. Mirrors `PendingGridAction`
+ * but its updates carry a `tableId` each (Grid Agent's `PendingGridAction`
+ * stays single-table and is untouched).
+ */
+export interface PendingGlobalAction {
+  actionId: string;
+  kind: 'updateCellsBatch';
+  summary: string;
+  updates: GlobalCellUpdate[];
+}
+
+/**
+ * Request body for `POST /api/ai/global-agent`. Exactly one `@BaseList`
+ * mention is supported today — the agent resolves it to every `Table`
+ * linked to that BaseList and routes tool calls across them.
+ */
+export const GlobalAgentTurnRequestSchema = z.object({
+  message: z.string().min(1).max(1000),
+  mentions: z.array(MentionSchema).min(1).max(1),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string(),
+      })
+    )
+    .max(20)
+    .optional(),
+});
+export type GlobalAgentTurnRequest = z.infer<typeof GlobalAgentTurnRequestSchema>;
+
+/**
+ * Request body for `POST /api/ai/global-agent/execute`. Same "actionId is
+ * the only trusted input" rule as `GridAgentExecuteRequestSchema`.
+ */
+export const GlobalAgentExecuteRequestSchema = z.object({
+  actionId: z.string().min(1),
+});
+export type GlobalAgentExecuteRequest = z.infer<typeof GlobalAgentExecuteRequestSchema>;
+
+/**
+ * Response payload for `POST /api/ai/global-agent`. Not a Zod schema —
+ * constructed server-side, not re-validated as LLM output.
+ */
+export type GlobalAgentTurnResponse =
+  | {
+      answer: string;
+      evidence?: { rows: Array<{ rowKey: string; representativeLabel: string; tableId: string }> };
+    }
+  | { pendingAction: PendingGlobalAction };
 
 // ═══════════════════════════════════════════════════════════
 // PILLAR 3 — BATCH VOICE PARSER CONTRACT
