@@ -5,26 +5,18 @@
  * `@Mention` autocomplete over the user's BaseLists.
  * Implements: docs/features/03_ai_table_agent.md §3.5
  *
- * The textarea only ever displays clean `@Name` text — mention ids are
- * tracked separately in `mentionChips` state and cross-referenced against
- * the visible text (via `resolveMentions`) to build the API payload.
+ * Mention caret/chip handling lives in the shared `useMentionInput` hook
+ * (lib/client/hooks/ai/use-mention-input.ts) — also used by GlobalChatPanel.
  */
 
-import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useBaseListsQuery } from '@/lib/client/hooks/use-base-lists';
-import {
-  findActiveMentionQuery,
-  insertMentionText,
-  removeMentionText,
-  resolveMentions,
-  type MentionChip,
-} from '@/lib/shared/utils/mentions';
-import { MentionAutocomplete, baseListToMentionItem } from './MentionAutocomplete';
+import { useBaseListsQuery } from '@/lib/client/hooks/data/use-base-lists';
+import { useMentionInput } from '@/lib/client/hooks/ai/use-mention-input';
+import { MentionAutocomplete } from './MentionAutocomplete';
 import { Sparkles, X } from 'lucide-react';
 import type { SchemaAgentRequest } from '@/lib/shared/types/ai';
-import type { SchemaAgentError } from '@/lib/client/hooks/use-schema-agent';
+import type { SchemaAgentError } from '@/lib/client/hooks/ai/use-schema-agent';
 
 const MIN_PROMPT_LENGTH = 10;
 const MAX_PROMPT_LENGTH = 500;
@@ -37,81 +29,26 @@ interface SchemaAgentPromptBarProps {
 }
 
 export function SchemaAgentPromptBar({ onSubmit, isLoading, error, onRetry }: SchemaAgentPromptBarProps) {
-  const [raw, setRaw] = useState('');
-  const [mentionChips, setMentionChips] = useState<MentionChip[]>([]);
-  const [activeQuery, setActiveQuery] = useState<string | null>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
   const { data: baseLists = [] } = useBaseListsQuery();
 
-  const { chips, mentions } = useMemo(() => resolveMentions(raw, mentionChips), [raw, mentionChips]);
-
-  const suggestions = useMemo(() => {
-    if (activeQuery === null) return [];
-    const q = activeQuery.trim().toLowerCase();
-    return baseLists
-      .filter((list) => !q || list.name.toLowerCase().includes(q))
-      .map(baseListToMentionItem)
-      .slice(0, 8);
-  }, [baseLists, activeQuery]);
-
-  const isDropdownOpen = activeQuery !== null && !isLoading;
-
-  function syncActiveQuery(value: string, caretPos: number) {
-    setActiveQuery(findActiveMentionQuery(value, caretPos));
-    setActiveIndex(0);
-  }
-
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const value = e.target.value;
-    setRaw(value);
-    syncActiveQuery(value, e.target.selectionStart ?? value.length);
-  }
-
-  function handleSelectSuggestion(item: { id: string; name: string }) {
-    const el = textareaRef.current;
-    const caretPos = el?.selectionStart ?? raw.length;
-    const { next, nextCaret } = insertMentionText(raw, caretPos, activeQuery ?? '', item);
-    setRaw(next);
-    setMentionChips((prev) => (prev.some((c) => c.id === item.id) ? prev : [...prev, item]));
-    setActiveQuery(null);
-    requestAnimationFrame(() => {
-      el?.focus();
-      el?.setSelectionRange(nextCaret, nextCaret);
-    });
-  }
-
-  function handleRemoveChip(id: string) {
-    const chip = mentionChips.find((c) => c.id === id);
-    if (!chip) return;
-    setRaw((prev) => removeMentionText(prev, chip.name));
-    setMentionChips((prev) => prev.filter((c) => c.id !== id));
-  }
+  const {
+    raw,
+    chips,
+    mentions,
+    activeIndex,
+    setActiveIndex,
+    suggestions,
+    isDropdownOpen,
+    textareaRef,
+    handleChange,
+    handleSelectSuggestion,
+    handleRemoveChip,
+    handleBlur,
+    handleMentionKeyDown,
+  } = useMentionInput({ baseLists, disabled: isLoading });
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (isDropdownOpen && suggestions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setActiveIndex((i) => (i + 1) % suggestions.length);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setActiveIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
-        return;
-      }
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleSelectSuggestion(suggestions[activeIndex]);
-        return;
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setActiveQuery(null);
-        return;
-      }
-    }
+    if (handleMentionKeyDown(e)) return;
 
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -163,7 +100,7 @@ export function SchemaAgentPromptBar({ onSubmit, isLoading, error, onRetry }: Sc
           value={raw}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onBlur={() => setTimeout(() => setActiveQuery(null), 150)}
+          onBlur={handleBlur}
           placeholder="Create a grade table for @ClassA1 with columns Test1, Test2, FinalGrade"
           disabled={isLoading}
           className="min-h-[72px]"

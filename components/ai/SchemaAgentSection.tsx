@@ -10,7 +10,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SchemaAgentPromptBar } from './SchemaAgentPromptBar';
-import { useSchemaAgentMutation } from '@/lib/client/hooks/use-schema-agent';
+import { useSchemaAgentMutation } from '@/lib/client/hooks/ai/use-schema-agent';
 import { saveSchemaAgentDraft } from '@/lib/client/utils/schema-agent-draft-storage';
 import type { SchemaAgentRequest } from '@/lib/shared/types/ai';
 

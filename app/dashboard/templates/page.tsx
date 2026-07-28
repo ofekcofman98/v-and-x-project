@@ -10,7 +10,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ColumnTemplateDTO } from '@/lib/client/stores/column-template-store';
-import { useColumnTemplatesQuery, useDeleteColumnTemplateMutation } from '@/lib/client/hooks/use-column-templates';
+import { useColumnTemplatesQuery, useDeleteColumnTemplateMutation } from '@/lib/client/hooks/data/use-column-templates';
 import { Button } from '@/components/ui/button';
 import { AppHeader } from '@/components/AppHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';

@@ -7,8 +7,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useTablesQuery, useDeleteTableMutation } from '@/lib/client/hooks/use-tables';
-import { useBaseListsQuery } from '@/lib/client/hooks/use-base-lists';
+import { useTablesQuery, useDeleteTableMutation } from '@/lib/client/hooks/data/use-tables';
+import { useBaseListsQuery } from '@/lib/client/hooks/data/use-base-lists';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';

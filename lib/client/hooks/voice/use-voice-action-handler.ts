@@ -15,7 +15,7 @@ import { logger } from '@/lib/shared/logging/client-logger';
 import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { CellPosition } from '@/lib/client/stores/ui-store';
-import { navigationStrategies } from '../navigation/strategies';
+import { navigationStrategies } from '../../navigation/strategies';
 
 interface UseVoiceActionHandlerOptions {
   tableId: string;

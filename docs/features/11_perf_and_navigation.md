@@ -41,7 +41,7 @@ Run `npm run build && npm start`, repeat the navigations from `logs_for_optimiza
 
 ### 2a. `table-cell-store.ts` — targeted fix, not a full TanStack Query migration
 
-On inspection, this store is intentionally different from the list stores above: `components/shared-table/DataTableCell.tsx` subscribes to individual cells via fine-grained Zustand selectors (`getCellValue`, `lastUpdatedCell`) to avoid re-rendering the whole grid on every voice update, and `lib/client/hooks/use-voice-action-handler.ts` calls `updateCell` directly as part of the voice pipeline's optimistic-update-with-rollback flow (per `docs/voice-pipeline.md`). That's the correct pattern for this data — rewriting it onto TanStack Query would mean re-deriving the same fine-grained subscription and optimistic-rollback behavior with no real benefit, at real risk to a working, latency-sensitive feature.
+On inspection, this store is intentionally different from the list stores above: `components/shared-table/DataTableCell.tsx` subscribes to individual cells via fine-grained Zustand selectors (`getCellValue`, `lastUpdatedCell`) to avoid re-rendering the whole grid on every voice update, and `lib/client/hooks/voice/use-voice-action-handler.ts` calls `updateCell` directly as part of the voice pipeline's optimistic-update-with-rollback flow (per `docs/voice-pipeline.md`). That's the correct pattern for this data — rewriting it onto TanStack Query would mean re-deriving the same fine-grained subscription and optimistic-rollback behavior with no real benefit, at real risk to a working, latency-sensitive feature.
 
 The actual bug matching the reported symptom was narrower: `fetchCells(tableId)` (called from `components/shared-table/DataTable.tsx`'s mount effect) refetched and reset `isLoading` unconditionally every time the table view mounted, so revisiting a table you'd just looked at replayed the "Loading table data..." state. Fixed by adding a `loadedTableId`/`fetchedAt` guard to `fetchCells` (5-minute staleness window, matching the `QueryClient` `staleTime` in `app/providers.tsx`) — `updateCell`, `getCellValue`, and the optimistic-rollback logic are unchanged.
 
@@ -73,9 +73,9 @@ The actual bug matching the reported symptom was narrower: `fetchCells(tableId)`
 ## Status
 
 - [x] `lib/query-keys.ts` populated (`tables`, `baseLists`)
-- [x] Tables list + detail pages migrated to TanStack Query (`lib/client/hooks/use-tables.ts`, `app/dashboard/tables/page.tsx`, `app/dashboard/tables/[id]/page.tsx`)
-- [x] Base Lists list + detail pages migrated to TanStack Query (`lib/client/hooks/use-base-lists.ts`, `app/dashboard/base-lists/page.tsx`, `app/dashboard/base-lists/[id]/page.tsx`)
-- [x] Column Templates list + detail pages migrated to TanStack Query (`lib/client/hooks/use-column-templates.ts`, `app/dashboard/templates/page.tsx`, `app/dashboard/templates/[id]/page.tsx`); `components/column-templates/DynamicTemplateCreator.tsx` now also invalidates the query cache on create so a newly saved template shows up immediately on the dashboard
+- [x] Tables list + detail pages migrated to TanStack Query (`lib/client/hooks/data/use-tables.ts`, `app/dashboard/tables/page.tsx`, `app/dashboard/tables/[id]/page.tsx`)
+- [x] Base Lists list + detail pages migrated to TanStack Query (`lib/client/hooks/data/use-base-lists.ts`, `app/dashboard/base-lists/page.tsx`, `app/dashboard/base-lists/[id]/page.tsx`)
+- [x] Column Templates list + detail pages migrated to TanStack Query (`lib/client/hooks/data/use-column-templates.ts`, `app/dashboard/templates/page.tsx`, `app/dashboard/templates/[id]/page.tsx`); `components/column-templates/DynamicTemplateCreator.tsx` now also invalidates the query cache on create so a newly saved template shows up immediately on the dashboard
 - [x] `npx tsc --noEmit` passes after each migration step
 - [x] API route profiling done — root cause identified as `getAuthenticatedUser()`'s per-request Supabase round-trip, not a DB query issue (see §4 above)
 - [x] `getAuthenticatedUser()` fixed with a 45s `LRUCache` keyed by the auth cookie value, cutting the per-request Supabase round-trip to once per TTL window per session (see §4 above)

@@ -8,11 +8,11 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
-import { useVoiceEntry } from '@/lib/client/hooks/use-voice-entry';
-import { useContinuousVoice } from '@/lib/client/hooks/use-continuous-voice';
-import { useVoiceActionHandler } from '@/lib/client/hooks/use-voice-action-handler';
-import { useVoiceBatchHandler } from '@/lib/client/hooks/use-voice-batch-handler';
-import { useVoiceErrorHandler } from '@/lib/client/hooks/use-voice-error-handler';
+import { useVoiceEntry } from '@/lib/client/hooks/voice/use-voice-entry';
+import { useContinuousVoice } from '@/lib/client/hooks/voice/use-continuous-voice';
+import { useVoiceActionHandler } from '@/lib/client/hooks/voice/use-voice-action-handler';
+import { useVoiceBatchHandler } from '@/lib/client/hooks/voice/use-voice-batch-handler';
+import { useVoiceErrorHandler } from '@/lib/client/hooks/voice/use-voice-error-handler';
 import { toast } from '@/components/ui/use-toast';
 import type { ParsedResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 import { isVoiceBatchResult } from '@/lib/shared/types/voice-pipeline';

@@ -1,15 +1,15 @@
 ---
 description: Voice pipeline architecture and hands-free readiness rules
-globs: lib/client/hooks/use-voice-entry.ts, lib/client/hooks/use-vad.ts, lib/client/hooks/use-continuous-voice.ts, lib/client/hooks/**
+globs: lib/client/hooks/voice/use-voice-entry.ts, lib/client/hooks/voice/use-vad.ts, lib/client/hooks/voice/use-continuous-voice.ts, lib/client/hooks/**
 ---
 
 # Voice Pipeline Rules
 
 ## Lifecycle Ownership
 
-- All audio recording logic must be abstracted into `useVoiceEntry` (`lib/client/hooks/use-voice-entry.ts`).
-- VAD (voice activity detection) logic lives in `useVad` (`lib/client/hooks/use-vad.ts`).
-- Continuous listening mode is managed by `useContinuousVoice` (`lib/client/hooks/use-continuous-voice.ts`).
+- All audio recording logic must be abstracted into `useVoiceEntry` (`lib/client/hooks/voice/use-voice-entry.ts`).
+- VAD (voice activity detection) logic lives in `useVad` (`lib/client/hooks/voice/use-vad.ts`).
+- Continuous listening mode is managed by `useContinuousVoice` (`lib/client/hooks/voice/use-continuous-voice.ts`).
 - None of this logic may live inline in a component.
 
 ## Hands-Free Support

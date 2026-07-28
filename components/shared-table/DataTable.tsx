@@ -11,7 +11,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { useToast } from '@/components/ui/use-toast';
-import { usePointerKeyboardNav } from '@/lib/client/hooks/use-pointer-keyboard-nav';
+import { usePointerKeyboardNav } from '@/lib/client/hooks/shared/use-pointer-keyboard-nav';
 import { DataTableCell } from './DataTableCell';
 import { ColumnHeaderCell } from './ColumnHeaderCell';
 import { ColumnAccessModal } from '@/components/tables/ColumnAccessModal';

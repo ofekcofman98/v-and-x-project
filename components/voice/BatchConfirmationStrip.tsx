@@ -11,7 +11,7 @@
  */
 
 import { useUIStore } from '@/lib/client/stores/ui-store';
-import { useVoiceBatchHandler } from '@/lib/client/hooks/use-voice-batch-handler';
+import { useVoiceBatchHandler } from '@/lib/client/hooks/voice/use-voice-batch-handler';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/shared/utils/cn';
 import type { TableSchema } from '@/lib/shared/types/table-schema';

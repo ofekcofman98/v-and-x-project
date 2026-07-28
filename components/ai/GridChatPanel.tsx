@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/shared/utils/cn';
 import { useGridChatStore } from '@/lib/client/stores/grid-chat-store';
-import { useGridAgentTurnMutation, type GridAgentError } from '@/lib/client/hooks/use-grid-agent';
+import { useGridAgentTurnMutation, type GridAgentError } from '@/lib/client/hooks/ai/use-grid-agent';
 import { GridActionConfirmDialog } from './GridActionConfirmDialog';
 
 interface GridChatPanelProps {

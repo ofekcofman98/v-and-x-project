@@ -108,7 +108,7 @@
 - Keep components declarative: they receive props and call handlers. The hook drives the logic.
 
 ### Voice Pipeline & Hands-Free Readiness
-- Voice Lifecycle: All audio recording logic must be abstracted into `useVoiceEntry` (`lib/client/hooks/use-voice-entry.ts`).
+- Voice Lifecycle: All audio recording logic must be abstracted into `useVoiceEntry` (`lib/client/hooks/voice/use-voice-entry.ts`).
 - Hands-Free Support: Design hooks to support both hold-to-talk and continuous-listening (VAD) modes.
 - Processing State: The UI must react to states: `idle`, `listening`, `processing`, `confirming`, `error`.
 - Smart Pointer: The logic to move the active cell (`advancePointer`) must be decoupled from the recording logic, triggered by a successful data mutation.

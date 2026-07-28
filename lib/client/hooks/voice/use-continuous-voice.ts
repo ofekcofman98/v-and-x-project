@@ -6,7 +6,7 @@
 
 import { useCallback, useRef } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
-import { useVAD } from '@/lib/client/hooks/use-vad';
+import { useVAD } from '@/lib/client/hooks/voice/use-vad';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { ParsedResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 import { isVoiceBatchResult } from '@/lib/shared/types/voice-pipeline';

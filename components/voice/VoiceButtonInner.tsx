@@ -10,7 +10,7 @@
 import React from 'react';
 import { Mic, Infinity as InfinityIcon, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useVoicePipeline } from '@/lib/client/hooks/use-voice-pipeline';
+import { useVoicePipeline } from '@/lib/client/hooks/voice/use-voice-pipeline';
 import { cn } from '@/lib/shared/utils/cn';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { TableSchema } from '@/lib/shared/types/table-schema';

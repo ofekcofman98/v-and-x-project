@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useGridChatStore } from '@/lib/client/stores/grid-chat-store';
-import { useGridAgentExecuteMutation } from '@/lib/client/hooks/use-grid-agent';
+import { useGridAgentExecuteMutation } from '@/lib/client/hooks/ai/use-grid-agent';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 
 interface GridActionConfirmDialogProps {
