@@ -16,7 +16,6 @@ import { AppHeader } from '@/components/AppHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { InlineErrorState } from '@/components/states/error-state';
 import { useToast } from '@/components/ui/use-toast';
-import { SchemaAgentSection } from '@/components/ai/SchemaAgentSection';
 import { Plus, Table as TableIcon, Trash2 } from 'lucide-react';
 
 /**
@@ -111,8 +110,6 @@ export default function TablesDashboardPage() {
               </Link>
             </div>
           </div>
-
-          <SchemaAgentSection />
 
           {error ? (
             <InlineErrorState error={error.message} onRetry={() => refetch()} />

@@ -24,6 +24,9 @@ import { cn } from '@/lib/shared/utils/cn';
 import { useColumnTemplateStore } from '@/lib/client/stores/column-template-store';
 import type { TableDraft } from '@/lib/shared/types/ai';
 import { draftToColumnDefs } from '@/lib/shared/utils/table-draft';
+import { SchemaAgentPromptBar } from '@/components/ai/SchemaAgentPromptBar';
+import { useSchemaAgentMutation } from '@/lib/client/hooks/ai/use-schema-agent';
+import { DynamicListCreator } from '@/components/base-lists/DynamicListCreator';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   education:  '🎓',
@@ -37,42 +40,55 @@ const CATEGORY_EMOJI: Record<string, string> = {
 interface DynamicTableCreatorProps {
   onClose: () => void;
   onSuccess?: (tableId: string) => void;
-  /** Seeds the builder with a Schema Agent draft (docs/features/03_ai_table_agent.md §3). */
-  initialDraft?: TableDraft;
 }
 
-export function DynamicTableCreator({ onClose, onSuccess, initialDraft }: DynamicTableCreatorProps) {
+export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorProps) {
   const { toast } = useToast();
 
   const {
     state: { name: tableName, description, isSubmitting, columns, rows },
     setters: { setName: setTableName, setDescription, setIsSubmitting, setColumns, setRows },
     gridActions
-  } = useGridBuilder({
-    initialName: initialDraft?.name,
-    initialDescription: initialDraft?.description ?? undefined,
-    initialColumns: initialDraft && !initialDraft.baseListId ? draftToColumnDefs(initialDraft).columns : undefined,
-  });
+  } = useGridBuilder({});
 
   const { templates, isLoading: templatesLoading, fetchTemplates } = useColumnTemplateStore();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedBaseListId, setSelectedBaseListId] = useState<string | null>(null);
   const [tableMetadata, setTableMetadata] = useState<TableMetadata>({});
-  const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(
-    initialDraft && !initialDraft.baseListId ? draftToColumnDefs(initialDraft).representativeColumnId : null
-  );
+  const [representativeColumnId, setRepresentativeColumnId] = useState<string | null>(null);
+  const [showNewBaseList, setShowNewBaseList] = useState(false);
 
-  // Seed a base-list-bound draft: injects the mentioned BaseList's locked
-  // columns/rows, then appends the AI-drafted columns after them.
-  useEffect(() => {
-    if (initialDraft?.baseListId) {
-      handleBaseListSelect(initialDraft.baseListId, draftToColumnDefs(initialDraft).columns);
-    }
-    // Only run once on mount for the seeded draft.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const [accessModalColumnId, setAccessModalColumnId] = useState<string | null>(null);
   const accessModalColumn = columns.find((col) => col.id === accessModalColumnId) ?? null;
+
+  /**
+   * Inline AI-draft box — populates the same live canvas directly instead of
+   * handing off to a separate route via sessionStorage.
+   * Implements: docs/features/13_ux_ia_redesign.md § New Create-Table Flow
+   */
+  const schemaAgentMutation = useSchemaAgentMutation();
+
+  const applyDraft = (draft: TableDraft) => {
+    setTableName(draft.name);
+    setDescription(draft.description ?? '');
+
+    if (draft.baseListId) {
+      // Injects the mentioned BaseList's locked columns/rows, then appends the AI-drafted columns after them.
+      handleBaseListSelect(draft.baseListId, draftToColumnDefs(draft).columns);
+    } else {
+      const { columns: draftColumns, representativeColumnId: draftRepColumnId } = draftToColumnDefs(draft);
+      setColumns(draftColumns);
+      setRepresentativeColumnId(draftRepColumnId);
+    }
+  };
+
+  useEffect(() => {
+    if (schemaAgentMutation.isSuccess) {
+      applyDraft(schemaAgentMutation.data.draft);
+      schemaAgentMutation.reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schemaAgentMutation.isSuccess, schemaAgentMutation.data]);
 
   /**
    * When bound to a BaseList, only that BaseList's (locked) columns are
@@ -117,7 +133,7 @@ export function DynamicTableCreator({ onClose, onSuccess, initialDraft }: Dynami
 
       const { data: baseList } = await response.json();
 
-      const injectedColumns: ColumnDef[] = baseList.schema.columns.map((col: { id: string; label: string; type: string }) => ({
+      const injectedColumns: ColumnDef[] = baseList.schema.columns.map((col: { id: string; label: string; type: string; validation?: Record<string, unknown> }) => ({
         id: col.id,
         name: col.label,
         type: (col.type || 'text').toLowerCase() as ColumnDef['type'],
@@ -126,6 +142,7 @@ export function DynamicTableCreator({ onClose, onSuccess, initialDraft }: Dynami
           baseListColumnId: col.id,
           locked: true,
         },
+        validation: col.validation,
       }));
 
       // Preserve any active template columns after the new base_list columns
@@ -193,11 +210,12 @@ export function DynamicTableCreator({ onClose, onSuccess, initialDraft }: Dynami
       const { data: template } = await response.json();
 
       const rawTemplateColumns = template.schema.columns.map(
-        (col: { id: string; label: string; type: string }) => ({
+        (col: { id: string; label: string; type: string; validation?: Record<string, unknown> }) => ({
           id: col.id,
           name: col.label,
           type: (col.type || 'text').toLowerCase() as ColumnDef['type'],
           metadata: { source: 'template' as const, locked: false },
+          validation: col.validation,
         })
       );
 
@@ -309,7 +327,9 @@ export function DynamicTableCreator({ onClose, onSuccess, initialDraft }: Dynami
       .map((col) => ({
         label: col.name,
         type: col.type.toUpperCase() as 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'DATE',
-        validation: col.metadata?.source === 'base_list' ? {} : undefined,
+        // Template-sourced columns carry validation rules (required/min/max/pattern)
+        // that must survive into the saved table's column schema.
+        validation: col.validation ?? undefined,
         access: col.access ?? undefined,
       }));
 
@@ -356,25 +376,38 @@ export function DynamicTableCreator({ onClose, onSuccess, initialDraft }: Dynami
     <div className="fixed inset-0 bg-background z-[100] flex w-full h-full opacity-100">
       {/* Left Sidebar */}
       <div className="w-80 border-r flex flex-col">
-        <BaseListSidebar 
+        <BaseListSidebar
           selectedId={selectedBaseListId}
           onSelect={handleBaseListSelect}
+          onCreateNew={() => setShowNewBaseList(true)}
         />
       </div>
 
       {/* Main Grid Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* AI Draft Box — inline, no navigation round-trip */}
+        <div className="border-b p-4">
+          <SchemaAgentPromptBar
+            onSubmit={(request) => schemaAgentMutation.mutate(request)}
+            isLoading={schemaAgentMutation.isPending}
+            error={schemaAgentMutation.isError ? schemaAgentMutation.error : null}
+            onRetry={() => {
+              if (schemaAgentMutation.variables) schemaAgentMutation.mutate(schemaAgentMutation.variables);
+            }}
+          />
+        </div>
+
         {/* Top Bar: Meta Info */}
         <div className="border-b p-4 space-y-3">
-          <Input 
-            name="tableName" 
-            placeholder="Table Name" 
+          <Input
+            name="tableName"
+            placeholder="Table Name"
             value={tableName}
             onChange={(e) => setTableName(e.target.value)}
           />
-          <Textarea 
-            name="description" 
-            placeholder="Description" 
+          <Textarea
+            name="description"
+            placeholder="Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -480,6 +513,15 @@ export function DynamicTableCreator({ onClose, onSuccess, initialDraft }: Dynami
           onSubmit={handleAccessSubmit}
         />
       )}
+
+      <DynamicListCreator
+        open={showNewBaseList}
+        onClose={() => setShowNewBaseList(false)}
+        onSuccess={(id) => {
+          setShowNewBaseList(false);
+          if (id) handleBaseListSelect(id);
+        }}
+      />
     </div>
   );
 }

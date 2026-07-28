@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { useColumnTemplateStore } from '@/lib/client/stores/column-template-store';
 import { useQueryClient } from '@tanstack/react-query';
@@ -17,7 +18,7 @@ import { validateGridSchema } from '@/lib/shared/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
 import { cn } from '@/lib/shared/utils/cn';
-import { ArrowLeft, Save, X, Globe, Lock } from 'lucide-react';
+import { Save, X, Globe, Lock } from 'lucide-react';
 import { CATEGORY_OPTIONS } from '@/components/templates/template-categories';
 
 interface DynamicTemplateCreatorProps {
@@ -64,8 +65,6 @@ export function DynamicTemplateCreator({
   );
   const [category, setCategory] = useState('');
   const [isPublic, setIsPublic] = useState(false);
-
-  if (!open) return null;
 
   const handleSave = async () => {
     const validationError = validateGridSchema(templateName, columns, 'Template name');
@@ -151,99 +150,80 @@ export function DynamicTemplateCreator({
   };
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
-      {/* Top Bar — mirrors DynamicListCreator */}
-      <div className="border-b border-slate-200 bg-white">
-        <div className="container max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left: back + name + description */}
-            <div className="flex items-center gap-4 min-w-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleClose}
-                className="h-8 w-8 shrink-0"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex flex-col gap-1 min-w-0">
-                <input
-                  type="text"
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder="Untitled Template"
-                  className="text-2xl font-bold bg-transparent border-none outline-none focus:ring-0 p-0 placeholder:text-slate-300"
-                  style={{ width: templateName ? `${templateName.length + 2}ch` : '16ch' }}
-                />
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Add a description..."
-                  className="text-sm text-slate-600 bg-transparent border-none outline-none focus:ring-0 p-0 placeholder:text-slate-300"
-                  style={{ width: description ? `${description.length + 2}ch` : '18ch' }}
-                />
-              </div>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) handleClose(); }}>
+      <DialogContent className="max-w-4xl w-[95vw] max-h-[85vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="border-b border-slate-200 px-6 py-4 space-y-3">
+          <DialogTitle className="sr-only">
+            {templateName ? `Edit ${templateName}` : 'Create Column Template'}
+          </DialogTitle>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-1 min-w-0">
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Untitled Template"
+                className="text-2xl font-bold bg-transparent border-none outline-none focus:ring-0 p-0 placeholder:text-slate-300"
+                style={{ width: templateName ? `${templateName.length + 2}ch` : '16ch' }}
+              />
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Add a description..."
+                className="text-sm text-slate-600 bg-transparent border-none outline-none focus:ring-0 p-0 placeholder:text-slate-300"
+                style={{ width: description ? `${description.length + 2}ch` : '18ch' }}
+              />
             </div>
 
-            {/* Right: category + public toggle + actions */}
-            <div className="flex items-center gap-4 shrink-0">
-              {/* Category picker */}
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">
-                  Category
-                </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="text-sm border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
-                >
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Public toggle */}
-              <button
-                type="button"
-                onClick={() => setIsPublic((prev) => !prev)}
-                className={cn(
-                  'flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 border transition-colors',
-                  isPublic
-                    ? 'bg-primary/10 border-primary/40 text-primary'
-                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
-                )}
-                aria-pressed={isPublic}
-              >
-                {isPublic ? (
-                  <Globe className="h-3.5 w-3.5" />
-                ) : (
-                  <Lock className="h-3.5 w-3.5" />
-                )}
-                {isPublic ? 'Public' : 'Private'}
-              </button>
-
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" onClick={handleClose} className="h-9">
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={isSubmitting} className="h-9">
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSubmitting ? 'Saving...' : 'Save Template'}
-                </Button>
-              </div>
-            </div>
+            <Button variant="ghost" size="icon" onClick={handleClose} className="h-8 w-8 shrink-0">
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-        </div>
-      </div>
 
-      {/* Grid area */}
-      <div className="flex-1 overflow-auto bg-slate-50">
-        <div className="container max-w-7xl mx-auto px-6 py-8">
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Category picker */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground whitespace-nowrap">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="text-sm border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                {CATEGORY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Public toggle */}
+            <button
+              type="button"
+              onClick={() => setIsPublic((prev) => !prev)}
+              className={cn(
+                'flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 border transition-colors',
+                isPublic
+                  ? 'bg-primary/10 border-primary/40 text-primary'
+                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+              )}
+              aria-pressed={isPublic}
+            >
+              {isPublic ? (
+                <Globe className="h-3.5 w-3.5" />
+              ) : (
+                <Lock className="h-3.5 w-3.5" />
+              )}
+              {isPublic ? 'Public' : 'Private'}
+            </button>
+          </div>
+        </DialogHeader>
+
+        {/* Grid area */}
+        <div className="flex-1 overflow-auto bg-slate-50 px-6 py-8">
           <p className="text-xs text-muted-foreground mb-4">
             Define the columns this template will provide. Sample rows below are for preview
             only and will not be saved.
@@ -259,7 +239,17 @@ export function DynamicTemplateCreator({
             {...gridActions}
           />
         </div>
-      </div>
-    </div>
+
+        <DialogFooter className="border-t border-slate-200 px-6 py-4">
+          <Button variant="ghost" onClick={handleClose} className="h-9">
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSubmitting} className="h-9">
+            <Save className="h-4 w-4 mr-2" />
+            {isSubmitting ? 'Saving...' : 'Save Template'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

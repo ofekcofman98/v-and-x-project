@@ -10,6 +10,8 @@ export interface ColumnDef {
     locked?: boolean;
   };
   access?: ColumnAccess | null;
+  /** Validation rules (required/min/max/pattern/...) carried over from a Base List or Column Template source. */
+  validation?: Record<string, unknown>;
 }
 
 export interface RowData {

@@ -9,15 +9,17 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { useBaseListStore } from '@/lib/client/stores/base-list-store';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-keys';
 import type { ColumnDef, RowData } from '@/components/shared-table/types';
 import { validateGridSchema } from '@/lib/shared/utils/table-validation';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
 import { ColumnAccessModal } from '@/components/tables/ColumnAccessModal';
 import type { ColumnAccess } from '@/lib/shared/types/column-access';
-import { Save, X, ArrowLeft } from 'lucide-react';
+import { Save, X } from 'lucide-react';
 
 /**
  * Component Props
@@ -61,7 +63,7 @@ export function DynamicListCreator({
   initialName,
 }: DynamicListCreatorProps) {
   const { toast } = useToast();
-  const { fetchLists } = useBaseListStore();
+  const queryClient = useQueryClient();
 
   const {
     state: { name: listName, description, isSubmitting, columns, rows },
@@ -78,8 +80,6 @@ export function DynamicListCreator({
   );
   const [accessModalColumnId, setAccessModalColumnId] = useState<string | null>(null);
   const accessModalColumn = columns.find((col) => col.id === accessModalColumnId) ?? null;
-
-  if (!open) return null;
 
   const handleAccessSubmit = (access: ColumnAccess) => {
     if (!accessModalColumn) return;
@@ -138,7 +138,7 @@ export function DynamicListCreator({
         description: 'List created successfully',
       });
 
-      await fetchLists();
+      queryClient.invalidateQueries({ queryKey: queryKeys.baseLists.all });
       handleClose();
       onSuccess?.(data?.id);
     } catch (error) {
@@ -164,56 +164,39 @@ export function DynamicListCreator({
   };
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
-      {/* Top Bar - Notion-style */}
-      <div className="border-b border-slate-200 bg-white">
-        <div className="container max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleClose}
-                className="h-8 w-8"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex flex-col gap-1">
-                <input
-                  type="text"
-                  value={listName}
-                  onChange={(e) => setListName(e.target.value)}
-                  placeholder="Untitled List"
-                  className="text-2xl font-bold bg-transparent border-none outline-none focus:ring-0 p-0 placeholder:text-slate-300"
-                  style={{ width: listName ? `${listName.length + 2}ch` : '12ch' }}
-                />
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Add a description..."
-                  className="text-sm text-slate-600 bg-transparent border-none outline-none focus:ring-0 p-0 placeholder:text-slate-300"
-                  style={{ width: description ? `${description.length + 2}ch` : '18ch' }}
-                />
-              </div>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) handleClose(); }}>
+      <DialogContent className="max-w-4xl w-[95vw] max-h-[85vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="border-b border-slate-200 px-6 py-4 space-y-0">
+          <DialogTitle className="sr-only">
+            {listName ? `Edit ${listName}` : 'Create Base List'}
+          </DialogTitle>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-1 min-w-0">
+              <input
+                type="text"
+                value={listName}
+                onChange={(e) => setListName(e.target.value)}
+                placeholder="Untitled List"
+                className="text-2xl font-bold bg-transparent border-none outline-none focus:ring-0 p-0 placeholder:text-slate-300"
+                style={{ width: listName ? `${listName.length + 2}ch` : '12ch' }}
+              />
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Add a description..."
+                className="text-sm text-slate-600 bg-transparent border-none outline-none focus:ring-0 p-0 placeholder:text-slate-300"
+                style={{ width: description ? `${description.length + 2}ch` : '18ch' }}
+              />
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={handleClose} className="h-9">
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={isSubmitting} className="h-9">
-                <Save className="h-4 w-4 mr-2" />
-                {isSubmitting ? 'Saving...' : 'Save List'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="flex-1 overflow-auto bg-slate-50">
-        <div className="container max-w-7xl mx-auto px-6 py-8">
+            <Button variant="ghost" size="icon" onClick={handleClose} className="h-8 w-8 shrink-0">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-auto bg-slate-50 px-6 py-8">
           <SharedBuilderGrid
             columns={columns}
             rows={rows}
@@ -225,7 +208,17 @@ export function DynamicListCreator({
             {...gridActions}
           />
         </div>
-      </div>
+
+        <DialogFooter className="border-t border-slate-200 px-6 py-4">
+          <Button variant="ghost" onClick={handleClose} className="h-9">
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSubmitting} className="h-9">
+            <Save className="h-4 w-4 mr-2" />
+            {isSubmitting ? 'Saving...' : 'Save List'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
 
       {accessModalColumn && (
         <ColumnAccessModal
@@ -236,6 +229,6 @@ export function DynamicListCreator({
           onSubmit={handleAccessSubmit}
         />
       )}
-    </div>
+    </Dialog>
   );
 }

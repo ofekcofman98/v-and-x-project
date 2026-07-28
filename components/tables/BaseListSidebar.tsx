@@ -5,24 +5,21 @@
  * Implements: docs/logs/REFACTOR_TABLE_CREATOR.md §2.2
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Database, Search } from 'lucide-react';
-import { useBaseListStore } from '@/lib/client/stores/base-list-store';
+import { useBaseListsQuery } from '@/lib/client/hooks/data/use-base-lists';
 
 interface BaseListSidebarProps {
   selectedId: string | null;
   onSelect: (baseListId: string) => void;
+  onCreateNew: () => void;
 }
 
-export function BaseListSidebar({ selectedId, onSelect }: BaseListSidebarProps) {
-  const { lists, isLoading, fetchLists } = useBaseListStore();
+export function BaseListSidebar({ selectedId, onSelect, onCreateNew }: BaseListSidebarProps) {
+  const { data: lists = [], isLoading } = useBaseListsQuery();
   const [search, setSearch] = useState('');
-
-  useEffect(() => {
-    fetchLists();
-  }, [fetchLists]);
 
   const filtered = lists.filter((list) =>
     list.name.toLowerCase().includes(search.toLowerCase())
@@ -85,7 +82,7 @@ export function BaseListSidebar({ selectedId, onSelect }: BaseListSidebarProps) 
 
       {/* Footer */}
       <div className="p-4 border-t">
-        <Button variant="outline" className="w-full" size="sm">
+        <Button variant="outline" className="w-full" size="sm" onClick={onCreateNew}>
           Create New Base List
         </Button>
       </div>
