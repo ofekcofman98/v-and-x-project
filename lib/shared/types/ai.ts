@@ -157,6 +157,72 @@ export interface PendingGridAction {
   updates: CellUpdate[];
 }
 
+/**
+ * Request body for `POST /api/ai/grid-agent`. `tableId` scopes the agent to
+ * one table for the entire turn — it is the source of truth injected into
+ * every tool call, never something the LLM can override.
+ */
+export const GridAgentTurnRequestSchema = z.object({
+  tableId: z.uuid(),
+  message: z.string().min(1).max(1000),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string(),
+      })
+    )
+    .max(20)
+    .optional(),
+});
+export type GridAgentTurnRequest = z.infer<typeof GridAgentTurnRequestSchema>;
+
+/**
+ * Request body for `POST /api/ai/grid-agent/execute`. The `actionId` is the
+ * only input — the update payload it resolves to was already fixed at
+ * proposal time and is never re-derived from anything the client sends.
+ */
+export const GridAgentExecuteRequestSchema = z.object({
+  actionId: z.string().min(1),
+});
+export type GridAgentExecuteRequest = z.infer<typeof GridAgentExecuteRequestSchema>;
+
+/**
+ * Response payload for `POST /api/ai/grid-agent`. Not a Zod schema —
+ * constructed server-side, not re-validated as LLM output.
+ */
+export type GridAgentTurnResponse =
+  | {
+      answer: string;
+      evidence?: { rows: Array<{ rowKey: string; representativeLabel: string }> };
+    }
+  | { pendingAction: PendingGridAction };
+
+/** Result shape for the `queryGridData` tool (doc §4.2). */
+export interface QueryGridDataResult {
+  rows: Array<{ rowKey: string; representativeLabel: string; cells: Record<string, unknown> }>;
+}
+
+/** Result shape for the `updateCellsBatch` post-confirmation executor (doc §4.2). */
+export interface UpdateCellsBatchResult {
+  updated: number;
+  failed: Array<{ rowKey: string; columnKey: string; reason: string }>;
+}
+
+/** Result shape for the `getGridSummary` tool (doc §4.2). */
+export interface GetGridSummaryResult {
+  rowCount: number;
+  columns: Array<{
+    key: string;
+    type: ColumnType;
+    filled: number;
+    empty: number;
+    avg?: number;
+    min?: number;
+    max?: number;
+  }>;
+}
+
 // ═══════════════════════════════════════════════════════════
 // PILLAR 3 — BATCH VOICE PARSER CONTRACT
 // ═══════════════════════════════════════════════════════════

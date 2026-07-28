@@ -26,6 +26,8 @@ import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
 import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/shared/types/table-schema';
 import { VoiceButton } from '@/components/voice/VoiceButton';
+import { GridChatButton } from '@/components/ai/GridChatButton';
+import { GridChatPanel } from '@/components/ai/GridChatPanel';
 
 interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {
     createdAt: string;
@@ -285,6 +287,14 @@ export default function TableDetailsPage() {
               <VoiceButton tableId={id} tableSchema={tableSchema} />
             </div>
           )}
+
+          {/* Grid Chat Button - Fixed Position */}
+          {hasData && (
+            <div className="fixed bottom-8 left-8 z-50">
+              <GridChatButton tableId={id} />
+            </div>
+          )}
+          <GridChatPanel tableId={id} />
 
           <DeleteConfirmDialog
             isOpen={deleteDialogOpen}

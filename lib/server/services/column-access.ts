@@ -12,6 +12,35 @@ export async function getUserRoleInOrg(userId: string, organizationId: string): 
   return membership?.role ?? null;
 }
 
+export interface TableAccessContext {
+  table: { id: string; userId: string; organizationId: string | null };
+  isOwner: boolean;
+  role: OrgRole | null;
+}
+
+/**
+ * Fetches a table and resolves the caller's ownership/role context in one
+ * call — the `table.findUnique` + `isOwner` + `getUserRoleInOrg` sequence
+ * repeated across cells.ts and the AI Grid Agent's tool executors.
+ *
+ * @throws Error (message includes "not found") if the table doesn't exist.
+ */
+export async function getTableAccessContext(tableId: string, userId: string): Promise<TableAccessContext> {
+  const table = await prisma.table.findUnique({
+    where: { id: tableId },
+    select: { id: true, userId: true, organizationId: true },
+  });
+
+  if (!table) {
+    throw new Error(`Table with ID ${tableId} not found`);
+  }
+
+  const isOwner = table.userId === userId;
+  const role = table.organizationId ? await getUserRoleInOrg(userId, table.organizationId) : null;
+
+  return { table, isOwner, role };
+}
+
 interface AccessCheckColumn {
   access?: unknown;
 }
