@@ -23,7 +23,8 @@ import { CATEGORY_OPTIONS } from '@/components/templates/template-categories';
 interface DynamicTemplateCreatorProps {
   open: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  /** Receives the newly-created template's id, e.g. so a caller can auto-select it. */
+  onSuccess?: (id?: string) => void;
   /** Allow adding/removing rows. Pass false for pure schema blueprints. Defaults to true. */
   allowRows?: boolean;
   /** Allow cell data entry. Pass false for pure schema blueprints. Defaults to true. */
@@ -127,7 +128,7 @@ export function DynamicTemplateCreator({
 
       toast({ title: 'Template saved', description: `"${templateName}" is ready to use.` });
       handleClose();
-      onSuccess?.();
+      onSuccess?.(data?.id);
     } catch (error) {
       toast({
         title: 'Error',

@@ -59,6 +59,12 @@ export function AppHeader() {
             >
               Tables
             </Link>
+            <Link
+              href="/dashboard/library"
+              className="text-sm font-medium text-foreground/60 transition-colors hover:text-foreground/80"
+            >
+              Library
+            </Link>
             <AuthSlot />
           </nav>
         </div>

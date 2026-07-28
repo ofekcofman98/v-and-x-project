@@ -42,3 +42,53 @@ export function useDeleteBaseListMutation() {
     },
   });
 }
+
+async function fetchBaseList(id: string) {
+  const response = await fetch(`/api/base-lists/${id}`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Failed to fetch list' }));
+    throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch list`);
+  }
+
+  const result = await response.json();
+  return result.data;
+}
+
+export function useBaseListQuery(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.baseLists.detail(id ?? ''),
+    queryFn: () => fetchBaseList(id as string),
+    enabled: !!id,
+  });
+}
+
+export interface CreateBaseListPayload {
+  name: string;
+  description?: string;
+  schema: { columns: Array<{ id: string; label: string; type: string; validation?: Record<string, unknown> }> };
+  entities?: Array<{ values: Record<string, string | number | boolean> }>;
+}
+
+export function useCreateBaseListMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: CreateBaseListPayload): Promise<BaseListDTO> => {
+      const response = await fetch('/api/base-lists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Failed to create list' }));
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      const result = await response.json();
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.baseLists.all });
+    },
+  });
+}

@@ -25,7 +25,8 @@ import { Save, X, ArrowLeft } from 'lucide-react';
 interface DynamicListCreatorProps {
   open: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  /** Receives the newly-created list's id, e.g. so a caller can auto-select it. */
+  onSuccess?: (id?: string) => void;
   /** Allow adding/removing rows. Defaults to true. */
   allowRows?: boolean;
   /** Allow cell data entry. Defaults to true. */
@@ -130,6 +131,8 @@ export function DynamicListCreator({
         throw new Error(errorData.error || 'Failed to create list');
       }
 
+      const { data } = await response.json();
+
       toast({
         title: 'Success',
         description: 'List created successfully',
@@ -137,7 +140,7 @@ export function DynamicListCreator({
 
       await fetchLists();
       handleClose();
-      onSuccess?.();
+      onSuccess?.(data?.id);
     } catch (error) {
       toast({
         title: 'Error',
