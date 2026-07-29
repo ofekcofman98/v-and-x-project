@@ -208,7 +208,7 @@ A conversational agent scoped to **one active table**. The LLM selects tools and
 
 ### 4.2 Tool Interface (v1)
 
-Tools are defined once as Zod schemas and exposed to the LLM via OpenAI function calling. The same definitions can later be surfaced over MCP (see `docs/features/12MCP.md`) without changing the execution layer.
+Tools are defined once as Zod schemas and exposed to the LLM via OpenAI function calling. The same definitions can later be surfaced over MCP (see `docs/features/12_groups_workbenches.md`) without changing the execution layer.
 
 ```typescript
 // lib/server/services/ai-grid-tools.ts
@@ -489,7 +489,7 @@ Per `docs/.claude/rules/database.md`: neither addition ships without explicit ap
 - [ ] `AiInteraction` audit model + acceptance-rate analytics (pending approval, §6.3)
 - [ ] `EntrySource.AI` enum addition (pending approval)
 - [ ] Voice entry point for the Schema Agent (reuse `useVoiceEntry` transcript → prompt)
-- [ ] Expose Grid Agent tools over MCP (align with `docs/features/12MCP.md`)
+- [ ] Expose Grid Agent tools over MCP (align with `docs/features/12_groups_workbenches.md`)
 - [ ] `EntityEmbedding`-backed semantic fallback for low-confidence entity matches
 
 ### Exit Criteria per Phase

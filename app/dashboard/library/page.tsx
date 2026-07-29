@@ -22,6 +22,7 @@ import { BaseListDetailPane } from '@/components/base-lists/BaseListDetailPane';
 import { TemplateDetailPane } from '@/components/templates/TemplateDetailPane';
 import { DynamicListCreator } from '@/components/base-lists/DynamicListCreator';
 import { DynamicTemplateCreator } from '@/components/column-templates/DynamicTemplateCreator';
+import { ImportCsvButton, type ParsedCsvImport } from '@/components/import/ImportCsvButton';
 import { categoryIcon } from '@/components/templates/template-categories';
 
 type LibraryTab = 'lists' | 'templates';
@@ -62,6 +63,11 @@ export default function LibraryPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [showNewList, setShowNewList] = useState(false);
   const [showNewTemplate, setShowNewTemplate] = useState(false);
+  // Bumped every time the "new list" dialog is (re)opened so DynamicListCreator
+  // remounts — its initialColumns/initialRows/initialName are only read once,
+  // on mount, so a CSV import must force a fresh instance to seed the grid.
+  const [listDialogKey, setListDialogKey] = useState(0);
+  const [csvImport, setCsvImport] = useState<ParsedCsvImport | null>(null);
 
   const listsQuery = useBaseListsQuery();
   const templatesQuery = useColumnTemplatesQuery();
@@ -135,14 +141,27 @@ export default function LibraryPage() {
                       )}
                     </div>
                   )}
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start mt-2"
-                    onClick={() => setShowNewList(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    New list
-                  </Button>
+                  <div className="mt-2 space-y-1">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setCsvImport(null);
+                        setListDialogKey((k) => k + 1);
+                        setShowNewList(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      New list
+                    </Button>
+                    <ImportCsvButton
+                      onImported={(data) => {
+                        setCsvImport(data);
+                        setListDialogKey((k) => k + 1);
+                        setShowNewList(true);
+                      }}
+                    />
+                  </div>
                 </>
               ) : (
                 <>
@@ -211,12 +230,16 @@ export default function LibraryPage() {
       </main>
 
       <DynamicListCreator
+        key={listDialogKey}
         open={showNewList}
         onClose={() => setShowNewList(false)}
         onSuccess={(id) => {
           setShowNewList(false);
           if (id) setSelectedListId(id);
         }}
+        initialName={csvImport?.name}
+        initialColumns={csvImport?.columns}
+        initialRows={csvImport?.rows}
       />
       <DynamicTemplateCreator
         open={showNewTemplate}

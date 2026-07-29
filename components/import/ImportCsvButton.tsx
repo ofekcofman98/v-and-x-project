@@ -1,11 +1,9 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { useCsvImportStore } from '@/lib/client/stores/csv-import-store';
 import type { ColumnDef, RowData } from '@/components/shared-table/types';
 import { Upload } from 'lucide-react';
 
@@ -15,17 +13,25 @@ interface DetectedColumn {
   type: string;
 }
 
+export interface ParsedCsvImport {
+  name: string;
+  columns: ColumnDef[];
+  rows: RowData[];
+}
+
+interface ImportCsvButtonProps {
+  /** Called synchronously once the CSV is parsed and column types detected — no navigation involved. */
+  onImported: (data: ParsedCsvImport) => void;
+}
+
 /**
  * Parses a CSV file client-side, asks the server to infer column types
  * (lib/server/parsers/column-type-detector.ts), then hands the resulting
- * columns/rows off to the existing DynamicListCreator grid (via
- * csv-import-store) instead of rendering any bespoke preview UI here —
- * the real SharedBuilderGrid on /dashboard/base-lists/new is the preview.
+ * columns/rows to the caller via `onImported` — the real SharedBuilderGrid
+ * inside the DynamicListCreator dialog (opened by the caller) is the preview.
  */
-export function ImportCsvButton() {
-  const router = useRouter();
+export function ImportCsvButton({ onImported }: ImportCsvButtonProps) {
   const { toast } = useToast();
-  const setPending = useCsvImportStore((s) => s.setPending);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -62,13 +68,11 @@ export function ImportCsvButton() {
         metadata: { source: 'inline' },
       }));
 
-      setPending({
+      onImported({
         name: file.name.replace(/\.csv$/i, ''),
         columns,
         rows: gridRows,
       });
-
-      router.push('/dashboard/base-lists/new');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       toast({ title: 'Import failed', description: msg, variant: 'destructive' });
