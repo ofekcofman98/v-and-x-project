@@ -6,6 +6,7 @@ import {
   workbenchOwnershipWhere,
   GROUP_MAX_DEPTH,
 } from "@/lib/server/services/auth";
+import { applyTemplateToBaseList } from "@/lib/server/services/base-list-service";
 
 async function assertGroupAccessible(userId: string, organizationIds: string[], groupId: string) {
   const accessibleGroupIds = await getAccessibleGroupIds(userId, organizationIds);
@@ -20,6 +21,27 @@ async function assertWorkbenchAccessible(userId: string, organizationIds: string
     select: { id: true },
   });
   if (!workbench) throw new Error("Workbench not found");
+}
+
+/**
+ * Walks up from `proposedParentId` to its root, throwing if `groupId` itself is
+ * ever encountered — i.e. `proposedParentId` is `groupId` or one of its own
+ * descendants, which would make it its own ancestor (a cycle).
+ */
+async function assertNoCycle(groupId: string, proposedParentId: string) {
+  let currentId: string | null = proposedParentId;
+
+  while (currentId) {
+    if (currentId === groupId) {
+      throw new Error("Cannot move a group into itself or one of its own descendants");
+    }
+    const current: { parentGroupId: string | null } | null = await prisma.group.findUnique({
+      where: { id: currentId },
+      select: { parentGroupId: true },
+    });
+    if (!current) throw new Error("Parent group not found");
+    currentId = current.parentGroupId;
+  }
 }
 
 /** Counts levels from `parentGroupId` up to its root, throwing if that would exceed GROUP_MAX_DEPTH. */
@@ -158,6 +180,7 @@ export async function updateGroup(
       throw new Error("Cannot re-parent a group into a different workbench");
     }
     await assertGroupAccessible(userId, organizationIds, updates.parentGroupId);
+    await assertNoCycle(id, updates.parentGroupId);
     await assertDepthWithinCap(updates.parentGroupId);
   }
 
@@ -243,4 +266,120 @@ export async function removeGroupMember(
 
   await prisma.groupMember.delete({ where: { id: member.id } });
   return { groupId, userId: targetUserId };
+}
+
+interface CollectedBaseList {
+  baseListId: string;
+  baseListName: string;
+  groupPath: string;
+}
+
+/**
+ * Recursively collects every BaseList reachable under a Group's subtree, including
+ * lists belonging to nested child Groups. `groupPath` is the chain of Group names
+ * from the target Group down to the list's immediate parent — needed because the
+ * target Group may be several levels above the list (docs/features/12_groups_workbenches.md §3.1).
+ */
+async function collectBaseListsRecursive(
+  groupId: string,
+  groupPath: string,
+  depth: number
+): Promise<CollectedBaseList[]> {
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    include: {
+      childGroups: { select: { id: true, name: true } },
+      baseLists: { include: { baseList: { select: { id: true, name: true } } } },
+    },
+  });
+
+  if (!group) throw new Error("Group not found");
+
+  const ownLists: CollectedBaseList[] = group.baseLists.map((gbl) => ({
+    baseListId: gbl.baseList.id,
+    baseListName: gbl.baseList.name,
+    groupPath,
+  }));
+
+  if (depth >= GROUP_MAX_DEPTH) return ownLists;
+
+  const childLists = await Promise.all(
+    group.childGroups.map((child) => collectBaseListsRecursive(child.id, `${groupPath} / ${child.name}`, depth + 1))
+  );
+
+  return [...ownLists, ...childLists.flat()];
+}
+
+const GROUP_APPLY_TEMPLATE_MAX_LISTS = 50;
+
+interface ApplyTemplateToGroupInput {
+  userId: string;
+  organizationIds: string[];
+  groupId: string;
+  templateId: string;
+  autoSync: boolean;
+  selectedBaseListColumnIds: string[];
+}
+
+type ApplyTemplateToGroupResult =
+  | { baseListId: string; baseListName: string; groupPath: string; status: "created"; tableId: string }
+  | { baseListId: string; baseListName: string; groupPath: string; status: "failed"; error: string };
+
+/**
+ * Bulk-applies a Column Template to every BaseList under a Group's subtree, one
+ * Table per list — never a merged table, preserving the app's strict 1 Table :
+ * 1 BaseList invariant. Each list's apply is isolated: one failure never blocks
+ * or rolls back the others (docs/features/12_groups_workbenches.md §3.1).
+ */
+export async function applyTemplateToGroup(input: ApplyTemplateToGroupInput) {
+  const { userId, organizationIds, groupId, templateId, autoSync, selectedBaseListColumnIds } = input;
+
+  await assertGroupAccessible(userId, organizationIds, groupId);
+
+  const group = await prisma.group.findUnique({ where: { id: groupId }, select: { name: true } });
+  if (!group) throw new Error("Group not found");
+
+  const lists = await collectBaseListsRecursive(groupId, group.name, 0);
+
+  if (lists.length > GROUP_APPLY_TEMPLATE_MAX_LISTS) {
+    throw new Error(
+      `Group contains ${lists.length} lists, exceeding the max of ${GROUP_APPLY_TEMPLATE_MAX_LISTS} for one bulk apply`
+    );
+  }
+
+  const results: ApplyTemplateToGroupResult[] = await Promise.all(
+    lists.map(async (list): Promise<ApplyTemplateToGroupResult> => {
+      try {
+        const applied = await applyTemplateToBaseList({
+          userId,
+          organizationIds,
+          baseListId: list.baseListId,
+          templateId,
+          autoSync,
+          selectedBaseListColumnIds,
+        });
+        return {
+          baseListId: list.baseListId,
+          baseListName: list.baseListName,
+          groupPath: list.groupPath,
+          status: "created",
+          tableId: applied.table_id,
+        };
+      } catch (error) {
+        return {
+          baseListId: list.baseListId,
+          baseListName: list.baseListName,
+          groupPath: list.groupPath,
+          status: "failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    })
+  );
+
+  return {
+    results,
+    createdCount: results.filter((r) => r.status === "created").length,
+    failedCount: results.filter((r) => r.status === "failed").length,
+  };
 }

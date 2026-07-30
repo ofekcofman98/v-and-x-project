@@ -80,6 +80,9 @@ export const PATCH = withErrorHandler(async (
     if (error instanceof Error && error.message.includes("different workbench")) {
       return apiError(error.message, 400);
     }
+    if (error instanceof Error && error.message.includes("itself or one of its own descendants")) {
+      return apiError(error.message, 400);
+    }
     throw error;
   }
 });

@@ -6,6 +6,12 @@
  * nav destinations: one page, a tab toggle, and an inline detail pane that
  * renders on click with no route change.
  * Implements: docs/features/13_ux_ia_redesign.md § Library Page
+ *
+ * Lists tab additionally supports the Workbench/Group hierarchy (Phase 3 of
+ * docs/features/12_groups_workbenches.md §5): a Workbench switcher above the
+ * index pane, and a nested Group tree (BaseLists as leaves) replacing the flat
+ * list only while a Workbench is selected. With no Workbench selected ("All
+ * Lists"), the index pane renders the exact same flat list as before.
  */
 
 import { useState } from 'react';
@@ -13,19 +19,28 @@ import { AppHeader } from '@/components/AppHeader';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InlineErrorState } from '@/components/states/error-state';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/shared/utils/cn';
 import { Plus } from 'lucide-react';
 
 import { useBaseListsQuery } from '@/lib/client/hooks/data/use-base-lists';
 import { useColumnTemplatesQuery } from '@/lib/client/hooks/data/use-column-templates';
+import { useWorkbenchesQuery, useWorkbenchQuery, useCreateWorkbenchMutation } from '@/lib/client/hooks/data/use-workbenches';
+import { useCreateGroupMutation } from '@/lib/client/hooks/data/use-groups';
 import { BaseListDetailPane } from '@/components/base-lists/BaseListDetailPane';
 import { TemplateDetailPane } from '@/components/templates/TemplateDetailPane';
+import { GroupDetailPane } from '@/components/groups/GroupDetailPane';
+import { WorkbenchDetailPane } from '@/components/workbenches/WorkbenchDetailPane';
+import { GroupTreeRoot } from '@/components/groups/GroupTree';
+import { CreateContainerDialog } from '@/components/library/CreateContainerDialog';
 import { DynamicListCreator } from '@/components/base-lists/DynamicListCreator';
 import { DynamicTemplateCreator } from '@/components/column-templates/DynamicTemplateCreator';
 import { ImportCsvButton, type ParsedCsvImport } from '@/components/import/ImportCsvButton';
 import { categoryIcon } from '@/components/templates/template-categories';
 
 type LibraryTab = 'lists' | 'templates';
+
+const ALL_LISTS_VALUE = '__all__';
 
 function IndexItem({
   label,
@@ -61,8 +76,12 @@ export default function LibraryPage() {
   const [tab, setTab] = useState<LibraryTab>('lists');
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [selectedWorkbenchId, setSelectedWorkbenchId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [showNewList, setShowNewList] = useState(false);
   const [showNewTemplate, setShowNewTemplate] = useState(false);
+  const [showNewWorkbench, setShowNewWorkbench] = useState(false);
+  const [showNewGroup, setShowNewGroup] = useState(false);
   // Bumped every time the "new list" dialog is (re)opened so DynamicListCreator
   // remounts — its initialColumns/initialRows/initialName are only read once,
   // on mount, so a CSV import must force a fresh instance to seed the grid.
@@ -71,12 +90,29 @@ export default function LibraryPage() {
 
   const listsQuery = useBaseListsQuery();
   const templatesQuery = useColumnTemplatesQuery();
+  const workbenchesQuery = useWorkbenchesQuery();
+  const activeWorkbenchQuery = useWorkbenchQuery(selectedWorkbenchId);
+  const createWorkbenchMutation = useCreateWorkbenchMutation();
+  const createGroupMutation = useCreateGroupMutation();
 
   const lists = listsQuery.data ?? [];
   const templates = templatesQuery.data ?? [];
+  const workbenches = workbenchesQuery.data ?? [];
+  const topGroups = activeWorkbenchQuery.data?.groups ?? [];
 
-  const selectedId = tab === 'lists' ? selectedListId : selectedTemplateId;
-  const setSelectedId = tab === 'lists' ? setSelectedListId : setSelectedTemplateId;
+  const selectList = (id: string) => {
+    setSelectedGroupId(null);
+    setSelectedListId(id);
+  };
+  const selectGroup = (id: string) => {
+    setSelectedListId(null);
+    setSelectedGroupId(id);
+  };
+  const selectWorkbench = (id: string | null) => {
+    setSelectedWorkbenchId(id);
+    setSelectedGroupId(null);
+    setSelectedListId(null);
+  };
 
   return (
     <>
@@ -117,30 +153,85 @@ export default function LibraryPage() {
             <div className="border border-slate-200 rounded-lg p-2 h-fit md:sticky md:top-20">
               {tab === 'lists' ? (
                 <>
-                  {listsQuery.isLoading ? (
+                  <div className="flex items-center gap-1.5 mb-2 px-1">
+                    <Select
+                      value={selectedWorkbenchId ?? ALL_LISTS_VALUE}
+                      onValueChange={(value) => selectWorkbench(value === ALL_LISTS_VALUE ? null : value)}
+                    >
+                      <SelectTrigger className="h-8 text-xs flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ALL_LISTS_VALUE}>All Lists</SelectItem>
+                        {workbenches.map((wb) => (
+                          <SelectItem key={wb.id} value={wb.id}>
+                            {wb.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <button
+                      onClick={() => setShowNewWorkbench(true)}
+                      aria-label="New workbench"
+                      className="shrink-0 h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {selectedWorkbenchId === null ? (
+                    <>
+                      {listsQuery.isLoading ? (
+                        <div className="space-y-2 p-2">
+                          <Skeleton className="h-9 w-full" />
+                          <Skeleton className="h-9 w-full" />
+                          <Skeleton className="h-9 w-full" />
+                        </div>
+                      ) : listsQuery.error ? (
+                        <InlineErrorState error={listsQuery.error.message} onRetry={() => listsQuery.refetch()} />
+                      ) : (
+                        <div className="space-y-1">
+                          {lists.map((list) => (
+                            <IndexItem
+                              key={list.id}
+                              label={list.name}
+                              sublabel={`${list.schema.columns.length} column${list.schema.columns.length !== 1 ? 's' : ''}`}
+                              isSelected={selectedListId === list.id}
+                              onClick={() => selectList(list.id)}
+                            />
+                          ))}
+                          {lists.length === 0 && (
+                            <p className="text-xs text-muted-foreground px-3 py-2">No lists yet.</p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : activeWorkbenchQuery.isLoading ? (
                     <div className="space-y-2 p-2">
                       <Skeleton className="h-9 w-full" />
                       <Skeleton className="h-9 w-full" />
-                      <Skeleton className="h-9 w-full" />
                     </div>
-                  ) : listsQuery.error ? (
-                    <InlineErrorState error={listsQuery.error.message} onRetry={() => listsQuery.refetch()} />
+                  ) : activeWorkbenchQuery.error ? (
+                    <InlineErrorState
+                      error={activeWorkbenchQuery.error.message}
+                      onRetry={() => activeWorkbenchQuery.refetch()}
+                    />
                   ) : (
-                    <div className="space-y-1">
-                      {lists.map((list) => (
-                        <IndexItem
-                          key={list.id}
-                          label={list.name}
-                          sublabel={`${list.schema.columns.length} column${list.schema.columns.length !== 1 ? 's' : ''}`}
-                          isSelected={selectedListId === list.id}
-                          onClick={() => setSelectedListId(list.id)}
-                        />
-                      ))}
-                      {lists.length === 0 && (
-                        <p className="text-xs text-muted-foreground px-3 py-2">No lists yet.</p>
-                      )}
-                    </div>
+                    <GroupTreeRoot
+                      topGroups={topGroups}
+                      selection={
+                        selectedGroupId
+                          ? { kind: 'group', id: selectedGroupId }
+                          : selectedListId
+                            ? { kind: 'list', id: selectedListId }
+                            : null
+                      }
+                      onSelectGroup={selectGroup}
+                      onSelectList={selectList}
+                      onCreateGroup={() => setShowNewGroup(true)}
+                    />
                   )}
+
                   <div className="mt-2 space-y-1">
                     <Button
                       variant="ghost"
@@ -207,22 +298,44 @@ export default function LibraryPage() {
 
             {/* Right detail pane */}
             <div className="min-w-0">
-              {!selectedId ? (
-                <div className="flex items-center justify-center h-full min-h-[240px] border border-dashed border-slate-200 rounded-lg text-sm text-muted-foreground">
-                  Select {tab === 'lists' ? 'a list' : 'a template'} to view its details
-                </div>
-              ) : tab === 'lists' ? (
+              {tab === 'templates' ? (
+                !selectedTemplateId ? (
+                  <div className="flex items-center justify-center h-full min-h-[240px] border border-dashed border-slate-200 rounded-lg text-sm text-muted-foreground">
+                    Select a template to view its details
+                  </div>
+                ) : (
+                  <TemplateDetailPane
+                    key={selectedTemplateId}
+                    id={selectedTemplateId}
+                    onDeleted={() => setSelectedTemplateId(null)}
+                  />
+                )
+              ) : selectedListId ? (
                 <BaseListDetailPane
-                  key={selectedId}
-                  id={selectedId}
+                  key={selectedListId}
+                  id={selectedListId}
                   onDeleted={() => setSelectedListId(null)}
                 />
-              ) : (
-                <TemplateDetailPane
-                  key={selectedId}
-                  id={selectedId}
-                  onDeleted={() => setSelectedTemplateId(null)}
+              ) : selectedGroupId ? (
+                <GroupDetailPane
+                  key={selectedGroupId}
+                  id={selectedGroupId}
+                  onDeleted={() => setSelectedGroupId(null)}
+                  onSelectGroup={selectGroup}
+                  onSelectList={selectList}
                 />
+              ) : selectedWorkbenchId ? (
+                <WorkbenchDetailPane
+                  key={selectedWorkbenchId}
+                  id={selectedWorkbenchId}
+                  onDeleted={() => selectWorkbench(null)}
+                  onSelectGroup={selectGroup}
+                  onSelectList={selectList}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full min-h-[240px] border border-dashed border-slate-200 rounded-lg text-sm text-muted-foreground">
+                  Select a list, group, or workbench to view its details
+                </div>
               )}
             </div>
           </div>
@@ -235,7 +348,7 @@ export default function LibraryPage() {
         onClose={() => setShowNewList(false)}
         onSuccess={(id) => {
           setShowNewList(false);
-          if (id) setSelectedListId(id);
+          if (id) selectList(id);
         }}
         initialName={csvImport?.name}
         initialColumns={csvImport?.columns}
@@ -247,6 +360,26 @@ export default function LibraryPage() {
         onSuccess={(id) => {
           setShowNewTemplate(false);
           if (id) setSelectedTemplateId(id);
+        }}
+      />
+
+      <CreateContainerDialog
+        open={showNewWorkbench}
+        title="New Workbench"
+        onClose={() => setShowNewWorkbench(false)}
+        onSubmit={async (name, description) => {
+          const workbench = await createWorkbenchMutation.mutateAsync({ name, description });
+          selectWorkbench(workbench.id);
+        }}
+      />
+      <CreateContainerDialog
+        open={showNewGroup}
+        title="New Group"
+        onClose={() => setShowNewGroup(false)}
+        onSubmit={async (name, description) => {
+          if (!selectedWorkbenchId) return;
+          const group = await createGroupMutation.mutateAsync({ workbenchId: selectedWorkbenchId, name, description });
+          selectGroup(group.id);
         }}
       />
     </>

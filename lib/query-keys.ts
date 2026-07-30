@@ -17,4 +17,13 @@ export const queryKeys = {
     all: ['columnTemplates'] as const,
     detail: (id: string) => ['columnTemplates', id] as const,
   },
+  workbenches: {
+    all: ['workbenches'] as const,
+    detail: (id: string) => ['workbenches', id] as const,
+  },
+  groups: {
+    all: ['groups'] as const,
+    detail: (id: string) => ['groups', id] as const,
+    tree: (id: string) => ['groups', id, 'tree'] as const,
+  },
 } as const;

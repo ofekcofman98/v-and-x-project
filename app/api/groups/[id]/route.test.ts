@@ -81,6 +81,15 @@ describe('PATCH /api/groups/:id', () => {
     expect(res.status).toBe(400);
   });
 
+  it('maps a cycle re-parent error to 400', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: 'user-1' });
+    updateGroupMock.mockRejectedValue(new Error('Cannot move a group into itself or one of its own descendants'));
+
+    const res = await PATCH(req('PATCH', { parentGroupId: VALID_ID }), ctx(VALID_ID));
+
+    expect(res.status).toBe(400);
+  });
+
   it('updates the group on success', async () => {
     getAuthenticatedUserMock.mockResolvedValue({ id: 'user-1' });
     updateGroupMock.mockResolvedValue({ id: VALID_ID, name: 'Renamed' });

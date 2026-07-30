@@ -3,7 +3,7 @@
 **Feature:** 12 — Workbenches & Groups
 **Priority:** Medium
 **Dependencies:** 03_DATABASE.md, 03_ai_table_agent.md, 13_ux_ia_redesign.md, `prisma/schema.prisma`
-**Status:** Phase 1 (Schema & Core CRUD) implemented — Phases 2–4 not started
+**Status:** Phases 1–4 implemented (Schema & Core CRUD, Bulk Apply-Template, Library Page UI, Sharing & Re-parenting Polish — `Workbench.settings`/`Group.settings` concrete shape still deliberately deferred). §9 (UX Polish Pass) is spec'd, not started.
 **Last Updated:** 2026-07-30
 
 > **Note on this file's history:** this document previously covered five loosely-related frontier ideas (Unified Canvas, Blueprint Hub, `@mention`, Token Delta Optimization, a local MCP dev server). The Unified Canvas, `@mention`, and Token Delta Optimization ideas have since **shipped** — as the Library page + live-canvas create-table flow (`13_ux_ia_redesign.md`) and the Schema Agent's `@Mention` resolution and context-diet design (`03_ai_table_agent.md`). This file is repurposed to spec the next planned feature, **Workbenches & Groups**, which `13_ux_ia_redesign.md` flagged as future scope but never designed. The two ideas that hadn't shipped and aren't superseded — the Blueprint Hub and the local MCP dev server — are carried forward unchanged in §6–7.
@@ -22,6 +22,7 @@
 6. [The Blueprint Hub (Zero-Token Initialization)](#6-the-blueprint-hub-zero-token-initialization)
 7. [Local Development Tooling: Custom MCP Server](#7-local-development-tooling-custom-mcp-server)
 8. [Implementation Milestones & Phasing](#8-implementation-milestones--phasing)
+9. [UX Polish Pass (Planned)](#9-ux-polish-pass-planned)
 
 ---
 
@@ -284,25 +285,26 @@ Per `13_ux_ia_redesign.md`'s note that the Library page's index/detail shell "is
 - [x] `app/api/workbenches/**` and `app/api/groups/**` routes with Zod validation + auth
 - [x] Route-level tests for the core CRUD endpoints (auth/validation/error-mapping paths); member/list sub-routes follow the identical pattern
 
-### Phase 2 — Bulk Apply-Template
+### Phase 2 — Bulk Apply-Template ✅ Implemented 2026-07-30
 
-- [ ] `POST /api/groups/:id/apply-template` — recursive subtree collection, orchestration loop over `applyTemplateToBaseList`, per-list transaction, partial-success response shape with `groupPath` (§3.1)
-- [ ] Write-access check across every collected list before executing (§4)
-- [ ] Integration tests: mixed success/failure across a nested subtree, 50-list recursive cap enforcement
+- [x] `POST /api/groups/:id/apply-template` — recursive subtree collection, orchestration loop over `applyTemplateToBaseList`, per-list isolation, partial-success response shape with `groupPath` (§3.1)
+- [x] Write-access check across every collected list: reuses `applyTemplateToBaseList`'s own `ownershipWhere` check per list rather than a separate authorization layer — a list the caller can't write to simply fails in its own result row (correct partial-failure behavior, not a gap)
+- [x] Route-level tests: 401/400/404, max-lists cap, and a mixed created/failed result asserting the response is never all-or-nothing
 
-### Phase 3 — Library Page UI Integration
+### Phase 3 — Library Page UI Integration ✅ Implemented 2026-07-30
 
-- [ ] Workbench switcher above the Lists/Templates tab toggle
-- [ ] Recursive Group tree in the Lists tab's index pane (via `GET /api/groups/:id/tree`), expandable nodes, `BaseList`s as leaves
-- [ ] Group detail pane: descendant count, "Apply template to group…" + per-list result rendering, child-Group management, Members section
-- [ ] Workbench detail/settings pane + Workbench-level Members section
-- [ ] "+ New workbench" / "+ New group" (context-sensitive on selected tree node)
+- [x] Workbench switcher (Select) above the Lists tab's index pane — "All Lists" falls back to the exact pre-existing flat list
+- [x] Recursive Group tree (`components/groups/GroupTree.tsx`) in the Lists tab's index pane — top-level fetch via `GET /api/groups/:id/tree`, pure recursive rendering below that (no per-level fetching), `BaseList`s as leaves
+- [x] Group detail pane (`GroupDetailPane`): subgroup/list counts, "+ New subgroup", "Apply template to group…" (`ApplyTemplateToGroupDialog`, new — the existing `ApplyTemplateDialog` couldn't be reused, it hardcodes the single-list endpoint)
+- [x] Workbench detail pane (`WorkbenchDetailPane`) + delete
+- [x] "+ New workbench" / "+ New group" via a shared `CreateContainerDialog`
+- [ ] Members section — deferred to Phase 4 per the email-invite flow already planned there (raw userId entry now would just be reworked)
 
-### Phase 4 — Sharing & Re-parenting Polish
+### Phase 4 — Sharing & Re-parenting Polish ✅ Implemented 2026-07-30
 
-- [ ] Member invite flow (by email → resolves to `userId`, sets initial `role`) at both Workbench and Group levels
-- [ ] Dedicated re-parent/move UI for Groups (schema already supports changing `parentGroupId`; deferred UX per §1.4)
-- [ ] `Workbench.settings` / `Group.settings` concrete shape once a first real availability/visibility use case exists
+- [x] Member invite flow (by email → resolves to `userId`, sets initial `role`) at both Workbench and Group levels — `EmailInviteRow` (shared) inside `WorkbenchMembersDialog`/`GroupMembersDialog`, resolving via a new `GET /api/users/lookup?email=` route. Resolves email→userId with a direct `prisma.$queryRaw` against `auth.users` rather than a Supabase service-role key — this app's Prisma connection already talks straight to Postgres, so no new privileged secret was needed.
+- [x] Dedicated re-parent/move UI for Groups — `MoveGroupDialog`, triggered from a hover-revealed move icon on each `GroupTree` row and from `GroupDetailPane`'s action row. **Bug fixed as part of this phase**: `updateGroup`'s re-parent path had no cycle guard (moving a group into its own descendant would have made `assertDepthWithinCap`'s upward walk infinite-loop) — this path was unreachable before Phase 4 built the first UI that could trigger it. Added `assertNoCycle`, covered by dedicated unit tests in `group-service.test.ts`.
+- [ ] `Workbench.settings` / `Group.settings` concrete shape — deliberately still deferred, no real availability/visibility use case has emerged yet even through this phase
 
 ### Exit Criteria per Phase
 
@@ -312,6 +314,50 @@ Per `13_ux_ia_redesign.md`'s note that the Library page's index/detail shell "is
 | 2 | Applying a template to a Group with nested child Groups produces one correctly-linked table per descendant list, attributed by `groupPath`; a deliberately-broken list anywhere in the subtree fails independently without blocking the others |
 | 3 | A user can switch Workbenches, build a nested Group tree, and bulk-apply a template entirely from the Library page with no route change |
 | 4 | A Group owner can share one nested Group with an outside (non-org, non-Workbench-member) user by role, and that user's access is correctly scoped to only that Group and its descendants |
+
+---
+
+## 9. UX Polish Pass (Planned)
+
+**Status: spec'd, not started.** Manual testing of Phase 3 surfaced that organizing lists feels clunky: there's no way to move an already-existing `BaseList` into a Group after the fact, no visibility into which lists haven't been organized yet, and adding a list or subgroup from the tree currently detours through the full detail pane. This section records the agreed design for that polish pass, to implement in a future session.
+
+**Not to be confused with** Phase 4's "Dedicated re-parent/move UI for Groups" (§8) — that's about re-parenting a *Group node itself* elsewhere in the tree (`PATCH /api/groups/:id` with a new `parentGroupId`, already supported by the API). This section is about moving a *`BaseList` leaf* into a Group, which is a different action (`GroupBaseList` membership, not `Group.parentGroupId`).
+
+### 9.1 Two design decisions made up front
+
+1. **"Unassigned" is global, not per-Workbench.** A list is "unassigned" if it isn't in *any* Group in *any* Workbench — not "not yet in this particular Workbench's tree." Per-Workbench would require eagerly loading every top-level Group's full subtree just to compute the set, contradicting Phase 3's lazy-per-node tree fetch (`GroupTreeItem`, `components/groups/GroupTree.tsx`) for no real benefit — global scoping needs only one small aggregate lookup.
+2. **"Move" is single-homed.** Moving a list removes it from wherever it currently sits (if anywhere) before adding it to the new target, rather than being purely additive (the schema's `GroupBaseList` join technically allows a list in several Groups at once, but "move" should read as "move," not "also add"). This needs to know the list's current Group, which the same lookup below provides.
+
+### 9.2 New endpoint: `GET /api/groups/assigned-lists`
+
+A small new read-only route + `group-service.ts` function scoped to the caller's accessible groups (same `getAccessibleGroupIds` pattern already used everywhere else in this service), returning:
+
+```json
+{
+  "success": true,
+  "data": [
+    { "baseListId": "a1...", "groupId": "g1...", "groupName": "Class 1A", "workbenchId": "w1...", "workbenchName": "Classes" }
+  ]
+}
+```
+
+This one lookup powers both 9.3 and 9.4 below — no need for a second endpoint.
+
+### 9.3 `MoveListDialog`
+
+New component, reachable from two places:
+- **`BaseListDetailPane`** — a "Move to Group/Workbench…" button in the header actions.
+- **Each BaseList row in the Library index pane** (both the flat "All Lists" view and tree leaves) — via a small `...` menu per row.
+
+Contents: a Workbench `<Select>`, then a Group `<Select>` scoped to that Workbench's tree (including a "Top-level / No Group" option), pre-populated with the list's *current* location via §9.2's lookup if it has one. Submitting calls `DELETE /api/groups/:id/lists/:baseListId` against the prior Group (if any) followed by `POST /api/groups/:id/lists` against the new target (skipped if "No Group" was chosen), then invalidates `queryKeys.groups.*`, `queryKeys.workbenches.*`, and `queryKeys.baseLists.all`.
+
+### 9.4 "Unassigned Lists" section
+
+Rendered in the Library page's Lists tab (both under "All Lists" and under an active Workbench) as a section alongside/below the Group tree, listing every `BaseList` absent from §9.2's assigned-lists set — so nothing a user has created ever feels hidden or orphaned regardless of which Workbench is currently selected.
+
+### 9.5 Inline quick-add on tree rows
+
+Each `GroupTreeItem`/`GroupTreeNodeView` row gains a small popover (not a full navigation) offering "+ Add existing list here" (a compact list picker, reusing the assigned-lists lookup to default to unassigned lists) and "+ New subgroup here" (the existing `CreateContainerDialog`, pre-seeded with this row's id as `parentGroupId`) — removing the current detour through the Group's own detail pane for these two specific actions.
 
 ---
 
