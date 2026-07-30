@@ -19,6 +19,7 @@ model BaseList {
   templates      BaseListTemplate[]
   entities       ListEntity[]
   tables         Table[]
+  groups         GroupBaseList[]
 
   @@index([userId])
   @@index([organizationId])
@@ -187,6 +188,85 @@ enum OrgRole {
   VIEWER
 
   @@map("org_role")
+}
+
+model Workbench {
+  id             String            @id @default(uuid()) @db.Uuid
+  name           String
+  description    String?
+  userId         String            @map("user_id") @db.Uuid
+  organizationId String?           @map("organization_id") @db.Uuid
+  settings       Json?
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  groups         Group[]
+  members        WorkbenchMember[]
+
+  @@index([userId])
+  @@index([organizationId])
+  @@map("workbenches")
+}
+
+model Group {
+  id            String          @id @default(uuid()) @db.Uuid
+  workbenchId   String          @map("workbench_id") @db.Uuid
+  parentGroupId String?         @map("parent_group_id") @db.Uuid
+  name          String
+  description   String?
+  settings      Json?
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  workbench     Workbench       @relation(fields: [workbenchId], references: [id], onDelete: Cascade)
+  parentGroup   Group?          @relation("GroupChildren", fields: [parentGroupId], references: [id], onDelete: Cascade)
+  childGroups   Group[]         @relation("GroupChildren")
+  baseLists     GroupBaseList[]
+  members       GroupMember[]
+
+  @@index([workbenchId])
+  @@index([parentGroupId])
+  @@map("groups")
+}
+
+model GroupBaseList {
+  id         String   @id @default(uuid()) @db.Uuid
+  groupId    String   @map("group_id") @db.Uuid
+  baseListId String   @map("base_list_id") @db.Uuid
+  addedAt    DateTime @default(now()) @map("added_at")
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  baseList   BaseList @relation(fields: [baseListId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, baseListId])
+  @@index([groupId])
+  @@index([baseListId])
+  @@map("group_base_lists")
+}
+
+model WorkbenchMember {
+  id          String    @id @default(uuid()) @db.Uuid
+  workbenchId String    @map("workbench_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  role        OrgRole   @default(VIEWER)
+  addedAt     DateTime  @default(now()) @map("added_at")
+  workbench   Workbench @relation(fields: [workbenchId], references: [id], onDelete: Cascade)
+
+  @@unique([workbenchId, userId])
+  @@index([workbenchId])
+  @@index([userId])
+  @@map("workbench_members")
+}
+
+model GroupMember {
+  id      String   @id @default(uuid()) @db.Uuid
+  groupId String   @map("group_id") @db.Uuid
+  userId  String   @map("user_id") @db.Uuid
+  role    OrgRole  @default(VIEWER)
+  addedAt DateTime @default(now()) @map("added_at")
+  group   Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@map("group_members")
 }
 
 enum ColumnType {

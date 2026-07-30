@@ -94,3 +94,78 @@ export function ownershipWhere(userId: string, organizationIds: string[]) {
     ],
   };
 }
+
+/** Workbench IDs the given user has a direct WorkbenchMember row on. */
+export async function getAccessibleWorkbenchIds(userId: string): Promise<string[]> {
+  const memberships = await prisma.workbenchMember.findMany({
+    where: { userId },
+    select: { workbenchId: true },
+  });
+
+  return memberships.map((m) => m.workbenchId);
+}
+
+/**
+ * Prisma `where` clause fragment scoping a Workbench query to rows the user
+ * owns, has org access to, or is a direct WorkbenchMember of.
+ */
+export function workbenchOwnershipWhere(
+  userId: string,
+  organizationIds: string[],
+  accessibleWorkbenchIds: string[]
+) {
+  return {
+    OR: [
+      { userId },
+      ...(organizationIds.length > 0 ? [{ organizationId: { in: organizationIds } }] : []),
+      ...(accessibleWorkbenchIds.length > 0 ? [{ id: { in: accessibleWorkbenchIds } }] : []),
+    ],
+  };
+}
+
+/** Max nesting depth for Groups — a soft cap enforced in code, not the schema. */
+export const GROUP_MAX_DEPTH = 5;
+
+/**
+ * Group IDs the given user can access: every Group in a Workbench they own,
+ * have org access to, or are a WorkbenchMember of, PLUS every Group they (or
+ * an ancestor Group) have a direct GroupMember row on, PLUS all descendants
+ * of those directly-accessible Groups (access inherits downward from an
+ * ancestor membership — see docs/features/12_groups_workbenches.md §4).
+ */
+export async function getAccessibleGroupIds(userId: string, organizationIds: string[]): Promise<string[]> {
+  const accessibleWorkbenchIds = await getAccessibleWorkbenchIds(userId);
+
+  const [workbenchScopedGroups, directGroupMemberships] = await Promise.all([
+    prisma.group.findMany({
+      where: { workbench: workbenchOwnershipWhere(userId, organizationIds, accessibleWorkbenchIds) },
+      select: { id: true },
+    }),
+    prisma.groupMember.findMany({
+      where: { userId },
+      select: { groupId: true },
+    }),
+  ]);
+
+  const rootIds = new Set<string>([
+    ...workbenchScopedGroups.map((g) => g.id),
+    ...directGroupMemberships.map((m) => m.groupId),
+  ]);
+
+  // BFS down from the root set to collect inherited descendant access,
+  // capped at GROUP_MAX_DEPTH levels to bound the query count.
+  const allIds = new Set<string>(rootIds);
+  let frontier = Array.from(rootIds);
+
+  for (let depth = 0; depth < GROUP_MAX_DEPTH && frontier.length > 0; depth++) {
+    const children = await prisma.group.findMany({
+      where: { parentGroupId: { in: frontier } },
+      select: { id: true },
+    });
+
+    frontier = children.map((c) => c.id).filter((id) => !allIds.has(id));
+    frontier.forEach((id) => allIds.add(id));
+  }
+
+  return Array.from(allIds);
+}

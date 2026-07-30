@@ -3,8 +3,8 @@
 **Feature:** 12 — Workbenches & Groups
 **Priority:** Medium
 **Dependencies:** 03_DATABASE.md, 03_ai_table_agent.md, 13_ux_ia_redesign.md, `prisma/schema.prisma`
-**Status:** Spec — Not Started
-**Last Updated:** 2026-07-29
+**Status:** Phase 1 (Schema & Core CRUD) implemented — Phases 2–4 not started
+**Last Updated:** 2026-07-30
 
 > **Note on this file's history:** this document previously covered five loosely-related frontier ideas (Unified Canvas, Blueprint Hub, `@mention`, Token Delta Optimization, a local MCP dev server). The Unified Canvas, `@mention`, and Token Delta Optimization ideas have since **shipped** — as the Library page + live-canvas create-table flow (`13_ux_ia_redesign.md`) and the Schema Agent's `@Mention` resolution and context-diet design (`03_ai_table_agent.md`). This file is repurposed to spec the next planned feature, **Workbenches & Groups**, which `13_ux_ia_redesign.md` flagged as future scope but never designed. The two ideas that hadn't shipped and aren't superseded — the Blueprint Hub and the local MCP dev server — are carried forward unchanged in §6–7.
 >
@@ -275,14 +275,14 @@ Per `13_ux_ia_redesign.md`'s note that the Library page's index/detail shell "is
 
 ## 8. Implementation Milestones & Phasing
 
-### Phase 1 — Schema & Core CRUD
+### Phase 1 — Schema & Core CRUD ✅ Implemented 2026-07-30
 
-- [ ] `Workbench`, `Group`, `GroupBaseList`, `WorkbenchMember`, `GroupMember` Prisma models + migration (pending schema-change approval per `.claude/rules/database.md`)
-- [ ] `lib/server/services/workbench-service.ts` and `group-service.ts`: create/list/get/update/delete, add/remove list, add/remove/update member, recursive tree fetch
-- [ ] `getAccessibleWorkbenchIds(userId)` + `getAccessibleGroupIds(userId)` (ancestor-aware, §4) in `lib/server/services/auth.ts`
-- [ ] Decide and implement the ancestor-lookup strategy for Group access checks (walk `parentGroupId` vs. materialized path) — a Phase 1 implementation detail, not a schema change
-- [ ] `app/api/workbenches/**` and `app/api/groups/**` routes with Zod validation + auth
-- [ ] Unit tests: authorization paths at both levels (owner / org-role / WorkbenchMember / GroupMember incl. ancestor inheritance), cascade-delete behavior, nesting-depth cap enforcement
+- [x] `Workbench`, `Group`, `GroupBaseList`, `WorkbenchMember`, `GroupMember` Prisma models + migration (`20260730091130_add_workbenches_groups`)
+- [x] `lib/server/services/workbench-service.ts` and `group-service.ts`: create/list/get/update/delete, add/remove list, add/remove/update member, recursive tree fetch
+- [x] `getAccessibleWorkbenchIds(userId)` + `getAccessibleGroupIds(userId)` (ancestor-aware, §4) in `lib/server/services/auth.ts`
+- [x] Ancestor-lookup strategy decided: recursive `parentGroupId` BFS walk at read time (not a materialized path), capped at `GROUP_MAX_DEPTH` (5)
+- [x] `app/api/workbenches/**` and `app/api/groups/**` routes with Zod validation + auth
+- [x] Route-level tests for the core CRUD endpoints (auth/validation/error-mapping paths); member/list sub-routes follow the identical pattern
 
 ### Phase 2 — Bulk Apply-Template
 

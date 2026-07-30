@@ -54,6 +54,8 @@
 
 10. [Database Checklist](#10-database-checklist)
 
+11. [Workbenches & Groups (added 2026-07-30)](#11-workbenches--groups-added-2026-07-30)
+
 ---
 
 
@@ -1114,6 +1116,24 @@ COPY (
 - [ ] Monitor database size (free tier: 500MB)
 - [ ] Track slow queries
 - [ ] Review RLS policy performance
+
+---
+
+## 11. Workbenches & Groups (added 2026-07-30)
+
+**Note:** the sections above document an earlier, since-superseded schema shape (a single EAV `tables`/`table_data` pair with hand-written RLS policies). The actual current schema is the Prisma models in `prisma/schema.prisma`, generated into `lib/shared/generated/prisma`, with access control enforced in the application layer (`lib/server/services/auth.ts`'s `ownershipWhere`/`getAccessibleOrganizationIds`) rather than Postgres RLS policies. This section documents the addition of `Workbench`/`Group` on top of that current schema — see `docs/features/12_groups_workbenches.md` for the full feature spec.
+
+**New models** (migration `20260730091130_add_workbenches_groups`):
+
+| Model | Table | Purpose |
+|---|---|---|
+| `Workbench` | `workbenches` | Top-level, mutually unrelated context a user switches between (e.g. "Classes", "Suppliers") |
+| `Group` | `groups` | Nestable organizing unit inside a Workbench (`parentGroupId` self-reference, `workbenchId` denormalized onto every row so ancestor lookups don't require a full-tree walk) |
+| `GroupBaseList` | `group_base_lists` | Join table — which `BaseList`s belong to a Group (mirrors the existing `BaseListTemplate` join-table pattern) |
+| `WorkbenchMember` | `workbench_members` | Grants a user access to every Group in a Workbench, scoped by `OrgRole` |
+| `GroupMember` | `group_members` | Grants a user access to one specific Group (and its descendants), independent of Workbench-wide membership |
+
+No existing model's columns changed — `BaseList` gained one additive reverse relation (`groups: GroupBaseList[]`). Full authorization model, API surface, and phased rollout are documented in `docs/features/12_groups_workbenches.md` §2–4, §8.
 
 ---
 

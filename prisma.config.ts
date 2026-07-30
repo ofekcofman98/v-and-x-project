@@ -11,8 +11,10 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: env("DATABASE_URL"),
-    // @ts-expect-error directUrl is a valid datasource option but is missing from Prisma's type definitions
-    directUrl: env("DIRECT_URL"),
+    // Migrate/introspection need a direct (non-pgbouncer) connection — the pooler's
+    // transaction-pooling mode kills the session-level features (advisory locks) Migrate
+    // needs, causing P1017 "Server has closed the connection". The pooled DATABASE_URL is
+    // still what the running app uses at runtime, via the adapter built in lib/prisma.ts.
+    url: env("DIRECT_URL"),
   },
 });

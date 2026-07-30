@@ -205,6 +205,7 @@ export type BaseListWhereInput = {
   templates?: Prisma.BaseListTemplateListRelationFilter
   entities?: Prisma.ListEntityListRelationFilter
   tables?: Prisma.TableListRelationFilter
+  groups?: Prisma.GroupBaseListListRelationFilter
 }
 
 export type BaseListOrderByWithRelationInput = {
@@ -219,6 +220,7 @@ export type BaseListOrderByWithRelationInput = {
   templates?: Prisma.BaseListTemplateOrderByRelationAggregateInput
   entities?: Prisma.ListEntityOrderByRelationAggregateInput
   tables?: Prisma.TableOrderByRelationAggregateInput
+  groups?: Prisma.GroupBaseListOrderByRelationAggregateInput
 }
 
 export type BaseListWhereUniqueInput = Prisma.AtLeast<{
@@ -236,6 +238,7 @@ export type BaseListWhereUniqueInput = Prisma.AtLeast<{
   templates?: Prisma.BaseListTemplateListRelationFilter
   entities?: Prisma.ListEntityListRelationFilter
   tables?: Prisma.TableListRelationFilter
+  groups?: Prisma.GroupBaseListListRelationFilter
 }, "id">
 
 export type BaseListOrderByWithAggregationInput = {
@@ -278,6 +281,7 @@ export type BaseListCreateInput = {
   templates?: Prisma.BaseListTemplateCreateNestedManyWithoutBaseListInput
   entities?: Prisma.ListEntityCreateNestedManyWithoutBaseListInput
   tables?: Prisma.TableCreateNestedManyWithoutBaseListInput
+  groups?: Prisma.GroupBaseListCreateNestedManyWithoutBaseListInput
 }
 
 export type BaseListUncheckedCreateInput = {
@@ -292,6 +296,7 @@ export type BaseListUncheckedCreateInput = {
   templates?: Prisma.BaseListTemplateUncheckedCreateNestedManyWithoutBaseListInput
   entities?: Prisma.ListEntityUncheckedCreateNestedManyWithoutBaseListInput
   tables?: Prisma.TableUncheckedCreateNestedManyWithoutBaseListInput
+  groups?: Prisma.GroupBaseListUncheckedCreateNestedManyWithoutBaseListInput
 }
 
 export type BaseListUpdateInput = {
@@ -306,6 +311,7 @@ export type BaseListUpdateInput = {
   templates?: Prisma.BaseListTemplateUpdateManyWithoutBaseListNestedInput
   entities?: Prisma.ListEntityUpdateManyWithoutBaseListNestedInput
   tables?: Prisma.TableUpdateManyWithoutBaseListNestedInput
+  groups?: Prisma.GroupBaseListUpdateManyWithoutBaseListNestedInput
 }
 
 export type BaseListUncheckedUpdateInput = {
@@ -320,6 +326,7 @@ export type BaseListUncheckedUpdateInput = {
   templates?: Prisma.BaseListTemplateUncheckedUpdateManyWithoutBaseListNestedInput
   entities?: Prisma.ListEntityUncheckedUpdateManyWithoutBaseListNestedInput
   tables?: Prisma.TableUncheckedUpdateManyWithoutBaseListNestedInput
+  groups?: Prisma.GroupBaseListUncheckedUpdateManyWithoutBaseListNestedInput
 }
 
 export type BaseListCreateManyInput = {
@@ -452,6 +459,20 @@ export type BaseListUpdateOneRequiredWithoutTemplatesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.BaseListUpdateToOneWithWhereWithoutTemplatesInput, Prisma.BaseListUpdateWithoutTemplatesInput>, Prisma.BaseListUncheckedUpdateWithoutTemplatesInput>
 }
 
+export type BaseListCreateNestedOneWithoutGroupsInput = {
+  create?: Prisma.XOR<Prisma.BaseListCreateWithoutGroupsInput, Prisma.BaseListUncheckedCreateWithoutGroupsInput>
+  connectOrCreate?: Prisma.BaseListCreateOrConnectWithoutGroupsInput
+  connect?: Prisma.BaseListWhereUniqueInput
+}
+
+export type BaseListUpdateOneRequiredWithoutGroupsNestedInput = {
+  create?: Prisma.XOR<Prisma.BaseListCreateWithoutGroupsInput, Prisma.BaseListUncheckedCreateWithoutGroupsInput>
+  connectOrCreate?: Prisma.BaseListCreateOrConnectWithoutGroupsInput
+  upsert?: Prisma.BaseListUpsertWithoutGroupsInput
+  connect?: Prisma.BaseListWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.BaseListUpdateToOneWithWhereWithoutGroupsInput, Prisma.BaseListUpdateWithoutGroupsInput>, Prisma.BaseListUncheckedUpdateWithoutGroupsInput>
+}
+
 export type BaseListCreateWithoutEntitiesInput = {
   id?: string
   name: string
@@ -463,6 +484,7 @@ export type BaseListCreateWithoutEntitiesInput = {
   updatedAt?: Date | string
   templates?: Prisma.BaseListTemplateCreateNestedManyWithoutBaseListInput
   tables?: Prisma.TableCreateNestedManyWithoutBaseListInput
+  groups?: Prisma.GroupBaseListCreateNestedManyWithoutBaseListInput
 }
 
 export type BaseListUncheckedCreateWithoutEntitiesInput = {
@@ -476,6 +498,7 @@ export type BaseListUncheckedCreateWithoutEntitiesInput = {
   updatedAt?: Date | string
   templates?: Prisma.BaseListTemplateUncheckedCreateNestedManyWithoutBaseListInput
   tables?: Prisma.TableUncheckedCreateNestedManyWithoutBaseListInput
+  groups?: Prisma.GroupBaseListUncheckedCreateNestedManyWithoutBaseListInput
 }
 
 export type BaseListCreateOrConnectWithoutEntitiesInput = {
@@ -505,6 +528,7 @@ export type BaseListUpdateWithoutEntitiesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   templates?: Prisma.BaseListTemplateUpdateManyWithoutBaseListNestedInput
   tables?: Prisma.TableUpdateManyWithoutBaseListNestedInput
+  groups?: Prisma.GroupBaseListUpdateManyWithoutBaseListNestedInput
 }
 
 export type BaseListUncheckedUpdateWithoutEntitiesInput = {
@@ -518,6 +542,7 @@ export type BaseListUncheckedUpdateWithoutEntitiesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   templates?: Prisma.BaseListTemplateUncheckedUpdateManyWithoutBaseListNestedInput
   tables?: Prisma.TableUncheckedUpdateManyWithoutBaseListNestedInput
+  groups?: Prisma.GroupBaseListUncheckedUpdateManyWithoutBaseListNestedInput
 }
 
 export type BaseListCreateWithoutTablesInput = {
@@ -531,6 +556,7 @@ export type BaseListCreateWithoutTablesInput = {
   updatedAt?: Date | string
   templates?: Prisma.BaseListTemplateCreateNestedManyWithoutBaseListInput
   entities?: Prisma.ListEntityCreateNestedManyWithoutBaseListInput
+  groups?: Prisma.GroupBaseListCreateNestedManyWithoutBaseListInput
 }
 
 export type BaseListUncheckedCreateWithoutTablesInput = {
@@ -544,6 +570,7 @@ export type BaseListUncheckedCreateWithoutTablesInput = {
   updatedAt?: Date | string
   templates?: Prisma.BaseListTemplateUncheckedCreateNestedManyWithoutBaseListInput
   entities?: Prisma.ListEntityUncheckedCreateNestedManyWithoutBaseListInput
+  groups?: Prisma.GroupBaseListUncheckedCreateNestedManyWithoutBaseListInput
 }
 
 export type BaseListCreateOrConnectWithoutTablesInput = {
@@ -573,6 +600,7 @@ export type BaseListUpdateWithoutTablesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   templates?: Prisma.BaseListTemplateUpdateManyWithoutBaseListNestedInput
   entities?: Prisma.ListEntityUpdateManyWithoutBaseListNestedInput
+  groups?: Prisma.GroupBaseListUpdateManyWithoutBaseListNestedInput
 }
 
 export type BaseListUncheckedUpdateWithoutTablesInput = {
@@ -586,6 +614,7 @@ export type BaseListUncheckedUpdateWithoutTablesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   templates?: Prisma.BaseListTemplateUncheckedUpdateManyWithoutBaseListNestedInput
   entities?: Prisma.ListEntityUncheckedUpdateManyWithoutBaseListNestedInput
+  groups?: Prisma.GroupBaseListUncheckedUpdateManyWithoutBaseListNestedInput
 }
 
 export type BaseListCreateWithoutTemplatesInput = {
@@ -599,6 +628,7 @@ export type BaseListCreateWithoutTemplatesInput = {
   updatedAt?: Date | string
   entities?: Prisma.ListEntityCreateNestedManyWithoutBaseListInput
   tables?: Prisma.TableCreateNestedManyWithoutBaseListInput
+  groups?: Prisma.GroupBaseListCreateNestedManyWithoutBaseListInput
 }
 
 export type BaseListUncheckedCreateWithoutTemplatesInput = {
@@ -612,6 +642,7 @@ export type BaseListUncheckedCreateWithoutTemplatesInput = {
   updatedAt?: Date | string
   entities?: Prisma.ListEntityUncheckedCreateNestedManyWithoutBaseListInput
   tables?: Prisma.TableUncheckedCreateNestedManyWithoutBaseListInput
+  groups?: Prisma.GroupBaseListUncheckedCreateNestedManyWithoutBaseListInput
 }
 
 export type BaseListCreateOrConnectWithoutTemplatesInput = {
@@ -641,6 +672,7 @@ export type BaseListUpdateWithoutTemplatesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   entities?: Prisma.ListEntityUpdateManyWithoutBaseListNestedInput
   tables?: Prisma.TableUpdateManyWithoutBaseListNestedInput
+  groups?: Prisma.GroupBaseListUpdateManyWithoutBaseListNestedInput
 }
 
 export type BaseListUncheckedUpdateWithoutTemplatesInput = {
@@ -654,6 +686,79 @@ export type BaseListUncheckedUpdateWithoutTemplatesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   entities?: Prisma.ListEntityUncheckedUpdateManyWithoutBaseListNestedInput
   tables?: Prisma.TableUncheckedUpdateManyWithoutBaseListNestedInput
+  groups?: Prisma.GroupBaseListUncheckedUpdateManyWithoutBaseListNestedInput
+}
+
+export type BaseListCreateWithoutGroupsInput = {
+  id?: string
+  name: string
+  description?: string | null
+  schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId: string
+  organizationId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  templates?: Prisma.BaseListTemplateCreateNestedManyWithoutBaseListInput
+  entities?: Prisma.ListEntityCreateNestedManyWithoutBaseListInput
+  tables?: Prisma.TableCreateNestedManyWithoutBaseListInput
+}
+
+export type BaseListUncheckedCreateWithoutGroupsInput = {
+  id?: string
+  name: string
+  description?: string | null
+  schema: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId: string
+  organizationId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  templates?: Prisma.BaseListTemplateUncheckedCreateNestedManyWithoutBaseListInput
+  entities?: Prisma.ListEntityUncheckedCreateNestedManyWithoutBaseListInput
+  tables?: Prisma.TableUncheckedCreateNestedManyWithoutBaseListInput
+}
+
+export type BaseListCreateOrConnectWithoutGroupsInput = {
+  where: Prisma.BaseListWhereUniqueInput
+  create: Prisma.XOR<Prisma.BaseListCreateWithoutGroupsInput, Prisma.BaseListUncheckedCreateWithoutGroupsInput>
+}
+
+export type BaseListUpsertWithoutGroupsInput = {
+  update: Prisma.XOR<Prisma.BaseListUpdateWithoutGroupsInput, Prisma.BaseListUncheckedUpdateWithoutGroupsInput>
+  create: Prisma.XOR<Prisma.BaseListCreateWithoutGroupsInput, Prisma.BaseListUncheckedCreateWithoutGroupsInput>
+  where?: Prisma.BaseListWhereInput
+}
+
+export type BaseListUpdateToOneWithWhereWithoutGroupsInput = {
+  where?: Prisma.BaseListWhereInput
+  data: Prisma.XOR<Prisma.BaseListUpdateWithoutGroupsInput, Prisma.BaseListUncheckedUpdateWithoutGroupsInput>
+}
+
+export type BaseListUpdateWithoutGroupsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  templates?: Prisma.BaseListTemplateUpdateManyWithoutBaseListNestedInput
+  entities?: Prisma.ListEntityUpdateManyWithoutBaseListNestedInput
+  tables?: Prisma.TableUpdateManyWithoutBaseListNestedInput
+}
+
+export type BaseListUncheckedUpdateWithoutGroupsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  schema?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  templates?: Prisma.BaseListTemplateUncheckedUpdateManyWithoutBaseListNestedInput
+  entities?: Prisma.ListEntityUncheckedUpdateManyWithoutBaseListNestedInput
+  tables?: Prisma.TableUncheckedUpdateManyWithoutBaseListNestedInput
 }
 
 
@@ -665,12 +770,14 @@ export type BaseListCountOutputType = {
   templates: number
   entities: number
   tables: number
+  groups: number
 }
 
 export type BaseListCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   templates?: boolean | BaseListCountOutputTypeCountTemplatesArgs
   entities?: boolean | BaseListCountOutputTypeCountEntitiesArgs
   tables?: boolean | BaseListCountOutputTypeCountTablesArgs
+  groups?: boolean | BaseListCountOutputTypeCountGroupsArgs
 }
 
 /**
@@ -704,6 +811,13 @@ export type BaseListCountOutputTypeCountTablesArgs<ExtArgs extends runtime.Types
   where?: Prisma.TableWhereInput
 }
 
+/**
+ * BaseListCountOutputType without action
+ */
+export type BaseListCountOutputTypeCountGroupsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.GroupBaseListWhereInput
+}
+
 
 export type BaseListSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -717,6 +831,7 @@ export type BaseListSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   templates?: boolean | Prisma.BaseList$templatesArgs<ExtArgs>
   entities?: boolean | Prisma.BaseList$entitiesArgs<ExtArgs>
   tables?: boolean | Prisma.BaseList$tablesArgs<ExtArgs>
+  groups?: boolean | Prisma.BaseList$groupsArgs<ExtArgs>
   _count?: boolean | Prisma.BaseListCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["baseList"]>
 
@@ -758,6 +873,7 @@ export type BaseListInclude<ExtArgs extends runtime.Types.Extensions.InternalArg
   templates?: boolean | Prisma.BaseList$templatesArgs<ExtArgs>
   entities?: boolean | Prisma.BaseList$entitiesArgs<ExtArgs>
   tables?: boolean | Prisma.BaseList$tablesArgs<ExtArgs>
+  groups?: boolean | Prisma.BaseList$groupsArgs<ExtArgs>
   _count?: boolean | Prisma.BaseListCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type BaseListIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -769,6 +885,7 @@ export type $BaseListPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     templates: Prisma.$BaseListTemplatePayload<ExtArgs>[]
     entities: Prisma.$ListEntityPayload<ExtArgs>[]
     tables: Prisma.$TablePayload<ExtArgs>[]
+    groups: Prisma.$GroupBaseListPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1176,6 +1293,7 @@ export interface Prisma__BaseListClient<T, Null = never, ExtArgs extends runtime
   templates<T extends Prisma.BaseList$templatesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.BaseList$templatesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BaseListTemplatePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   entities<T extends Prisma.BaseList$entitiesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.BaseList$entitiesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ListEntityPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tables<T extends Prisma.BaseList$tablesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.BaseList$tablesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TablePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  groups<T extends Prisma.BaseList$groupsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.BaseList$groupsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GroupBaseListPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1675,6 +1793,30 @@ export type BaseList$tablesArgs<ExtArgs extends runtime.Types.Extensions.Interna
   take?: number
   skip?: number
   distinct?: Prisma.TableScalarFieldEnum | Prisma.TableScalarFieldEnum[]
+}
+
+/**
+ * BaseList.groups
+ */
+export type BaseList$groupsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the GroupBaseList
+   */
+  select?: Prisma.GroupBaseListSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the GroupBaseList
+   */
+  omit?: Prisma.GroupBaseListOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.GroupBaseListInclude<ExtArgs> | null
+  where?: Prisma.GroupBaseListWhereInput
+  orderBy?: Prisma.GroupBaseListOrderByWithRelationInput | Prisma.GroupBaseListOrderByWithRelationInput[]
+  cursor?: Prisma.GroupBaseListWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.GroupBaseListScalarFieldEnum | Prisma.GroupBaseListScalarFieldEnum[]
 }
 
 /**

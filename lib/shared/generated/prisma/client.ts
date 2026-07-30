@@ -91,3 +91,28 @@ export type Organization = Prisma.OrganizationModel
  * 
  */
 export type OrganizationMember = Prisma.OrganizationMemberModel
+/**
+ * Model Workbench
+ * 
+ */
+export type Workbench = Prisma.WorkbenchModel
+/**
+ * Model Group
+ * 
+ */
+export type Group = Prisma.GroupModel
+/**
+ * Model GroupBaseList
+ * 
+ */
+export type GroupBaseList = Prisma.GroupBaseListModel
+/**
+ * Model WorkbenchMember
+ * 
+ */
+export type WorkbenchMember = Prisma.WorkbenchMemberModel
+/**
+ * Model GroupMember
+ * 
+ */
+export type GroupMember = Prisma.GroupMemberModel

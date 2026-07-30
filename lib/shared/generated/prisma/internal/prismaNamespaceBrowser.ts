@@ -60,7 +60,12 @@ export const ModelName = {
   BaseListTemplate: 'BaseListTemplate',
   EntityEmbedding: 'EntityEmbedding',
   Organization: 'Organization',
-  OrganizationMember: 'OrganizationMember'
+  OrganizationMember: 'OrganizationMember',
+  Workbench: 'Workbench',
+  Group: 'Group',
+  GroupBaseList: 'GroupBaseList',
+  WorkbenchMember: 'WorkbenchMember',
+  GroupMember: 'GroupMember'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -217,6 +222,66 @@ export const OrganizationMemberScalarFieldEnum = {
 } as const
 
 export type OrganizationMemberScalarFieldEnum = (typeof OrganizationMemberScalarFieldEnum)[keyof typeof OrganizationMemberScalarFieldEnum]
+
+
+export const WorkbenchScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  userId: 'userId',
+  organizationId: 'organizationId',
+  settings: 'settings',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WorkbenchScalarFieldEnum = (typeof WorkbenchScalarFieldEnum)[keyof typeof WorkbenchScalarFieldEnum]
+
+
+export const GroupScalarFieldEnum = {
+  id: 'id',
+  workbenchId: 'workbenchId',
+  parentGroupId: 'parentGroupId',
+  name: 'name',
+  description: 'description',
+  settings: 'settings',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GroupScalarFieldEnum = (typeof GroupScalarFieldEnum)[keyof typeof GroupScalarFieldEnum]
+
+
+export const GroupBaseListScalarFieldEnum = {
+  id: 'id',
+  groupId: 'groupId',
+  baseListId: 'baseListId',
+  addedAt: 'addedAt'
+} as const
+
+export type GroupBaseListScalarFieldEnum = (typeof GroupBaseListScalarFieldEnum)[keyof typeof GroupBaseListScalarFieldEnum]
+
+
+export const WorkbenchMemberScalarFieldEnum = {
+  id: 'id',
+  workbenchId: 'workbenchId',
+  userId: 'userId',
+  role: 'role',
+  addedAt: 'addedAt'
+} as const
+
+export type WorkbenchMemberScalarFieldEnum = (typeof WorkbenchMemberScalarFieldEnum)[keyof typeof WorkbenchMemberScalarFieldEnum]
+
+
+export const GroupMemberScalarFieldEnum = {
+  id: 'id',
+  groupId: 'groupId',
+  userId: 'userId',
+  role: 'role',
+  addedAt: 'addedAt'
+} as const
+
+export type GroupMemberScalarFieldEnum = (typeof GroupMemberScalarFieldEnum)[keyof typeof GroupMemberScalarFieldEnum]
 
 
 export const SortOrder = {
