@@ -8,13 +8,26 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Trash2 } from 'lucide-react';
+import { Trash2, MoreVertical } from 'lucide-react';
 import { StatCard } from '@/components/shared/StatCard';
 import { RelationCard } from '@/components/shared/RelationCard';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 
 export interface StatCardConfig {
   title: string;
   value: string;
+}
+
+export interface HeaderMenuAction {
+  label: string;
+  icon?: React.ReactNode;
+  onClick: () => void;
+  destructive?: boolean;
 }
 
 export interface RelationCardConfig {
@@ -37,6 +50,8 @@ export interface DetailPageHeaderProps {
   onDeleteClick: () => void;
   /** Optional linked-entity card rendered below the stat row */
   relationCard?: RelationCardConfig | null;
+  /** Optional secondary actions, rendered as one "..." menu next to delete — keeps the header to a single action affordance instead of a growing button row. */
+  moreActions?: HeaderMenuAction[];
 }
 
 export const DetailPageHeader = React.memo(function DetailPageHeader({
@@ -48,6 +63,7 @@ export const DetailPageHeader = React.memo(function DetailPageHeader({
   statCards,
   onDeleteClick,
   relationCard,
+  moreActions,
 }: DetailPageHeaderProps) {
   return (
     <>
@@ -61,6 +77,27 @@ export const DetailPageHeader = React.memo(function DetailPageHeader({
         </div>
 
         <div className="flex items-center gap-3">
+          {moreActions && moreActions.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label="More actions"
+                  className="inline-flex items-center justify-center rounded-md h-10 w-10 text-slate-400 hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {moreActions.map((action) => (
+                  <DropdownMenuItem key={action.label} onClick={action.onClick} destructive={action.destructive}>
+                    {action.icon}
+                    {action.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
           <button
             onClick={onDeleteClick}
             aria-label={deleteAriaLabel}

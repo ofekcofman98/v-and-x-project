@@ -10,9 +10,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InlineErrorState } from '@/components/states/error-state';
 import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
-import type { StatCardConfig } from '@/components/shared/DetailPageHeader';
+import type { StatCardConfig, HeaderMenuAction } from '@/components/shared/DetailPageHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
-import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useWorkbenchQuery, useDeleteWorkbenchMutation } from '@/lib/client/hooks/data/use-workbenches';
@@ -52,6 +51,11 @@ export function WorkbenchDetailPane({ id, onDeleted, onSelectGroup, onSelectList
   );
 
   const handleOpenDeleteDialog = useCallback(() => setDeleteDialogOpen(true), []);
+
+  const moreActions = useMemo<HeaderMenuAction[]>(
+    () => [{ label: 'Manage members…', icon: <Users className="h-4 w-4" />, onClick: () => setShowMembers(true) }],
+    [],
+  );
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
@@ -94,17 +98,12 @@ export function WorkbenchDetailPane({ id, onDeleted, onSelectGroup, onSelectList
         deleteAriaLabel="Delete workbench"
         statCards={statCards}
         onDeleteClick={handleOpenDeleteDialog}
+        moreActions={moreActions}
       />
-
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => setShowMembers(true)}>
-          <Users className="h-4 w-4 mr-2" />
-          Manage members
-        </Button>
-      </div>
 
       <div className="border border-slate-200 rounded-lg p-2">
         <GroupTreeRoot
+          workbenchId={id}
           topGroups={topGroups}
           selection={null}
           onSelectGroup={(groupId) => onSelectGroup?.(groupId)}

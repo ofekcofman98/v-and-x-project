@@ -2,11 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const findUniqueMock = vi.fn();
 const updateMock = vi.fn();
+const groupBaseListFindManyMock = vi.fn();
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     group: {
       findUnique: (...args: unknown[]) => findUniqueMock(...args),
       update: (...args: unknown[]) => updateMock(...args),
+    },
+    groupBaseList: {
+      findMany: (...args: unknown[]) => groupBaseListFindManyMock(...args),
     },
   },
 }));
@@ -23,7 +27,7 @@ vi.mock('@/lib/server/services/base-list-service', () => ({
   applyTemplateToBaseList: vi.fn(),
 }));
 
-import { updateGroup } from './group-service';
+import { updateGroup, getAssignedBaseLists } from './group-service';
 
 // Group A is being moved; group B is A's direct child (B.parentGroupId === 'A').
 // Group C is an unrelated top-level group (C.parentGroupId === null).
@@ -50,6 +54,7 @@ function mockFindUnique() {
 beforeEach(() => {
   findUniqueMock.mockReset();
   updateMock.mockReset();
+  groupBaseListFindManyMock.mockReset();
   getAccessibleGroupIdsMock.mockReset();
   getAccessibleGroupIdsMock.mockResolvedValue(['A', 'B', 'C']);
   mockFindUnique();
@@ -77,5 +82,35 @@ describe('updateGroup — re-parent cycle prevention', () => {
 
     expect(result).toEqual({ id: 'A', parentGroupId: 'C' });
     expect(updateMock).toHaveBeenCalled();
+  });
+});
+
+describe('getAssignedBaseLists', () => {
+  it('returns an empty array when the caller has no accessible groups', async () => {
+    getAccessibleGroupIdsMock.mockResolvedValue([]);
+
+    const result = await getAssignedBaseLists('user-1', []);
+
+    expect(result).toEqual([]);
+    expect(groupBaseListFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it('maps GroupBaseList rows into the flat assigned-lists shape', async () => {
+    getAccessibleGroupIdsMock.mockResolvedValue(['g1']);
+    groupBaseListFindManyMock.mockResolvedValue([
+      {
+        baseList: { id: 'a1' },
+        group: { id: 'g1', name: 'Class 1A', workbench: { id: 'w1', name: 'Classes' } },
+      },
+    ]);
+
+    const result = await getAssignedBaseLists('user-1', []);
+
+    expect(result).toEqual([
+      { baseListId: 'a1', groupId: 'g1', groupName: 'Class 1A', workbenchId: 'w1', workbenchName: 'Classes' },
+    ]);
+    expect(groupBaseListFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { groupId: { in: ['g1'] } } })
+    );
   });
 });

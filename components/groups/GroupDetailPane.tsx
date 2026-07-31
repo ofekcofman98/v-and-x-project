@@ -11,9 +11,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InlineErrorState } from '@/components/states/error-state';
 import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
-import type { StatCardConfig } from '@/components/shared/DetailPageHeader';
+import type { StatCardConfig, HeaderMenuAction } from '@/components/shared/DetailPageHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
-import { Button } from '@/components/ui/button';
 import { Plus, Zap, FileText, FolderTree, Users, MoveRight } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useGroupQuery, useDeleteGroupMutation, useCreateGroupMutation } from '@/lib/client/hooks/data/use-groups';
@@ -59,6 +58,16 @@ export function GroupDetailPane({ id, onDeleted, onSelectGroup, onSelectList }: 
 
   const handleOpenDeleteDialog = useCallback(() => setDeleteDialogOpen(true), []);
 
+  const moreActions = useMemo<HeaderMenuAction[]>(
+    () => [
+      { label: 'New subgroup…', icon: <Plus className="h-4 w-4" />, onClick: () => setShowNewSubgroup(true) },
+      { label: 'Apply template to group…', icon: <Zap className="h-4 w-4" />, onClick: () => setShowApplyTemplate(true) },
+      { label: 'Manage members…', icon: <Users className="h-4 w-4" />, onClick: () => setShowMembers(true) },
+      { label: 'Move…', icon: <MoveRight className="h-4 w-4" />, onClick: () => setShowMove(true) },
+    ],
+    [],
+  );
+
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
     try {
@@ -100,26 +109,8 @@ export function GroupDetailPane({ id, onDeleted, onSelectGroup, onSelectList }: 
         deleteAriaLabel="Delete group"
         statCards={statCards}
         onDeleteClick={handleOpenDeleteDialog}
+        moreActions={moreActions}
       />
-
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => setShowNewSubgroup(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New subgroup
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowApplyTemplate(true)}>
-          <Zap className="h-4 w-4 mr-2" />
-          Apply template to group…
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowMembers(true)}>
-          <Users className="h-4 w-4 mr-2" />
-          Manage members
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowMove(true)}>
-          <MoveRight className="h-4 w-4 mr-2" />
-          Move…
-        </Button>
-      </div>
 
       <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
         {childGroups.length === 0 && baseLists.length === 0 && (

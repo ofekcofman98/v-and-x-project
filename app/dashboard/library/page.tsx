@@ -20,19 +20,26 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InlineErrorState } from '@/components/states/error-state';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/shared/utils/cn';
-import { Plus } from 'lucide-react';
+import { Plus, MoreVertical, MoveRight } from 'lucide-react';
 
 import { useBaseListsQuery } from '@/lib/client/hooks/data/use-base-lists';
 import { useColumnTemplatesQuery } from '@/lib/client/hooks/data/use-column-templates';
 import { useWorkbenchesQuery, useWorkbenchQuery, useCreateWorkbenchMutation } from '@/lib/client/hooks/data/use-workbenches';
-import { useCreateGroupMutation } from '@/lib/client/hooks/data/use-groups';
+import { useCreateGroupMutation, useAssignedListsQuery } from '@/lib/client/hooks/data/use-groups';
 import { BaseListDetailPane } from '@/components/base-lists/BaseListDetailPane';
 import { TemplateDetailPane } from '@/components/templates/TemplateDetailPane';
 import { GroupDetailPane } from '@/components/groups/GroupDetailPane';
 import { WorkbenchDetailPane } from '@/components/workbenches/WorkbenchDetailPane';
 import { GroupTreeRoot } from '@/components/groups/GroupTree';
 import { CreateContainerDialog } from '@/components/library/CreateContainerDialog';
+import { MoveListDialog } from '@/components/library/MoveListDialog';
 import { DynamicListCreator } from '@/components/base-lists/DynamicListCreator';
 import { DynamicTemplateCreator } from '@/components/column-templates/DynamicTemplateCreator';
 import { ImportCsvButton, type ParsedCsvImport } from '@/components/import/ImportCsvButton';
@@ -48,27 +55,79 @@ function IndexItem({
   icon,
   isSelected,
   onClick,
+  onMoveClick,
 }: {
   label: string;
   sublabel?: string;
   icon?: string;
   isSelected: boolean;
   onClick: () => void;
+  /** Present only for BaseList rows — renders a "..." menu with "Move to Group/Workbench…". */
+  onMoveClick?: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
+    <div
       className={cn(
-        'w-full text-left px-3 py-2.5 rounded-md transition-colors',
+        'group/row flex items-center gap-1 rounded-md transition-colors',
         isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted/60'
       )}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        {icon && <span aria-hidden>{icon}</span>}
-        <span className="text-sm font-medium truncate">{label}</span>
-      </div>
-      {sublabel && <p className="text-xs text-muted-foreground mt-0.5 truncate">{sublabel}</p>}
-    </button>
+      <button onClick={onClick} className="flex-1 min-w-0 text-left px-3 py-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          {icon && <span aria-hidden>{icon}</span>}
+          <span className="text-sm font-medium truncate">{label}</span>
+        </div>
+        {sublabel && <p className="text-xs text-muted-foreground mt-0.5 truncate">{sublabel}</p>}
+      </button>
+      {onMoveClick && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              aria-label="More actions"
+              className="shrink-0 p-1.5 mr-1 rounded-md text-muted-foreground opacity-0 group-hover/row:opacity-100 hover:text-foreground hover:bg-muted transition-opacity data-[state=open]:opacity-100"
+            >
+              <MoreVertical className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onMoveClick}>
+              <MoveRight className="h-4 w-4" />
+              Move to Group/Workbench…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+}
+
+/** Owns its own Move dialog state for a flat "All Lists" row. */
+function FlatListItem({
+  id,
+  name,
+  columnCount,
+  isSelected,
+  onClick,
+}: {
+  id: string;
+  name: string;
+  columnCount: number;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const [showMove, setShowMove] = useState(false);
+
+  return (
+    <>
+      <IndexItem
+        label={name}
+        sublabel={`${columnCount} column${columnCount !== 1 ? 's' : ''}`}
+        isSelected={isSelected}
+        onClick={onClick}
+        onMoveClick={() => setShowMove(true)}
+      />
+      <MoveListDialog baseListId={id} baseListName={name} open={showMove} onClose={() => setShowMove(false)} />
+    </>
   );
 }
 
@@ -92,6 +151,7 @@ export default function LibraryPage() {
   const templatesQuery = useColumnTemplatesQuery();
   const workbenchesQuery = useWorkbenchesQuery();
   const activeWorkbenchQuery = useWorkbenchQuery(selectedWorkbenchId);
+  const assignedListsQuery = useAssignedListsQuery();
   const createWorkbenchMutation = useCreateWorkbenchMutation();
   const createGroupMutation = useCreateGroupMutation();
 
@@ -99,6 +159,9 @@ export default function LibraryPage() {
   const templates = templatesQuery.data ?? [];
   const workbenches = workbenchesQuery.data ?? [];
   const topGroups = activeWorkbenchQuery.data?.groups ?? [];
+
+  const assignedListIds = new Set((assignedListsQuery.data ?? []).map((a) => a.baseListId));
+  const unassignedLists = lists.filter((l) => !assignedListIds.has(l.id));
 
   const selectList = (id: string) => {
     setSelectedGroupId(null);
@@ -192,10 +255,11 @@ export default function LibraryPage() {
                       ) : (
                         <div className="space-y-1">
                           {lists.map((list) => (
-                            <IndexItem
+                            <FlatListItem
                               key={list.id}
-                              label={list.name}
-                              sublabel={`${list.schema.columns.length} column${list.schema.columns.length !== 1 ? 's' : ''}`}
+                              id={list.id}
+                              name={list.name}
+                              columnCount={list.schema.columns.length}
                               isSelected={selectedListId === list.id}
                               onClick={() => selectList(list.id)}
                             />
@@ -217,19 +281,42 @@ export default function LibraryPage() {
                       onRetry={() => activeWorkbenchQuery.refetch()}
                     />
                   ) : (
-                    <GroupTreeRoot
-                      topGroups={topGroups}
-                      selection={
-                        selectedGroupId
-                          ? { kind: 'group', id: selectedGroupId }
-                          : selectedListId
-                            ? { kind: 'list', id: selectedListId }
-                            : null
-                      }
-                      onSelectGroup={selectGroup}
-                      onSelectList={selectList}
-                      onCreateGroup={() => setShowNewGroup(true)}
-                    />
+                    <>
+                      <GroupTreeRoot
+                        workbenchId={selectedWorkbenchId}
+                        topGroups={topGroups}
+                        selection={
+                          selectedGroupId
+                            ? { kind: 'group', id: selectedGroupId }
+                            : selectedListId
+                              ? { kind: 'list', id: selectedListId }
+                              : null
+                        }
+                        onSelectGroup={selectGroup}
+                        onSelectList={selectList}
+                        onCreateGroup={() => setShowNewGroup(true)}
+                      />
+
+                      {unassignedLists.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-100">
+                          <p className="text-xs font-medium text-muted-foreground px-1 mb-1">
+                            Unassigned Lists
+                          </p>
+                          <div className="space-y-1">
+                            {unassignedLists.map((list) => (
+                              <FlatListItem
+                                key={list.id}
+                                id={list.id}
+                                name={list.name}
+                                columnCount={list.schema.columns.length}
+                                isSelected={selectedListId === list.id}
+                                onClick={() => selectList(list.id)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   <div className="mt-2 space-y-1">

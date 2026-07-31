@@ -14,12 +14,14 @@ import { ColumnType } from '@/lib/shared/types/column-types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InlineErrorState } from '@/components/states/error-state';
 import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
-import type { StatCardConfig } from '@/components/shared/DetailPageHeader';
+import type { StatCardConfig, HeaderMenuAction } from '@/components/shared/DetailPageHeader';
 import { DeleteConfirmDialog } from '@/components/shared/DeleteConfirmDialog';
 import { useToast } from '@/components/ui/use-toast';
 import { TableGridSection } from '@/components/shared-table/TableGridSection';
 import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 import { useBaseListQuery, useDeleteBaseListMutation } from '@/lib/client/hooks/data/use-base-lists';
+import { MoveListDialog } from '@/components/library/MoveListDialog';
+import { MoveRight } from 'lucide-react';
 
 interface ListEntityDTO {
   id: string;
@@ -50,6 +52,7 @@ export function BaseListDetailPane({ id, backHref, backLabel, onDeleted }: BaseL
   const deleteMutation = useDeleteBaseListMutation();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [showMove, setShowMove] = useState(false);
 
   const typedBaseList = baseList as BaseListWithEntitiesDTO | undefined;
 
@@ -102,6 +105,11 @@ export function BaseListDetailPane({ id, backHref, backLabel, onDeleted }: BaseL
 
   const handleOpenDeleteDialog = useCallback(() => setDeleteDialogOpen(true), []);
 
+  const moreActions = useMemo<HeaderMenuAction[]>(
+    () => [{ label: 'Move to Group/Workbench…', icon: <MoveRight className="h-4 w-4" />, onClick: () => setShowMove(true) }],
+    [],
+  );
+
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteConfirm = async () => {
@@ -149,6 +157,7 @@ export function BaseListDetailPane({ id, backHref, backLabel, onDeleted }: BaseL
         deleteAriaLabel="Delete base list"
         statCards={statCards}
         onDeleteClick={handleOpenDeleteDialog}
+        moreActions={moreActions}
       />
 
       <TableGridSection
@@ -168,6 +177,13 @@ export function BaseListDetailPane({ id, backHref, backLabel, onDeleted }: BaseL
         title="Delete Base List"
         itemName={typedBaseList.name}
         isDeleting={isDeleting}
+      />
+
+      <MoveListDialog
+        baseListId={id}
+        baseListName={typedBaseList.name}
+        open={showMove}
+        onClose={() => setShowMove(false)}
       />
     </div>
   );

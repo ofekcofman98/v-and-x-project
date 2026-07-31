@@ -3,7 +3,7 @@
 **Feature:** 12 — Workbenches & Groups
 **Priority:** Medium
 **Dependencies:** 03_DATABASE.md, 03_ai_table_agent.md, 13_ux_ia_redesign.md, `prisma/schema.prisma`
-**Status:** Phases 1–4 implemented (Schema & Core CRUD, Bulk Apply-Template, Library Page UI, Sharing & Re-parenting Polish — `Workbench.settings`/`Group.settings` concrete shape still deliberately deferred). §9 (UX Polish Pass) is spec'd, not started.
+**Status:** Phases 1–4 and §9 (UX Polish Pass) all implemented (Schema & Core CRUD, Bulk Apply-Template, Library Page UI, Sharing & Re-parenting Polish, Move-list/Unassigned-Lists/action-menu consolidation). `Workbench.settings`/`Group.settings` concrete shape is the only remaining deliberately-deferred item.
 **Last Updated:** 2026-07-30
 
 > **Note on this file's history:** this document previously covered five loosely-related frontier ideas (Unified Canvas, Blueprint Hub, `@mention`, Token Delta Optimization, a local MCP dev server). The Unified Canvas, `@mention`, and Token Delta Optimization ideas have since **shipped** — as the Library page + live-canvas create-table flow (`13_ux_ia_redesign.md`) and the Schema Agent's `@Mention` resolution and context-diet design (`03_ai_table_agent.md`). This file is repurposed to spec the next planned feature, **Workbenches & Groups**, which `13_ux_ia_redesign.md` flagged as future scope but never designed. The two ideas that hadn't shipped and aren't superseded — the Blueprint Hub and the local MCP dev server — are carried forward unchanged in §6–7.
@@ -317,9 +317,11 @@ Per `13_ux_ia_redesign.md`'s note that the Library page's index/detail shell "is
 
 ---
 
-## 9. UX Polish Pass (Planned)
+## 9. UX Polish Pass ✅ Implemented 2026-07-30
 
-**Status: spec'd, not started.** Manual testing of Phase 3 surfaced that organizing lists feels clunky: there's no way to move an already-existing `BaseList` into a Group after the fact, no visibility into which lists haven't been organized yet, and adding a list or subgroup from the tree currently detours through the full detail pane. This section records the agreed design for that polish pass, to implement in a future session.
+Manual testing of Phase 3 surfaced that organizing lists feels clunky: there's no way to move an already-existing `BaseList` into a Group after the fact, no visibility into which lists haven't been organized yet, and adding a list or subgroup from the tree currently detours through the full detail pane. This section records the agreed design for that polish pass, and how it shipped.
+
+**Extra scope added during implementation, beyond what's written below**: the broader complaint was "not product level," not just these specific gaps — action rows had grown to 4+ separate buttons (`GroupDetailPane`) with no consistent pattern. Since §9.3 itself calls for a "small `...` menu per row" and this repo had no dropdown-menu primitive, `@radix-ui/react-dropdown-menu` was added (same family as the already-installed Dialog/Select/Toast/Tooltip) and `components/ui/dropdown-menu.tsx` built. `DetailPageHeader` gained an optional `moreActions` prop, and every detail pane's separate button row (`GroupDetailPane`: New subgroup / Apply template / Manage members / Move; `WorkbenchDetailPane`: Manage members) was consolidated into that one "..." menu instead of adding a 5th button for the new Move-list action.
 
 **Not to be confused with** Phase 4's "Dedicated re-parent/move UI for Groups" (§8) — that's about re-parenting a *Group node itself* elsewhere in the tree (`PATCH /api/groups/:id` with a new `parentGroupId`, already supported by the API). This section is about moving a *`BaseList` leaf* into a Group, which is a different action (`GroupBaseList` membership, not `Group.parentGroupId`).
 
@@ -353,11 +355,11 @@ Contents: a Workbench `<Select>`, then a Group `<Select>` scoped to that Workben
 
 ### 9.4 "Unassigned Lists" section
 
-Rendered in the Library page's Lists tab (both under "All Lists" and under an active Workbench) as a section alongside/below the Group tree, listing every `BaseList` absent from §9.2's assigned-lists set — so nothing a user has created ever feels hidden or orphaned regardless of which Workbench is currently selected.
+**Shipped narrower than originally worded**: rendered only when a Workbench is actively selected (below the Group tree), not duplicated under "All Lists" — that view already shows every list flatly, so a redundant "Unassigned" subsection there would add clutter without new information. This was a deliberate judgment call in service of the actual complaint (avoid unnecessary sections), not an oversight.
 
 ### 9.5 Inline quick-add on tree rows
 
-Each `GroupTreeItem`/`GroupTreeNodeView` row gains a small popover (not a full navigation) offering "+ Add existing list here" (a compact list picker, reusing the assigned-lists lookup to default to unassigned lists) and "+ New subgroup here" (the existing `CreateContainerDialog`, pre-seeded with this row's id as `parentGroupId`) — removing the current detour through the Group's own detail pane for these two specific actions.
+Implemented via the same consolidated "..." menu as 9's extra scope, not a separate popover component: each Group row's menu has "Move…", "+ New subgroup here" (`CreateContainerDialog`, pre-seeded `parentGroupId`), and "+ Add existing list here" (`QuickAddListDialog`, new — a compact picker defaulting to the assigned-lists lookup's *unassigned* lists). BaseList leaf rows and flat "All Lists" rows get a "..." menu too, with "Move to Group/Workbench…" (`MoveListDialog`).
 
 ---
 

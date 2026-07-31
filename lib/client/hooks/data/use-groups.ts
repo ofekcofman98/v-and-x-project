@@ -200,6 +200,7 @@ export function useAddBaseListToGroupMutation() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.detail(variables.groupId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.tree(variables.groupId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.assignedLists });
     },
   });
 }
@@ -218,7 +219,35 @@ export function useRemoveBaseListFromGroupMutation() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.detail(variables.groupId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.tree(variables.groupId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.assignedLists });
     },
+  });
+}
+
+export interface AssignedBaseListEntry {
+  baseListId: string;
+  groupId: string;
+  groupName: string;
+  workbenchId: string;
+  workbenchName: string;
+}
+
+async function fetchAssignedLists(): Promise<AssignedBaseListEntry[]> {
+  const response = await fetch('/api/groups/assigned-lists');
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Failed to fetch assigned lists' }));
+    throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch assigned lists`);
+  }
+
+  const result = await response.json();
+  return result.data || [];
+}
+
+export function useAssignedListsQuery() {
+  return useQuery({
+    queryKey: queryKeys.groups.assignedLists,
+    queryFn: fetchAssignedLists,
   });
 }
 

@@ -25,5 +25,6 @@ export const queryKeys = {
     all: ['groups'] as const,
     detail: (id: string) => ['groups', id] as const,
     tree: (id: string) => ['groups', id, 'tree'] as const,
+    assignedLists: ['groups', 'assigned-lists'] as const,
   },
 } as const;

@@ -383,3 +383,40 @@ export async function applyTemplateToGroup(input: ApplyTemplateToGroupInput) {
     failedCount: results.filter((r) => r.status === "failed").length,
   };
 }
+
+export interface AssignedBaseListEntry {
+  baseListId: string;
+  groupId: string;
+  groupName: string;
+  workbenchId: string;
+  workbenchName: string;
+}
+
+/**
+ * Every BaseList currently assigned to a Group the caller can access, with its
+ * Group/Workbench context — powers the global "Unassigned Lists" view and the
+ * MoveListDialog's "currently in X" display (docs/features/12_groups_workbenches.md §9.2).
+ */
+export async function getAssignedBaseLists(
+  userId: string,
+  organizationIds: string[]
+): Promise<AssignedBaseListEntry[]> {
+  const accessibleGroupIds = await getAccessibleGroupIds(userId, organizationIds);
+  if (accessibleGroupIds.length === 0) return [];
+
+  const rows = await prisma.groupBaseList.findMany({
+    where: { groupId: { in: accessibleGroupIds } },
+    include: {
+      baseList: { select: { id: true } },
+      group: { select: { id: true, name: true, workbench: { select: { id: true, name: true } } } },
+    },
+  });
+
+  return rows.map((row) => ({
+    baseListId: row.baseList.id,
+    groupId: row.group.id,
+    groupName: row.group.name,
+    workbenchId: row.group.workbench.id,
+    workbenchName: row.group.workbench.name,
+  }));
+}
