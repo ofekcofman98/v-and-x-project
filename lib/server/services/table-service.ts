@@ -3,14 +3,19 @@ import { Prisma, OrgRole } from "@/lib/shared/generated/prisma/client";
 import { ownershipWhere } from "@/lib/server/services/auth";
 import { filterAccessibleColumns, getUserRoleInOrg, filterBaseListSchemaAndEntities } from "@/lib/server/services/column-access";
 import { ColumnAccessUpdate } from "@/lib/shared/types/column-access";
+import type { ColumnFormula } from "@/lib/shared/types/formula";
+import { ColumnType as ColumnTypeEnum } from "@/lib/shared/types/column-types";
+import { validateFormula } from "@/lib/shared/utils/formula";
+import { toColumnKey } from "@/lib/shared/utils/column-key";
 
-type ColumnType = "TEXT" | "NUMBER" | "DATE" | "BOOLEAN";
+type ColumnType = "TEXT" | "NUMBER" | "DATE" | "BOOLEAN" | "COMPUTED";
 
 interface CreateTableColumnInput {
   label: string;
   type: ColumnType;
   validation?: Record<string, unknown>;
   access?: ColumnAccessUpdate;
+  formula?: ColumnFormula;
 }
 
 interface CreateTableInput {
@@ -44,6 +49,19 @@ export async function createTable(input: CreateTableInput) {
     }
   }
 
+  // Computed columns reference other columns by their (not-yet-persisted) key,
+  // since real column ids don't exist until after insertion. Validate against
+  // the submitted column set using keys before writing anything.
+  const keyedColumns = columns.map((col) => ({ id: toColumnKey(col.label), type: col.type as ColumnTypeEnum }));
+  for (const col of columns) {
+    if (col.type === "COMPUTED" && col.formula) {
+      const errors = validateFormula(toColumnKey(col.label), col.formula, keyedColumns);
+      if (errors.length > 0) {
+        throw new Error(`Invalid formula: ${errors.map((e) => e.message).join("; ")}`);
+      }
+    }
+  }
+
   return prisma.$transaction(async (tx) => {
     const table = await tx.table.create({
       data: {
@@ -60,19 +78,45 @@ export async function createTable(input: CreateTableInput) {
     await tx.tableColumn.createMany({
       data: columns.map((col, index) => ({
         tableId: table.id,
-        key: col.label.toLowerCase().replace(/\s+/g, "_"),
+        key: toColumnKey(col.label),
         label: col.label,
         type: col.type,
         order: index,
         validation: col.validation ? (col.validation as Prisma.InputJsonValue) : Prisma.JsonNull,
         access: col.access ? (col.access as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        // formula.references still holds keys here — resolved to real column ids below.
+        formula: col.formula ? (col.formula as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
       })),
     });
 
-    const tableColumns = await tx.tableColumn.findMany({
+    let tableColumns = await tx.tableColumn.findMany({
       where: { tableId: table.id },
       orderBy: { order: "asc" },
     });
+
+    const keyToId = new Map(tableColumns.map((c) => [c.key, c.id]));
+    const computedColumns = tableColumns.filter((c) => c.type === "COMPUTED" && c.formula);
+
+    if (computedColumns.length > 0) {
+      await Promise.all(
+        computedColumns.map((col) => {
+          const formula = col.formula as unknown as ColumnFormula;
+          const resolvedFormula: ColumnFormula = {
+            ...formula,
+            references: formula.references.map((key) => keyToId.get(key) ?? key),
+          };
+          return tx.tableColumn.update({
+            where: { id: col.id },
+            data: { formula: resolvedFormula as unknown as Prisma.InputJsonValue },
+          });
+        })
+      );
+
+      tableColumns = await tx.tableColumn.findMany({
+        where: { tableId: table.id },
+        orderBy: { order: "asc" },
+      });
+    }
 
     return { ...table, columns: tableColumns };
   });

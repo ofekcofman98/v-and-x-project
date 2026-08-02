@@ -71,6 +71,7 @@ model TableColumn {
   order      Int         @default(0)
   validation Json?
   access     Json?
+  formula    Json?
   createdAt  DateTime    @default(now()) @map("created_at")
   updatedAt  DateTime    @updatedAt @map("updated_at")
   cells      TableCell[]
@@ -274,6 +275,7 @@ enum ColumnType {
   NUMBER
   DATE
   BOOLEAN
+  COMPUTED
 
   @@map("column_type")
 }

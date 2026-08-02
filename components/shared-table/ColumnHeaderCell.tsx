@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Trash2, Lock, Key } from 'lucide-react';
+import { Trash2, Lock, Key, Calculator } from 'lucide-react';
 import type { ColumnDef } from './types';
 
 const FOREST = '#13501B';
@@ -31,6 +31,7 @@ export function ColumnHeaderCell({
   const isLocked = column.metadata?.locked || false;
   const isFromBaseList = column.metadata?.source === 'base_list';
   const isTextColumn = column.type === 'text';
+  const isComputed = column.type === 'computed';
   const isPrivate = column.access?.visibility === 'private';
 
   return (
@@ -81,6 +82,9 @@ export function ColumnHeaderCell({
             >
               Base List
             </span>
+          )}
+          {isComputed && (
+            <Calculator className="h-3 w-3 text-gray-400 shrink-0" aria-label="Computed column" />
           )}
           {onAccessClick ? (
             <Button

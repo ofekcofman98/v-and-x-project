@@ -16,6 +16,7 @@
 
 import { z } from 'zod';
 import { ColumnType } from '@/lib/shared/types/column-types';
+import { ColumnFormulaSchema } from '@/lib/shared/utils/schemas';
 
 // ═══════════════════════════════════════════════════════════
 // MENTION RESOLUTION
@@ -40,12 +41,18 @@ export type Mention = z.infer<typeof MentionSchema>;
  * A single drafted column, mirroring the Prisma `TableColumn` fields the
  * Schema Agent is allowed to control.
  */
-export const TableColumnDraftSchema = z.object({
-  key: z.string().regex(/^[a-z][a-z0-9_]*$/, 'must be snake_case'),
-  label: z.string().min(1).max(80),
-  type: z.enum(ColumnType),
-  order: z.number().int().min(0),
-});
+export const TableColumnDraftSchema = z
+  .object({
+    key: z.string().regex(/^[a-z][a-z0-9_]*$/, 'must be snake_case'),
+    label: z.string().min(1).max(80),
+    type: z.enum(ColumnType),
+    order: z.number().int().min(0),
+    formula: ColumnFormulaSchema.optional(),
+  })
+  .refine((col) => col.type !== ColumnType.COMPUTED || col.formula !== undefined, {
+    message: 'Computed columns require a formula',
+    path: ['formula'],
+  });
 export type TableColumnDraft = z.infer<typeof TableColumnDraftSchema>;
 
 /**

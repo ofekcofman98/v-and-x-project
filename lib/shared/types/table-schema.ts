@@ -1,5 +1,6 @@
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnAccess } from '@/lib/shared/types/column-access';
+import type { ColumnFormula } from '@/lib/shared/types/formula';
 
 /**
  * Optional validation rules for a column
@@ -23,6 +24,7 @@ export interface ColumnDefinition {
   validation?: ColumnValidation;
   isBaseColumn?: boolean;
   access?: ColumnAccess | null;
+  formula?: ColumnFormula; // present when type === ColumnType.COMPUTED
 }
 
 /**

@@ -27,6 +27,7 @@
 import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/shared/types/table-schema';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnAccess } from '@/lib/shared/types/column-access';
+import type { ColumnFormula } from '@/lib/shared/types/formula';
 
 // ═══════════════════════════════════════════════════════════
 // PRISMA ENUM MIRRORS (until Prisma Client is generated)
@@ -36,7 +37,7 @@ import type { ColumnAccess } from '@/lib/shared/types/column-access';
  * Mirrors the Prisma ColumnType enum
  * Source: prisma/schema.prisma
  */
-export type PrismaColumnType = 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN';
+export type PrismaColumnType = 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'COMPUTED';
 
 /**
  * Mirrors the Prisma EntrySource enum
@@ -61,6 +62,8 @@ export function prismaColumnTypeToColumnType(prismaType: PrismaColumnType): Colu
       return ColumnType.DATE;
     case 'BOOLEAN':
       return ColumnType.BOOLEAN;
+    case 'COMPUTED':
+      return ColumnType.COMPUTED;
     default:
       return ColumnType.TEXT;
   }
@@ -79,6 +82,8 @@ export function columnTypeToPrismaColumnType(type: ColumnType): PrismaColumnType
       return 'DATE';
     case ColumnType.BOOLEAN:
       return 'BOOLEAN';
+    case ColumnType.COMPUTED:
+      return 'COMPUTED';
     default:
       return 'TEXT';
   }
@@ -286,6 +291,7 @@ export interface TableSchemaJSON {
       source?: 'base_list' | 'user_defined';
       baseListColumnId?: string;
     };
+    formula?: ColumnFormula; // present when type === ColumnType.COMPUTED
   }>;
 }
 
@@ -318,6 +324,7 @@ export interface TableColumn {
   order: number;
   validation: TableColumnValidation | null;
   access: ColumnAccess | null;
+  formula: ColumnFormula | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -334,6 +341,7 @@ export interface TableColumnDTO {
   order: number;
   validation: TableColumnValidation | null;
   access: ColumnAccess | null;
+  formula: ColumnFormula | null;
   createdAt: string;
   updatedAt: string;
 }

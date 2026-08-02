@@ -15,6 +15,7 @@ import {
   withErrorHandler,
   parseBody,
 } from "@/lib/shared/utils/api";
+import { ColumnFormulaSchema } from "@/lib/shared/utils/schemas";
 
 export const runtime = "nodejs";
 
@@ -25,8 +26,9 @@ export const runtime = "nodejs";
 const TemplateColumnSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
-  type: z.enum(["text", "number", "date", "boolean"]),
+  type: z.enum(["text", "number", "date", "boolean", "computed"]),
   validation: z.record(z.string(), z.unknown()).optional(),
+  formula: ColumnFormulaSchema.optional(),
 });
 
 const TemplateSchemaField = z.object({

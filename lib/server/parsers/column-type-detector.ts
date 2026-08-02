@@ -13,7 +13,7 @@ const PURELY_NUMERIC = /^\d+(\.\d+)?$/;
 // always-matching fallback, so it's never actually "tried".
 const DETECTION_ORDER: ColumnType[] = [ColumnType.BOOLEAN, ColumnType.DATE, ColumnType.NUMBER];
 
-const CHECKERS: Record<Exclude<ColumnType, ColumnType.TEXT>, (sample: string) => boolean> = {
+const CHECKERS: Record<Exclude<ColumnType, ColumnType.TEXT | ColumnType.COMPUTED>, (sample: string) => boolean> = {
   [ColumnType.BOOLEAN]: (sample) => parseBoolean(sample) !== null,
   [ColumnType.NUMBER]: (sample) => parseSpokenNumber(sample, 'auto') !== null,
   [ColumnType.DATE]: (sample) => !PURELY_NUMERIC.test(sample) && parseNaturalDate(sample) !== null,
@@ -29,7 +29,7 @@ export function detectColumnType(samples: string[]): ColumnType {
   if (nonEmpty.length === 0) return ColumnType.TEXT;
 
   for (const type of DETECTION_ORDER) {
-    const checker = CHECKERS[type as Exclude<ColumnType, ColumnType.TEXT>];
+    const checker = CHECKERS[type as Exclude<ColumnType, ColumnType.TEXT | ColumnType.COMPUTED>];
     if (nonEmpty.every(checker)) return type;
   }
 

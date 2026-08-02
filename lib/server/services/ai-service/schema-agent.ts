@@ -24,6 +24,8 @@ import {
 import { resolveMentionContext, type MentionContext } from '@/lib/server/services/ai-service/context';
 import { buildSystemPrompt, buildUserPrompt } from '@/lib/server/services/ai-service/schema-agent-prompts';
 import { isIdentityColumn } from '@/lib/shared/utils/identity-column';
+import { ColumnType } from '@/lib/shared/types/column-types';
+import { validateFormula } from '@/lib/shared/utils/formula';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -121,15 +123,39 @@ function accumulateUsage(
 }
 
 function finalizeDraft(llmDraft: LlmTableDraft, primaryContext: MentionContext | null): TableDraft {
-  // Dedupe column keys (keep first occurrence) and renumber order sequentially.
+  // Defense-in-depth: even though the prompt tells the model not to, drop any
+  // drafted column that duplicates a field already provided by the linked
+  // entity list (matched by key or label) — those are already part of every
+  // table built from that list and are not this table's responsibility.
+  const baseListFieldNames = new Set(
+    (primaryContext?.columns ?? []).flatMap((col) => [col.id.toLowerCase(), col.label.toLowerCase()])
+  );
+
+  // Dedupe column keys (keep first occurrence), drop base-list duplicates,
+  // and renumber order sequentially.
   const seenKeys = new Set<string>();
   const columns = llmDraft.columns
     .filter((col) => {
       if (seenKeys.has(col.key)) return false;
+      if (baseListFieldNames.has(col.key.toLowerCase()) || baseListFieldNames.has(col.label.toLowerCase())) {
+        return false;
+      }
       seenKeys.add(col.key);
       return true;
     })
     .map((col, index) => ({ ...col, order: index }));
+
+  // Defense-in-depth: sanitize computed columns whose formula turned out
+  // invalid (dangling/duplicate-dropped reference, non-numeric reference,
+  // reference to another computed column, etc.) by downgrading them to a
+  // plain NUMBER column rather than failing the whole request.
+  const keyedColumns = columns.map((col) => ({ id: col.key, type: col.type as ColumnType }));
+  const sanitizedColumns = columns.map((col) => {
+    if (col.type !== ColumnType.COMPUTED || !col.formula) return col;
+    const errors = validateFormula(col.key, col.formula, keyedColumns);
+    if (errors.length === 0) return col;
+    return { ...col, type: ColumnType.NUMBER, formula: undefined };
+  });
 
   const baseListId = primaryContext?.baseListId ?? null;
 
@@ -138,15 +164,15 @@ function finalizeDraft(llmDraft: LlmTableDraft, primaryContext: MentionContext |
   // to its first column) — not the new table's drafted columns. For a
   // standalone table, it must reference one of the drafted columns instead.
   const representativeColumnKey = primaryContext
-    ? (primaryContext.columns.find(isIdentityColumn)?.id ?? primaryContext.columns[0]?.id ?? columns[0].key)
-    : (columns.find((c) => isIdentityColumn({ id: c.key, label: c.label }))?.key ?? columns[0].key);
+    ? (primaryContext.columns.find(isIdentityColumn)?.id ?? primaryContext.columns[0]?.id ?? sanitizedColumns[0].key)
+    : (sanitizedColumns.find((c) => isIdentityColumn({ id: c.key, label: c.label }))?.key ?? sanitizedColumns[0].key);
 
   const draft = {
     name: llmDraft.name,
     description: llmDraft.description,
     baseListId,
     representativeColumnKey,
-    columns,
+    columns: sanitizedColumns,
   };
 
   // Defense-in-depth: re-validate the fully assembled draft before returning.

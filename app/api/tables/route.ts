@@ -6,10 +6,11 @@
 
 import { z } from "zod";
 import { withErrorHandler, parseBody, apiSuccess, apiError, uuidSchema } from "@/lib/shared/utils/api";
-import { ColumnTypeSchema } from "@/lib/shared/utils/schemas";
+import { ColumnTypeSchema, ColumnFormulaSchema } from "@/lib/shared/utils/schemas";
 import { getAuthenticatedUser, getAccessibleOrganizationIds } from "@/lib/server/services/auth";
 import { createTable, listTables } from "@/lib/server/services/table-service";
 import { OrgRole } from "@/lib/shared/generated/prisma/client";
+import { ColumnType } from "@/lib/shared/types/column-types";
 
 export const runtime = "nodejs";
 
@@ -27,12 +28,18 @@ const ColumnAccessSchema = z.object({
   allowedUserIds: z.array(uuidSchema).optional(),
 });
 
-const ColumnSchema = z.object({
-  label: z.string().min(1, "Column label is required"),
-  type: ColumnTypeSchema,
-  validation: z.record(z.string(), z.unknown()).optional(),
-  access: ColumnAccessSchema.optional(),
-});
+const ColumnSchema = z
+  .object({
+    label: z.string().min(1, "Column label is required"),
+    type: ColumnTypeSchema,
+    validation: z.record(z.string(), z.unknown()).optional(),
+    access: ColumnAccessSchema.optional(),
+    formula: ColumnFormulaSchema.optional(),
+  })
+  .refine((col) => col.type !== ColumnType.COMPUTED || col.formula !== undefined, {
+    message: "Computed columns require a formula",
+    path: ["formula"],
+  });
 
 /**
  * Schema for creating a new table
@@ -67,6 +74,9 @@ export const POST = withErrorHandler(
         return apiError(error.message, 404);
       }
       if (error instanceof Error && error.message.includes("Representative column")) {
+        return apiError(error.message, 400);
+      }
+      if (error instanceof Error && error.message.startsWith("Invalid formula:")) {
         return apiError(error.message, 400);
       }
       throw error;

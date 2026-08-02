@@ -99,6 +99,7 @@ export default function TableDetailsPage() {
                   label: col.label,
                   type: col.type as unknown as ColumnType,
                   isBaseColumn: baseListSchemaColumnIds.has(col.id),
+                  formula: col.formula,
               }))
             : [
                   ...((baseList?.schema as BaseListSchema)?.columns ?? []).map((col) => ({
@@ -113,6 +114,7 @@ export default function TableDetailsPage() {
                       type: prismaColumnTypeToColumnType(col.type),
                       isBaseColumn: false as const,
                       access: col.access,
+                      formula: col.formula ?? undefined,
                   })),
               ];
     }, [table]);

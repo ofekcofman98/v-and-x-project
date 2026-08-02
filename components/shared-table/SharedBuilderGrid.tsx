@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ColumnHeaderCell } from './ColumnHeaderCell';
 import { DataCell } from './DataCell';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Pencil } from 'lucide-react';
 import { GridSelect } from './GridSelect';
+import { FormulaBuilderDialog } from './FormulaBuilderDialog';
 import type { ColumnDef, RowData } from './types';
+import type { ColumnFormula } from '@/lib/shared/types/formula';
 
 interface SharedBuilderGridProps {
   columns: ColumnDef[];
@@ -51,7 +54,33 @@ export function SharedBuilderGrid({
   representativeEligibleColumnIds,
   onAccessClick,
 }: SharedBuilderGridProps) {
-  
+  const [formulaDialogColumnId, setFormulaDialogColumnId] = useState<string | null>(null);
+  const formulaDialogColumn = columns.find((col) => col.id === formulaDialogColumnId) ?? null;
+
+  const handleTypeChange = (colId: string, type: ColumnDef['type']) => {
+    if (type === 'computed') {
+      onUpdateColumn(colId, { type });
+      setFormulaDialogColumnId(colId);
+      return;
+    }
+    onUpdateColumn(colId, { type, formula: undefined });
+  };
+
+  const handleFormulaSave = (formula: ColumnFormula) => {
+    if (!formulaDialogColumnId) return;
+    onUpdateColumn(formulaDialogColumnId, { type: 'computed', formula });
+    setFormulaDialogColumnId(null);
+  };
+
+  const handleFormulaCancel = () => {
+    // A computed column with no saved formula yet (first-time selection,
+    // cancelled) isn't valid — revert it back to a plain text column.
+    if (formulaDialogColumn && !formulaDialogColumn.formula) {
+      onUpdateColumn(formulaDialogColumn.id, { type: 'text', formula: undefined });
+    }
+    setFormulaDialogColumnId(null);
+  };
+
   if (columns.length === 0) {
     return (
       <div className="p-12 text-center bg-white border border-slate-200 rounded-lg shadow-sm">
@@ -114,17 +143,33 @@ export function SharedBuilderGrid({
             <tr className="border-b border-slate-200 bg-slate-50/50">
               {columns.map((col) => (
                 <th key={col.id} className="border-l first:border-l-0 border-slate-200 p-1">
-                  <GridSelect
-                    value={col.type}
-                    onChange={(value) => onUpdateColumn(col.id, { type: value as ColumnDef['type'] })}
-                    disabled={col.metadata?.locked}
-                    options={[
-                      { label: 'Text', value: 'text' },
-                      { label: 'Number', value: 'number' },
-                      { label: 'Boolean', value: 'boolean' },
-                      { label: 'Date', value: 'date' },
-                    ]}
-                  />
+                  <div className="flex items-center gap-1">
+                    <div className="flex-1 min-w-0">
+                      <GridSelect
+                        value={col.type}
+                        onChange={(value) => handleTypeChange(col.id, value as ColumnDef['type'])}
+                        disabled={col.metadata?.locked}
+                        options={[
+                          { label: 'Text', value: 'text' },
+                          { label: 'Number', value: 'number' },
+                          { label: 'Boolean', value: 'boolean' },
+                          { label: 'Date', value: 'date' },
+                          { label: 'Computed', value: 'computed' },
+                        ]}
+                      />
+                    </div>
+                    {col.type === 'computed' && (
+                      <Button
+                        onClick={() => setFormulaDialogColumnId(col.id)}
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 shrink-0"
+                        title="Edit formula"
+                      >
+                        <Pencil className="h-3 w-3 text-slate-400" />
+                      </Button>
+                    )}
+                  </div>
                 </th>
               ))}
               <th className="border-l border-slate-200"></th>
@@ -178,6 +223,22 @@ export function SharedBuilderGrid({
             Add Row
           </Button>
         </div>
+      )}
+
+      {formulaDialogColumn && (
+        <FormulaBuilderDialog
+          open={formulaDialogColumnId !== null}
+          onOpenChange={(open) => !open && handleFormulaCancel()}
+          availableColumns={columns.filter(
+            (col) =>
+              col.id !== formulaDialogColumn.id &&
+              col.type === 'number' &&
+              col.metadata?.source !== 'base_list'
+          )}
+          initialFormula={formulaDialogColumn.formula}
+          onSave={handleFormulaSave}
+          onCancel={handleFormulaCancel}
+        />
       )}
     </div>
   );

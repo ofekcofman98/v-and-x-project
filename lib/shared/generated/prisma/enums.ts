@@ -23,7 +23,8 @@ export const ColumnType = {
   TEXT: 'TEXT',
   NUMBER: 'NUMBER',
   DATE: 'DATE',
-  BOOLEAN: 'BOOLEAN'
+  BOOLEAN: 'BOOLEAN',
+  COMPUTED: 'COMPUTED'
 } as const
 
 export type ColumnType = (typeof ColumnType)[keyof typeof ColumnType]

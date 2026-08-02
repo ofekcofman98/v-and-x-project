@@ -12,7 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import type { ColumnDef, RowData, TableMetadata } from '@/components/shared-table/types';
+import type { ColumnFormula } from '@/lib/shared/types/formula';
 import { validateGridSchema } from '@/lib/shared/utils/table-validation';
+import { toColumnKey } from '@/lib/shared/utils/column-key';
 import { SharedBuilderGrid } from '@/components/shared-table/SharedBuilderGrid';
 import { useGridBuilder } from '@/components/shared-table/hooks/useGridBuilder';
 import { BaseListSidebar } from './BaseListSidebar';
@@ -210,31 +212,47 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
       const { data: template } = await response.json();
 
       const rawTemplateColumns = template.schema.columns.map(
-        (col: { id: string; label: string; type: string; validation?: Record<string, unknown> }) => ({
+        (col: { id: string; label: string; type: string; validation?: Record<string, unknown>; formula?: ColumnFormula }) => ({
           id: col.id,
           name: col.label,
           type: (col.type || 'text').toLowerCase() as ColumnDef['type'],
           metadata: { source: 'template' as const, locked: false },
           validation: col.validation,
+          formula: col.formula,
         })
       );
 
       // Strip previous template columns, then append de-duplicated new ones.
       // IDs are de-duplicated against the surviving (non-template) columns so
-      // React never sees two children with the same key.
+      // React never sees two children with the same key. Any formula that
+      // referenced a column whose id got remapped must be remapped too.
       setColumns((prev) => {
         const base = prev.filter((col) => col.metadata?.source !== 'template');
         const occupiedIds = new Set(base.map((col) => col.id));
 
+        const idRemap = new Map<string, string>();
         const dedupedTemplateColumns: ColumnDef[] = rawTemplateColumns.map(
           (col: ColumnDef) => {
             if (!occupiedIds.has(col.id)) return col;
             const uniqueId = `${col.id}_tpl`;
+            idRemap.set(col.id, uniqueId);
             return { ...col, id: uniqueId };
           }
         );
 
-        return [...base, ...dedupedTemplateColumns];
+        const remappedTemplateColumns = dedupedTemplateColumns.map((col) =>
+          col.formula
+            ? {
+                ...col,
+                formula: {
+                  ...col.formula,
+                  references: col.formula.references.map((refId) => idRemap.get(refId) ?? refId),
+                },
+              }
+            : col
+        );
+
+        return [...base, ...remappedTemplateColumns];
       });
       setSelectedTemplateId(templateId);
 
@@ -321,16 +339,29 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
         throw new Error('No columns defined');
       }
 
-      // Transform columns to API format
+      // Transform columns to API format. Formula references are recorded as the
+      // referenced column's client-side id while editing; translate them to the
+      // column's key (the same slug the server derives from its label) since
+      // that's the only stable identifier both sides can agree on before the
+      // referenced column has a real database id.
+      const columnById = new Map(columns.map((col) => [col.id, col]));
       const apiColumns = columns
       .filter((col) => col.metadata?.source !== 'base_list')
       .map((col) => ({
         label: col.name,
-        type: col.type.toUpperCase() as 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'DATE',
+        type: col.type.toUpperCase() as 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'COMPUTED',
         // Template-sourced columns carry validation rules (required/min/max/pattern)
         // that must survive into the saved table's column schema.
         validation: col.validation ?? undefined,
         access: col.access ?? undefined,
+        formula: col.formula
+          ? {
+              ...col.formula,
+              references: col.formula.references.map(
+                (refId) => toColumnKey(columnById.get(refId)?.name ?? refId)
+              ),
+            }
+          : undefined,
       }));
 
       // Build payload

@@ -13,6 +13,7 @@ import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { useToast } from '@/components/ui/use-toast';
 import { usePointerKeyboardNav } from '@/lib/client/hooks/shared/use-pointer-keyboard-nav';
 import { DataTableCell } from './DataTableCell';
+import { ComputedCell } from './ComputedCell';
 import { ColumnHeaderCell } from './ColumnHeaderCell';
 import { ColumnAccessModal } from '@/components/tables/ColumnAccessModal';
 import { ColumnType } from '@/lib/shared/types/column-types';
@@ -205,23 +206,31 @@ export const DataTable = memo(function DataTable({
                   </td>
 
                   {/* Data cells */}
-                  {columns.map((column) => (
-                    <DataTableCell
-                      key={`${row.id}-${column.id}-${index}`}
-                      tableId={tableId ?? ''}
-                      rowKey={row.id}
-                      tableColumnId={column.id}
-                      columnType={column.type}
-                      isBaseColumn={column.isBaseColumn}
-                      baseValue={row.values?.[column.id]}
-                      isReadOnly={isReadOnly || column.isBaseColumn === true}
-                      onClick={() => {
-                        if (!isReadOnly && column.isBaseColumn !== true) {
-                          handleCellClick(row.id, column.id);
-                        }
-                      }}
-                    />
-                  ))}
+                  {columns.map((column) =>
+                    column.type === ColumnType.COMPUTED && column.formula ? (
+                      <ComputedCell
+                        key={`${row.id}-${column.id}-${index}`}
+                        rowKey={row.id}
+                        formula={column.formula}
+                      />
+                    ) : (
+                      <DataTableCell
+                        key={`${row.id}-${column.id}-${index}`}
+                        tableId={tableId ?? ''}
+                        rowKey={row.id}
+                        tableColumnId={column.id}
+                        columnType={column.type}
+                        isBaseColumn={column.isBaseColumn}
+                        baseValue={row.values?.[column.id]}
+                        isReadOnly={isReadOnly || column.isBaseColumn === true}
+                        onClick={() => {
+                          if (!isReadOnly && column.isBaseColumn !== true) {
+                            handleCellClick(row.id, column.id);
+                          }
+                        }}
+                      />
+                    )
+                  )}
                 </tr>
               ))}
             </tbody>

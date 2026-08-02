@@ -12,6 +12,7 @@ export enum ColumnType {
   NUMBER = 'NUMBER',
   BOOLEAN = 'BOOLEAN',
   DATE = 'DATE',
+  COMPUTED = 'COMPUTED',
 }
 
 /**
@@ -42,6 +43,11 @@ export const CELL_FORMATTERS: Record<ColumnType, CellFormatter> = {
     }
     return String(value);
   },
+
+  // Computed columns render via formatFormulaResult (lib/shared/utils/formula.ts);
+  // this entry exists only to keep CELL_FORMATTERS total over ColumnType.
+  [ColumnType.COMPUTED]: (value) =>
+    typeof value === 'number' ? value.toString() : String(value),
 } as const;
 
 /**

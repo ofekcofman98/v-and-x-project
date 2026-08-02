@@ -21,6 +21,7 @@ export function draftToColumnDefs(draft: TableDraft): DraftColumnMapping {
       name: col.label,
       type: col.type.toLowerCase() as ColumnDef['type'],
       metadata: { source: 'user_defined', locked: false },
+      formula: col.formula,
     }));
 
   const representativeColumnId = draft.baseListId

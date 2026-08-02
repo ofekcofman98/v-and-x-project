@@ -65,6 +65,7 @@ export type TableColumnCountAggregateOutputType = {
   order: number
   validation: number
   access: number
+  formula: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -110,6 +111,7 @@ export type TableColumnCountAggregateInputType = {
   order?: true
   validation?: true
   access?: true
+  formula?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -210,6 +212,7 @@ export type TableColumnGroupByOutputType = {
   order: number
   validation: runtime.JsonValue | null
   access: runtime.JsonValue | null
+  formula: runtime.JsonValue | null
   createdAt: Date
   updatedAt: Date
   _count: TableColumnCountAggregateOutputType | null
@@ -246,6 +249,7 @@ export type TableColumnWhereInput = {
   order?: Prisma.IntFilter<"TableColumn"> | number
   validation?: Prisma.JsonNullableFilter<"TableColumn">
   access?: Prisma.JsonNullableFilter<"TableColumn">
+  formula?: Prisma.JsonNullableFilter<"TableColumn">
   createdAt?: Prisma.DateTimeFilter<"TableColumn"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TableColumn"> | Date | string
   cells?: Prisma.TableCellListRelationFilter
@@ -261,6 +265,7 @@ export type TableColumnOrderByWithRelationInput = {
   order?: Prisma.SortOrder
   validation?: Prisma.SortOrderInput | Prisma.SortOrder
   access?: Prisma.SortOrderInput | Prisma.SortOrder
+  formula?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   cells?: Prisma.TableCellOrderByRelationAggregateInput
@@ -280,6 +285,7 @@ export type TableColumnWhereUniqueInput = Prisma.AtLeast<{
   order?: Prisma.IntFilter<"TableColumn"> | number
   validation?: Prisma.JsonNullableFilter<"TableColumn">
   access?: Prisma.JsonNullableFilter<"TableColumn">
+  formula?: Prisma.JsonNullableFilter<"TableColumn">
   createdAt?: Prisma.DateTimeFilter<"TableColumn"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TableColumn"> | Date | string
   cells?: Prisma.TableCellListRelationFilter
@@ -295,6 +301,7 @@ export type TableColumnOrderByWithAggregationInput = {
   order?: Prisma.SortOrder
   validation?: Prisma.SortOrderInput | Prisma.SortOrder
   access?: Prisma.SortOrderInput | Prisma.SortOrder
+  formula?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.TableColumnCountOrderByAggregateInput
@@ -316,6 +323,7 @@ export type TableColumnScalarWhereWithAggregatesInput = {
   order?: Prisma.IntWithAggregatesFilter<"TableColumn"> | number
   validation?: Prisma.JsonNullableWithAggregatesFilter<"TableColumn">
   access?: Prisma.JsonNullableWithAggregatesFilter<"TableColumn">
+  formula?: Prisma.JsonNullableWithAggregatesFilter<"TableColumn">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"TableColumn"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"TableColumn"> | Date | string
 }
@@ -328,6 +336,7 @@ export type TableColumnCreateInput = {
   order?: number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   cells?: Prisma.TableCellCreateNestedManyWithoutTableColumnInput
@@ -343,6 +352,7 @@ export type TableColumnUncheckedCreateInput = {
   order?: number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   cells?: Prisma.TableCellUncheckedCreateNestedManyWithoutTableColumnInput
@@ -356,6 +366,7 @@ export type TableColumnUpdateInput = {
   order?: Prisma.IntFieldUpdateOperationsInput | number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cells?: Prisma.TableCellUpdateManyWithoutTableColumnNestedInput
@@ -371,6 +382,7 @@ export type TableColumnUncheckedUpdateInput = {
   order?: Prisma.IntFieldUpdateOperationsInput | number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cells?: Prisma.TableCellUncheckedUpdateManyWithoutTableColumnNestedInput
@@ -385,6 +397,7 @@ export type TableColumnCreateManyInput = {
   order?: number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -397,6 +410,7 @@ export type TableColumnUpdateManyMutationInput = {
   order?: Prisma.IntFieldUpdateOperationsInput | number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -410,6 +424,7 @@ export type TableColumnUncheckedUpdateManyInput = {
   order?: Prisma.IntFieldUpdateOperationsInput | number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -438,6 +453,7 @@ export type TableColumnCountOrderByAggregateInput = {
   order?: Prisma.SortOrder
   validation?: Prisma.SortOrder
   access?: Prisma.SortOrder
+  formula?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -553,6 +569,7 @@ export type TableColumnCreateWithoutTableInput = {
   order?: number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   cells?: Prisma.TableCellCreateNestedManyWithoutTableColumnInput
@@ -566,6 +583,7 @@ export type TableColumnUncheckedCreateWithoutTableInput = {
   order?: number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   cells?: Prisma.TableCellUncheckedCreateNestedManyWithoutTableColumnInput
@@ -609,6 +627,7 @@ export type TableColumnScalarWhereInput = {
   order?: Prisma.IntFilter<"TableColumn"> | number
   validation?: Prisma.JsonNullableFilter<"TableColumn">
   access?: Prisma.JsonNullableFilter<"TableColumn">
+  formula?: Prisma.JsonNullableFilter<"TableColumn">
   createdAt?: Prisma.DateTimeFilter<"TableColumn"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TableColumn"> | Date | string
 }
@@ -621,6 +640,7 @@ export type TableColumnCreateWithoutCellsInput = {
   order?: number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   table: Prisma.TableCreateNestedOneWithoutColumnsInput
@@ -635,6 +655,7 @@ export type TableColumnUncheckedCreateWithoutCellsInput = {
   order?: number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -663,6 +684,7 @@ export type TableColumnUpdateWithoutCellsInput = {
   order?: Prisma.IntFieldUpdateOperationsInput | number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   table?: Prisma.TableUpdateOneRequiredWithoutColumnsNestedInput
@@ -677,6 +699,7 @@ export type TableColumnUncheckedUpdateWithoutCellsInput = {
   order?: Prisma.IntFieldUpdateOperationsInput | number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -689,6 +712,7 @@ export type TableColumnCreateManyTableInput = {
   order?: number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -701,6 +725,7 @@ export type TableColumnUpdateWithoutTableInput = {
   order?: Prisma.IntFieldUpdateOperationsInput | number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cells?: Prisma.TableCellUpdateManyWithoutTableColumnNestedInput
@@ -714,6 +739,7 @@ export type TableColumnUncheckedUpdateWithoutTableInput = {
   order?: Prisma.IntFieldUpdateOperationsInput | number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cells?: Prisma.TableCellUncheckedUpdateManyWithoutTableColumnNestedInput
@@ -727,6 +753,7 @@ export type TableColumnUncheckedUpdateManyWithoutTableInput = {
   order?: Prisma.IntFieldUpdateOperationsInput | number
   validation?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   access?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  formula?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -771,6 +798,7 @@ export type TableColumnSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   order?: boolean
   validation?: boolean
   access?: boolean
+  formula?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   cells?: boolean | Prisma.TableColumn$cellsArgs<ExtArgs>
@@ -787,6 +815,7 @@ export type TableColumnSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   order?: boolean
   validation?: boolean
   access?: boolean
+  formula?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
@@ -801,6 +830,7 @@ export type TableColumnSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   order?: boolean
   validation?: boolean
   access?: boolean
+  formula?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
@@ -815,11 +845,12 @@ export type TableColumnSelectScalar = {
   order?: boolean
   validation?: boolean
   access?: boolean
+  formula?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type TableColumnOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tableId" | "key" | "label" | "type" | "order" | "validation" | "access" | "createdAt" | "updatedAt", ExtArgs["result"]["tableColumn"]>
+export type TableColumnOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tableId" | "key" | "label" | "type" | "order" | "validation" | "access" | "formula" | "createdAt" | "updatedAt", ExtArgs["result"]["tableColumn"]>
 export type TableColumnInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   cells?: boolean | Prisma.TableColumn$cellsArgs<ExtArgs>
   table?: boolean | Prisma.TableDefaultArgs<ExtArgs>
@@ -847,6 +878,7 @@ export type $TableColumnPayload<ExtArgs extends runtime.Types.Extensions.Interna
     order: number
     validation: runtime.JsonValue | null
     access: runtime.JsonValue | null
+    formula: runtime.JsonValue | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["tableColumn"]>
@@ -1282,6 +1314,7 @@ export interface TableColumnFieldRefs {
   readonly order: Prisma.FieldRef<"TableColumn", 'Int'>
   readonly validation: Prisma.FieldRef<"TableColumn", 'Json'>
   readonly access: Prisma.FieldRef<"TableColumn", 'Json'>
+  readonly formula: Prisma.FieldRef<"TableColumn", 'Json'>
   readonly createdAt: Prisma.FieldRef<"TableColumn", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"TableColumn", 'DateTime'>
 }

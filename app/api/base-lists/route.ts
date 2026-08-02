@@ -6,7 +6,6 @@
 
 import { z } from "zod";
 import { apiSuccess, apiError, withErrorHandler, parseBody, uuidSchema } from "@/lib/shared/utils/api";
-import { ColumnTypeSchema } from "@/lib/shared/utils/schemas";
 import { getAuthenticatedUser, getAccessibleOrganizationIds } from "@/lib/server/services/auth";
 import { createBaseList, listBaseLists } from "@/lib/server/services/base-list-service";
 import { OrgRole } from "@/lib/shared/generated/prisma/client";
@@ -23,10 +22,12 @@ const ColumnAccessSchema = z.object({
   allowedUserIds: z.array(uuidSchema).optional(),
 });
 
+// Base List columns cannot be computed — computed columns depend on Table
+// cell data, and Base Lists have no cells of their own.
 const EntityFieldSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
-  type: ColumnTypeSchema,
+  type: z.enum(["TEXT", "NUMBER", "DATE", "BOOLEAN"]),
   validation: z.record(z.string(), z.unknown()).optional(),
   access: ColumnAccessSchema.optional(),
 });

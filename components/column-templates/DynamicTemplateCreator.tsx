@@ -84,8 +84,9 @@ export function DynamicTemplateCreator({
           columns: columns.map((col) => ({
             id: col.id,
             label: col.name,
-            type: col.type, // lowercase: "text" | "number" | "date" | "boolean"
+            type: col.type, // lowercase: "text" | "number" | "date" | "boolean" | "computed"
             validation: {},
+            formula: col.formula,
           })),
         },
         is_public: isPublic,
