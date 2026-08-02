@@ -45,18 +45,18 @@ export const MobileTableView = memo(function MobileTableView({
   return (
     <div className="lg:hidden space-y-2">
       {rows.map((row) => (
-        <div key={row.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div key={row.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           {/* Row Header */}
           <button
             onClick={() => setExpandedRow(expandedRow === row.id ? null : row.id)}
-            className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
           >
-            <span className="font-medium text-slate-900">
+            <span className="font-medium text-gray-900" style={{ fontFamily: 'var(--font-display)' }}>
               {row.label}
             </span>
             <ChevronRight
               className={cn(
-                'h-5 w-5 text-slate-400 transition-transform',
+                'h-5 w-5 text-gray-400 transition-transform',
                 expandedRow === row.id && 'rotate-90'
               )}
             />
@@ -64,7 +64,7 @@ export const MobileTableView = memo(function MobileTableView({
 
           {/* Expanded Content */}
           {expandedRow === row.id && (
-            <div className="px-4 pb-4 space-y-3 border-t border-slate-200">
+            <div className="px-4 pb-4 space-y-3 border-t border-gray-200">
               {columns.map((col) => {
                 const value = getCellValue(row.id, col.id);
                 const formattedValue = formatCellValue(value, col.type);
@@ -72,12 +72,12 @@ export const MobileTableView = memo(function MobileTableView({
                   <button
                     key={col.id}
                     onClick={() => handleCellClick(row.id, col.id)}
-                    className="w-full flex justify-between items-center py-2 hover:bg-slate-50 rounded px-2 -mx-2"
+                    className="w-full flex justify-between items-center py-2 hover:bg-gray-50 rounded px-2 -mx-2"
                   >
-                    <span className="text-sm text-slate-500">
+                    <span className="text-sm text-gray-500">
                       {col.label}
                     </span>
-                    <span className="font-medium text-slate-900">
+                    <span className="font-medium text-gray-900 font-mono">
                       {formattedValue || '—'}
                     </span>
                   </button>

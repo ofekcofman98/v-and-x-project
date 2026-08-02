@@ -132,10 +132,13 @@ export const DataTable = memo(function DataTable({
   }, [tableId, accessModalColumn, toast]);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+    <div
+      className="bg-white overflow-hidden"
+      style={{ border: '1px solid #e5e7eb', borderRadius: '1rem', boxShadow: '0 4px 40px rgba(0,0,0,0.06)' }}
+    >
       {!isReadOnly && isLoading && (
         <div className="flex items-center justify-center p-8">
-          <div className="text-sm text-slate-500">Loading table data...</div>
+          <div className="text-sm text-gray-500">Loading table data...</div>
         </div>
       )}
 
@@ -149,9 +152,9 @@ export const DataTable = memo(function DataTable({
         <div className="overflow-x-auto">
           <table className="border-collapse w-full">
             <thead>
-              <tr className="border-b border-slate-200">
+              <tr style={{ background: '#f5f5f5', borderBottom: '1px solid #e5e7eb' }}>
                 {/* Row-number corner cell */}
-                <th className="w-10 bg-slate-50 border-r border-slate-200" />
+                <th className="w-10" style={{ background: '#f5f5f5', borderRight: '1px solid #e5e7eb' }} />
 
                 {/* Column headers — shared ColumnHeaderCell primitive */}
                 {columns.map((column, index) => {
@@ -190,10 +193,14 @@ export const DataTable = memo(function DataTable({
               {rows.map((row, index) => (
                 <tr
                   key={row.id}
-                  className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors"
+                  className="hover:bg-gray-50 transition-colors"
+                  style={{ background: index % 2 === 0 ? '#fff' : '#fafafa', borderBottom: '1px solid #f0f0f0' }}
                 >
                   {/* Row number */}
-                  <td className="h-9 w-10 text-center text-sm text-slate-400 bg-slate-50 border-r border-slate-200 select-none">
+                  <td
+                    className="h-9 w-10 text-center text-sm text-gray-400 select-none font-mono"
+                    style={{ background: '#f5f5f5', borderRight: '1px solid #e5e7eb' }}
+                  >
                     {index + 1}
                   </td>
 

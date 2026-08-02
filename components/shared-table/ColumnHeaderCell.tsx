@@ -4,6 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Trash2, Lock, Key } from 'lucide-react';
 import type { ColumnDef } from './types';
 
+const FOREST = '#13501B';
+const FOREST_DARK = '#0d3b14';
+const FOREST_MUTED = '#e8f2e9';
+const FOREST_SUBTLE = '#f2f8f2';
+
 interface ColumnHeaderCellProps {
   column: ColumnDef;
   onNameChange: (name: string) => void;
@@ -29,10 +34,9 @@ export function ColumnHeaderCell({
   const isPrivate = column.access?.visibility === 'private';
 
   return (
-    <th 
-      className={`bg-slate-50 border-l first:border-l-0 border-slate-200 min-w-[180px] group transition-colors ${
-        isRepresentative ? 'bg-blue-50/50' : ''
-      }`}
+    <th
+      className="border-l first:border-l-0 min-w-[180px] group transition-colors"
+      style={{ background: isRepresentative ? FOREST_SUBTLE : '#f9fafb', borderColor: '#e5e7eb' }}
     >
       <div className="flex items-center justify-between p-2 gap-2">
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -41,14 +45,11 @@ export function ColumnHeaderCell({
               onClick={onRepresentativeClick}
               size="icon"
               variant="ghost"
-              className={`h-5 w-5 shrink-0 transition-all ${
-                isRepresentative
-                  ? 'text-blue-600 hover:text-blue-700 hover:bg-blue-100'
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-              }`}
+              className="h-5 w-5 shrink-0 transition-all"
+              style={{ color: isRepresentative ? FOREST : '#9ca3af' }}
               title={isRepresentative ? 'Voice Key (Active)' : 'Set as Voice Key'}
             >
-              <Key className={`h-3.5 w-3.5 ${isRepresentative ? 'fill-blue-600' : ''}`} />
+              <Key className="h-3.5 w-3.5" fill={isRepresentative ? FOREST : 'none'} />
             </Button>
           )}
           <input
@@ -57,19 +58,27 @@ export function ColumnHeaderCell({
             onChange={(e) => onNameChange(e.target.value)}
             disabled={isLocked}
             placeholder="Column name"
-            className={`w-full bg-transparent border-none outline-none text-sm font-semibold text-slate-700 placeholder:text-slate-400 placeholder:font-normal focus:bg-white focus:px-2 focus:py-1 focus:rounded focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50 ${
-              isRepresentative ? 'text-blue-900' : ''
-            }`}
+            className="w-full bg-transparent border-none outline-none text-sm font-semibold placeholder:text-gray-400 placeholder:font-normal focus:bg-white focus:px-2 focus:py-1 focus:rounded focus:ring-2 transition-all disabled:opacity-50"
+            style={{
+              fontFamily: 'var(--font-display)',
+              color: isRepresentative ? FOREST_DARK : '#374151',
+            }}
           />
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {isRepresentative && (
-            <span className="text-[10px] text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded font-medium">
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+              style={{ color: FOREST, background: FOREST_MUTED }}
+            >
               Voice Key
             </span>
           )}
           {isFromBaseList && (
-            <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded"
+              style={{ color: FOREST, background: FOREST_SUBTLE }}
+            >
               Base List
             </span>
           )}
@@ -78,13 +87,13 @@ export function ColumnHeaderCell({
               onClick={onAccessClick}
               size="icon"
               variant="ghost"
-              className={`h-5 w-5 shrink-0 ${isPrivate ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+              className={`h-5 w-5 shrink-0 ${isPrivate ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
               title={isPrivate ? 'Private column — click to edit access' : 'Set column access'}
             >
               <Lock className="h-3 w-3" />
             </Button>
           ) : isLocked ? (
-            <Lock className="h-3 w-3 text-slate-400" />
+            <Lock className="h-3 w-3 text-gray-400" />
           ) : (
             <Button
               onClick={onDelete}

@@ -16,7 +16,10 @@ function AuthSlot() {
     return (
       <Link
         href="/login"
-        className="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+        className="inline-flex h-9 items-center justify-center rounded-xl px-4 text-sm font-bold text-white transition-colors"
+        style={{ background: '#13501B' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = '#0d3b14'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = '#13501B'; }}
       >
         Sign In
       </Link>
@@ -44,10 +47,10 @@ export function AppHeader() {
       <div className="container flex h-14 max-w-screen-2xl items-center px-4 sm:px-6 lg:px-8">
         <div className="flex flex-1 items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-primary-foreground">V</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: '#13501B' }}>
+              <span className="text-lg font-bold text-white">V</span>
             </div>
-            <span className="hidden font-bold sm:inline-block">
+            <span className="hidden font-bold sm:inline-block" style={{ fontFamily: 'var(--font-display)' }}>
               VocalGrid
             </span>
           </Link>

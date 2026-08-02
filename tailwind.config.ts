@@ -38,11 +38,27 @@ const config: Config = {
         border: "hsl(var(--color-border) / <alpha-value>)",
         input: "hsl(var(--color-input) / <alpha-value>)",
         ring: "hsl(var(--color-ring) / <alpha-value>)",
+        forest: {
+          DEFAULT: "hsl(var(--color-forest) / <alpha-value>)",
+          dark: "hsl(var(--color-forest-dark) / <alpha-value>)",
+          muted: "hsl(var(--color-forest-muted) / <alpha-value>)",
+          subtle: "hsl(var(--color-forest-subtle) / <alpha-value>)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "calc(var(--radius) + 4px)",
+        "2xl": "calc(var(--radius) + 8px)",
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)"],
+        display: ["var(--font-display)"],
+        mono: ["var(--font-mono)"],
+      },
+      animation: {
+        "pulse-ring": "pulse-ring 1.4s ease-out infinite",
       },
     },
   },

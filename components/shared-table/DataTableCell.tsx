@@ -123,28 +123,35 @@ export const DataTableCell = memo(
         tabIndex={isActive && !isReadOnly ? 0 : -1}
         className={cn(
           // Shared DataCell baseline: left border separator, zero outer padding
-          'border-l first:border-l-0 border-slate-200 p-0',
+          'border-l first:border-l-0 p-0',
           'transition-all duration-200',
           // Read-only base tinting
-          isReadOnly && 'bg-slate-50/60',
-          // Voice state: active cell background floods the td
-          isActive && !isReadOnly && [
-            'bg-blue-50',
-            recordingState === 'listening' && 'bg-blue-100 animate-pulse',
-            recordingState === 'processing' && 'bg-yellow-50',
-            recordingState === 'confirming' && 'bg-orange-50',
-          ],
+          isReadOnly && 'bg-gray-50/60',
+          recordingState === 'listening' && isActive && !isReadOnly && 'animate-pulse',
+          recordingState === 'processing' && isActive && !isReadOnly && 'bg-yellow-50',
+          recordingState === 'confirming' && isActive && !isReadOnly && 'bg-orange-50',
           // Success animation (green flash)
           isJustUpdated && !isReadOnly && 'animate-[flash_0.5s_ease-in-out]',
         )}
+        style={{
+          borderColor: '#e5e7eb',
+          background:
+            isActive && !isReadOnly && recordingState !== 'processing' && recordingState !== 'confirming'
+              ? recordingState === 'listening'
+                ? '#e8f2e9'
+                : '#f2f8f2'
+              : undefined,
+        }}
       >
         {/* Inner wrapper: fixes the h-9 row height (matches DataCell) and hosts
             the active ring + absolute overlays so they clip to the cell boundary */}
         <div
-          className={cn(
-            'relative h-9 w-full',
-            isActive && !isReadOnly && 'ring-2 ring-blue-500 ring-inset',
-          )}
+          className="relative h-9 w-full"
+          style={
+            isActive && !isReadOnly
+              ? { boxShadow: 'inset 0 0 0 2px #13501B' }
+              : undefined
+          }
         >
           {isEditing ? (
             <input
@@ -154,16 +161,20 @@ export const DataTableCell = memo(
               onChange={(e) => setEditedValue(e.target.value)}
               onBlur={handleSave}
               onKeyDown={handleKeyDown}
-              className="w-full h-full px-2 py-1 text-sm bg-transparent border-none outline-none focus:ring-0 text-slate-900"
+              className={cn(
+                'w-full h-full px-2 py-1 text-sm bg-transparent border-none outline-none focus:ring-0 text-gray-900',
+                columnType === ColumnType.NUMBER && 'font-mono',
+              )}
             />
           ) : (
             <div
               className={cn(
                 'flex items-center w-full h-full px-2 py-1 text-sm overflow-hidden',
                 isReadOnly
-                  ? 'cursor-default select-none text-slate-400'
-                  : 'cursor-pointer text-slate-900 hover:bg-slate-50',
+                  ? 'cursor-default select-none text-gray-400'
+                  : 'cursor-pointer text-gray-900 hover:bg-gray-50',
                 isActive && !isReadOnly && 'font-medium',
+                columnType === ColumnType.NUMBER && 'font-mono',
               )}
             >
               <span className="truncate">{formattedValue || '—'}</span>
@@ -173,7 +184,7 @@ export const DataTableCell = memo(
           {/* Active indicator (blue corner triangle) */}
           {isActive && (
             <div className="absolute top-0 right-0 w-3 h-3 pointer-events-none">
-              <div className="w-full h-full bg-blue-500 rounded-bl-lg" />
+              <div className="w-full h-full rounded-bl-lg" style={{ background: '#13501B' }} />
             </div>
           )}
 

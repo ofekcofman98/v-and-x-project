@@ -1,7 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-display" });
+const jetBrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: {
@@ -33,7 +38,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${plusJakartaSans.variable} ${jetBrainsMono.variable}`}
+    >
       <body className="min-h-screen bg-background font-sans antialiased">
         <Providers>
           <div className="relative flex min-h-screen flex-col">

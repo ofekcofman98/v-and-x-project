@@ -37,7 +37,7 @@ export function NavigationModeToggle() {
 
   return (
     <TooltipProvider>
-      <div className="inline-flex rounded-full border border-slate-200 bg-white shadow-sm">
+      <div className="inline-flex rounded-full border border-gray-200 bg-white shadow-sm">
         {MODE_OPTIONS.map(({ mode, label, tooltip, Icon }) => {
           const isActive = mode === navigationMode;
 
@@ -48,17 +48,15 @@ export function NavigationModeToggle() {
                   type="button"
                   onClick={() => {
                     if (!isActive) {
-                      console.log('[NavigationModeToggle] Setting navigation mode to', mode);
                       setNavigationMode(mode);
                     }
                   }}
                   className={cn(
-                    'flex items-center gap-1 rounded-none px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                    'flex items-center gap-1 rounded-none px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
                     'first:rounded-l-full last:rounded-r-full',
-                    isActive
-                      ? 'bg-blue-500 text-white shadow'
-                      : 'text-slate-600 hover:bg-slate-100'
+                    isActive ? 'text-white shadow' : 'text-gray-600 hover:bg-gray-100'
                   )}
+                  style={isActive ? { background: '#13501B' } : undefined}
                 >
                   <Icon className="h-4 w-4" />
                   <span>{label}</span>

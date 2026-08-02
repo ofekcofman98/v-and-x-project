@@ -17,15 +17,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         className={cn(
-          'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+          'inline-flex items-center justify-center rounded-xl text-sm font-bold transition-all duration-200',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#13501B]',
           'disabled:pointer-events-none disabled:opacity-50',
-          
+
           {
-            'bg-blue-600 text-white hover:bg-blue-700': variant === 'default',
+            'bg-[#13501B] text-white shadow-md hover:bg-[#0d3b14] hover:shadow-lg hover:-translate-y-px':
+              variant === 'default',
             'bg-red-600 text-white hover:bg-red-700': variant === 'destructive',
-            'border border-gray-300 bg-transparent hover:bg-gray-100': variant === 'outline',
-            'hover:bg-gray-100': variant === 'ghost',
+            'border-2 border-[#13501B] bg-transparent text-[#13501B] hover:bg-[#f2f8f2]':
+              variant === 'outline',
+            'text-gray-700 hover:bg-gray-100 hover:text-[#13501B]': variant === 'ghost',
           },
           
           {

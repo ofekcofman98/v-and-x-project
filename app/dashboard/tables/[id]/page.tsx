@@ -238,7 +238,7 @@ export default function TableDetailsPage() {
       <>
         <AppHeader />
         <main className="flex flex-1 flex-col">
-          <section className="container py-8 md:py-12">
+          <section className="container py-8 md:py-12 pb-32">
             <div className="space-y-6">
               <DetailPageHeader
                 name={table.name}

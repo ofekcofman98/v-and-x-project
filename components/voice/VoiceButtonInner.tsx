@@ -2,6 +2,7 @@
  * VoiceButtonInner Component
  * Memoized, purely declarative renderer for the voice input button.
  * All business logic lives in useVoicePipeline — this component only renders.
+ * Visual design mirrors the VoiceOrb component in docs/design/src/App.tsx.
  * Based on: docs/05_VOICE_PIPELINE.md §2.2, §9 and docs/06_SMART_POINTER.md §9
  */
 
@@ -11,9 +12,11 @@ import React from 'react';
 import { Mic, Infinity as InfinityIcon, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useVoicePipeline } from '@/lib/client/hooks/voice/use-voice-pipeline';
-import { cn } from '@/lib/shared/utils/cn';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
+
+const FOREST = '#13501B';
+const FOREST_DARK = '#0d3b14';
 
 interface VoiceButtonInnerProps {
   tableId: string;
@@ -44,74 +47,56 @@ export const VoiceButtonInner = React.memo(function VoiceButtonInner({
     tooltipText,
   } = useVoicePipeline({ tableId, tableSchema, hasActiveCell });
 
+  const isBusy = isProcessing || isConfirming;
+  const isActive = continuousMode || isListening || isCommitting || isAdvancing;
+
+  // Orb fill: black idle, forest green once engaged, red on error — mirrors VoiceOrb's
+  // `recording ? '#13501B' : '#000'` binary, extended for this app's richer state machine.
+  const orbBackground = isError ? '#dc2626' : isBusy ? '#9ca3af' : isActive ? FOREST : '#000';
+
   return (
     <TooltipProvider>
       <div className="relative flex flex-col items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="relative">
-              {/* Audio visualizer ring — scales with audioLevel while listening */}
+            <div className="relative flex items-center justify-center w-20 h-20 select-none">
+              {/* Expanding pulse rings — identical timing/opacity to the Figma VoiceOrb */}
               {isListening && (
-                <motion.div
-                  className="absolute inset-0 rounded-full bg-gradient-to-br from-emerald-400/70 to-lime-400/30 pointer-events-none"
-                  animate={{
-                    scale: [1, 1 + visualLevel * 0.8, 1 + visualLevel * 0.6],
-                    opacity: [0.7, 0.35, 0.5],
-                  }}
-                  transition={{
-                    duration: 0.6,
-                    ease: 'easeInOut',
-                    repeat: Infinity,
-                    repeatType: 'reverse',
-                  }}
-                  style={{
-                    transform: 'translate(-50%, -50%)',
-                    left: '50%',
-                    top: '50%',
-                  }}
-                />
+                <>
+                  <span
+                    className="absolute inset-0 rounded-full pointer-events-none"
+                    style={{ background: FOREST, opacity: 0.15, animation: 'pulse-ring 1.4s ease-out infinite' }}
+                  />
+                  <span
+                    className="absolute inset-0 rounded-full pointer-events-none"
+                    style={{ background: FOREST, opacity: 0.1, animation: 'pulse-ring 1.4s ease-out 0.5s infinite' }}
+                  />
+                </>
               )}
 
               <motion.button
                 type="button"
-                className={cn(
-                  'relative rounded-full p-6 transition-all duration-200',
-                  'focus:outline-none focus:ring-4 focus:ring-offset-2',
-                  'shadow-lg hover:shadow-xl',
-                  {
-                    'bg-blue-500 hover:bg-blue-600 focus:ring-blue-300': !continuousMode && !isError,
-                    'bg-green-500 hover:bg-green-600 focus:ring-green-300':
-                      continuousMode && isListening,
-                    'bg-green-600':
-                      continuousMode && !isListening && !isError && !isProcessing && !isConfirming,
-                    'bg-gray-400 cursor-not-allowed': isProcessing || isConfirming,
-                    'bg-emerald-500': isCommitting || isAdvancing,
-                    'bg-red-600': isError,
-                  }
-                )}
+                className="relative z-10 w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer border-0 disabled:cursor-not-allowed"
+                style={{
+                  background: orbBackground,
+                  boxShadow: isListening
+                    ? `0 0 0 3px rgba(19,80,27,0.3)`
+                    : '0 4px 24px rgba(0,0,0,0.18)',
+                }}
                 onClick={handleToggle}
-                disabled={isProcessing || isConfirming}
+                disabled={isBusy}
                 aria-label={continuousMode ? 'Stop continuous mode' : 'Start continuous mode'}
-                whileHover={{ scale: isProcessing || isConfirming ? 1 : 1.05 }}
-                whileTap={{ scale: isProcessing || isConfirming ? 1 : 0.95 }}
-                animate={isListening ? { scale: [1, 1.05, 1] } : { scale: 1 }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                whileHover={{ scale: isBusy ? 1 : 1.05 }}
+                whileTap={{ scale: isBusy ? 1 : 0.95 }}
+                animate={{ scale: isListening ? 1.07 : 1 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
               >
-                {isProcessing || isConfirming ? (
+                {isBusy ? (
                   <Loader2 className="h-6 w-6 text-white animate-spin" />
                 ) : continuousMode ? (
                   <InfinityIcon className="h-6 w-6 text-white" />
                 ) : (
-                  <Mic className="h-6 w-6 text-white" />
-                )}
-
-                {/* Subtle pulse ring while listening */}
-                {isListening && (
-                  <motion.div
-                    className="absolute inset-0 rounded-full bg-white/30"
-                    animate={{ scale: [1, 1.3], opacity: [0.5, 0] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
-                  />
+                  <Mic className="h-6 w-6 text-white" fill={isListening ? '#fff' : 'none'} />
                 )}
               </motion.button>
             </div>
@@ -125,7 +110,8 @@ export const VoiceButtonInner = React.memo(function VoiceButtonInner({
         {isListening && (
           <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-emerald-500/80 to-lime-400 shadow-[0_0_20px_rgba(74,222,128,0.6)]"
+              className="h-full"
+              style={{ background: FOREST }}
               animate={{
                 width: `${Math.max(40, visualLevel * 100)}%`,
                 opacity: [0.6, 1],
@@ -136,13 +122,16 @@ export const VoiceButtonInner = React.memo(function VoiceButtonInner({
         )}
 
         {/* Status text */}
-        <div className="text-xs text-gray-600 dark:text-gray-400 font-medium text-center">
+        <div className="text-xs font-medium text-center" style={{ color: isError ? '#dc2626' : '#6b7280' }}>
           {continuousMode ? (
             <>
               {isListening && (
-                <div className="flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 bg-green-500 rounded-full animate-pulse" />
-                  <span>Listening for speech...</span>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full animate-pulse"
+                    style={{ background: FOREST }}
+                  />
+                  <span style={{ color: FOREST_DARK }}>Listening for speech...</span>
                 </div>
               )}
               {isProcessing && 'Processing...'}
@@ -157,7 +146,7 @@ export const VoiceButtonInner = React.memo(function VoiceButtonInner({
                 !isCommitting &&
                 !isAdvancing &&
                 'Continuous Active'}
-              <div className="text-xs text-gray-500 mt-1">Press Esc to stop</div>
+              <div className="text-xs text-gray-400 mt-1">Press Esc to stop</div>
             </>
           ) : (
             'Tap to activate continuous'
