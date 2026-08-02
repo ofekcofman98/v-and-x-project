@@ -426,55 +426,49 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
   };
 
   return (
-    <div className="fixed inset-0 bg-background z-[100] flex w-full h-full opacity-100">
-      {/* Left Sidebar */}
-      <div className="w-80 border-r flex flex-col">
-        <BaseListSidebar
-          selectedId={selectedBaseListId}
-          onSelect={handleBaseListSelect}
-          onCreateNew={() => setShowNewBaseList(true)}
+    <div className="flex flex-col w-full h-[calc(100vh-3.5rem)] bg-background">
+      {/* Compact single-row header: title/description + base-list badge — sits
+          above BOTH the sidebar and the grid so the two share one height
+          below it, instead of the sidebar stretching the full page while the
+          grid is squeezed under a tall form. */}
+      <div className="h-16 shrink-0 border-b border-border/50 flex items-center gap-4 px-4">
+        <Input
+          name="tableName"
+          placeholder="Untitled table"
+          value={tableName}
+          onChange={(e) => setTableName(e.target.value)}
+          className="h-9 max-w-xs border-none bg-muted/40 font-medium focus-visible:ring-1"
         />
+        <Input
+          name="description"
+          placeholder="Add a description…"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="h-9 flex-1 border-none bg-transparent text-muted-foreground focus-visible:ring-1 focus-visible:bg-muted/40"
+        />
+        {tableMetadata.baseListName && (
+          <div className="shrink-0 text-sm text-muted-foreground flex items-center gap-2 whitespace-nowrap">
+            <Database className="h-4 w-4" />
+            <strong className="text-foreground">{tableMetadata.baseListName}</strong>
+            <Button variant="ghost" size="sm" onClick={clearBaseList}>
+              Clear
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Main Grid Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* AI Draft Box — inline, no navigation round-trip */}
-        <div className="border-b p-4">
-          <SchemaAgentPromptBar
-            onSubmit={(request) => schemaAgentMutation.mutate(request)}
-            isLoading={schemaAgentMutation.isPending}
-            error={schemaAgentMutation.isError ? schemaAgentMutation.error : null}
-            onRetry={() => {
-              if (schemaAgentMutation.variables) schemaAgentMutation.mutate(schemaAgentMutation.variables);
-            }}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar — height-matched to the grid section via the shared flex row above */}
+        <div className="w-72 shrink-0 border-r border-border/50 flex flex-col">
+          <BaseListSidebar
+            selectedId={selectedBaseListId}
+            onSelect={handleBaseListSelect}
+            onCreateNew={() => setShowNewBaseList(true)}
           />
         </div>
 
-        {/* Top Bar: Meta Info */}
-        <div className="border-b p-4 space-y-3">
-          <Input
-            name="tableName"
-            placeholder="Table Name"
-            value={tableName}
-            onChange={(e) => setTableName(e.target.value)}
-          />
-          <Textarea
-            name="description"
-            placeholder="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          {tableMetadata.baseListName && (
-            <div className="text-sm text-muted-foreground flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              Using Base List: <strong>{tableMetadata.baseListName}</strong>
-              <Button variant="ghost" size="sm" onClick={clearBaseList}>
-                Clear
-              </Button>
-            </div>
-          )}
-        </div>
-
+        {/* Main Grid Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
         {/* Template Track */}
         <div className="border-b bg-muted/20 px-4 py-3">
           <div className="flex items-center justify-between mb-2">
@@ -530,9 +524,10 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
           )}
         </div>
 
-        {/* Grid Container */}
-        <div className="flex-1 overflow-auto bg-slate-50">
-          <div className="container max-w-7xl mx-auto px-6 py-8">
+        {/* Grid Container — bottom padding clears the floating AI dock so the
+            last rows/"Add Row" control are never hidden behind it. */}
+        <div className="flex-1 overflow-auto bg-muted/20">
+          <div className="container max-w-7xl mx-auto px-6 py-8 pb-64">
             <SharedBuilderGrid
               columns={columns}
               rows={rows}
@@ -555,6 +550,7 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
             {isSubmitting ? 'Saving...' : 'Save Table'}
           </Button>
         </div>
+        </div>
       </div>
 
       {accessModalColumn && (
@@ -575,6 +571,21 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
           if (id) handleBaseListSelect(id);
         }}
       />
+
+      {/* Floating AI Command Dock — replaces the old static AI-draft card that
+          used to sit at the top and crowd the grid. */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
+        <div className="backdrop-blur-md bg-background/80 shadow-2xl border border-border/50 rounded-2xl p-4">
+          <SchemaAgentPromptBar
+            onSubmit={(request) => schemaAgentMutation.mutate(request)}
+            isLoading={schemaAgentMutation.isPending}
+            error={schemaAgentMutation.isError ? schemaAgentMutation.error : null}
+            onRetry={() => {
+              if (schemaAgentMutation.variables) schemaAgentMutation.mutate(schemaAgentMutation.variables);
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

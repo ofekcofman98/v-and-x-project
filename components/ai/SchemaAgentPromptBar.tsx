@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useBaseListsQuery } from '@/lib/client/hooks/data/use-base-lists';
 import { useMentionInput } from '@/lib/client/hooks/ai/use-mention-input';
 import { MentionAutocomplete } from './MentionAutocomplete';
+import { PromptDictationButton } from './PromptDictationButton';
 import { Sparkles, X } from 'lucide-react';
 import type { SchemaAgentRequest } from '@/lib/shared/types/ai';
 import type { SchemaAgentError } from '@/lib/client/hooks/ai/use-schema-agent';
@@ -33,6 +34,7 @@ export function SchemaAgentPromptBar({ onSubmit, isLoading, error, onRetry }: Sc
 
   const {
     raw,
+    setRaw,
     chips,
     mentions,
     activeIndex,
@@ -46,6 +48,11 @@ export function SchemaAgentPromptBar({ onSubmit, isLoading, error, onRetry }: Sc
     handleBlur,
     handleMentionKeyDown,
   } = useMentionInput({ baseLists, disabled: isLoading });
+
+  function handleDictated(text: string) {
+    setRaw(raw.trim() ? `${raw.trim()} ${text}` : text);
+    textareaRef.current?.focus();
+  }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (handleMentionKeyDown(e)) return;
@@ -67,8 +74,8 @@ export function SchemaAgentPromptBar({ onSubmit, isLoading, error, onRetry }: Sc
   }
 
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-3">
-      <div className="flex items-center gap-2 text-sm font-medium">
+    <div className="space-y-2.5">
+      <div className="flex items-center gap-2 text-sm font-medium text-foreground/90">
         <Sparkles className="h-4 w-4 text-purple-500" />
         Describe a table and let AI draft it
       </div>
@@ -94,25 +101,28 @@ export function SchemaAgentPromptBar({ onSubmit, isLoading, error, onRetry }: Sc
         </div>
       )}
 
-      <div className="relative">
-        <Textarea
-          ref={textareaRef}
-          value={raw}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          placeholder="Create a grade table for @ClassA1 with columns Test1, Test2, FinalGrade"
-          disabled={isLoading}
-          className="min-h-[72px]"
-        />
-        {isDropdownOpen && (
-          <MentionAutocomplete
-            items={suggestions}
-            activeIndex={activeIndex}
-            onSelect={handleSelectSuggestion}
-            onHoverIndex={setActiveIndex}
+      <div className="flex items-end gap-2">
+        <div className="relative flex-1">
+          <Textarea
+            ref={textareaRef}
+            value={raw}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
+            placeholder="Create a grade table for @ClassA1 with columns Test1, Test2, FinalGrade"
+            disabled={isLoading}
+            className="min-h-[52px] max-h-32 resize-none bg-background/60"
           />
-        )}
+          {isDropdownOpen && (
+            <MentionAutocomplete
+              items={suggestions}
+              activeIndex={activeIndex}
+              onSelect={handleSelectSuggestion}
+              onHoverIndex={setActiveIndex}
+            />
+          )}
+        </div>
+        <PromptDictationButton onTranscribed={handleDictated} disabled={isLoading} />
       </div>
 
       <div className="flex items-center justify-between">

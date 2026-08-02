@@ -9,17 +9,21 @@
  */
 
 import { useRouter } from 'next/navigation';
+import { AppHeader } from '@/components/AppHeader';
 import { DynamicTableCreator } from '@/components/tables/DynamicTableCreator';
 
 export default function NewTablePage() {
   const router = useRouter();
 
   return (
-    <DynamicTableCreator
-      onClose={() => router.push('/dashboard/tables')}
-      onSuccess={(tableId) => {
-        router.push(`/dashboard/tables/${tableId}`);
-      }}
-    />
+    <>
+      <AppHeader />
+      <DynamicTableCreator
+        onClose={() => router.push('/dashboard/tables')}
+        onSuccess={(tableId) => {
+          router.push(`/dashboard/tables/${tableId}`);
+        }}
+      />
+    </>
   );
 }

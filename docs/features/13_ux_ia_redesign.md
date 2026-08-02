@@ -157,6 +157,46 @@ Content is `TemplateView.png`'s existing fields (columns count, used-by count, c
 
 ---
 
+## Visual Redesign — Create-Table Canvas (Layout & Chrome)
+
+**Status:** Proposed — not yet implemented. The live-canvas *interaction model* above (§ New Create-Table Flow) is already built in `components/tables/DynamicTableCreator.tsx` and matches the base-lists-left/templates-top/grid-center structure. This section addresses how it *looks*, not how it behaves: current screenshot (`docs/Pics/table-creation/Screenshot 2026-08-02 182957.png`) reads as a heavy engineering prototype (thick borders, oversized static panels, no navbar) rather than a modern SaaS surface.
+
+Current implementation reference: `app/dashboard/tables/new/page.tsx` renders `DynamicTableCreator` full-screen, standalone — it does not render `AppHeader` the way `app/dashboard/tables/page.tsx` does. That's the missing-navbar issue (item 6 below).
+
+### Issues and fixes
+
+1. **Brutalist/heavy UI** — thick dark borders, heavy dark containers, oversized padding throughout `DynamicTableCreator.tsx`.
+   - Fix: replace with soft Tailwind tokens (`border-border/50`, `bg-muted/30`, standard `rounded-lg`/`rounded-xl` radii, reduced padding scale). Token values themselves are deferred to the general theme pass — this doc only records *where* softening applies (sidebar, header, grid container), not the exact palette.
+
+2. **Overstretched left sidebar** — the Base Lists rail currently spans full height/width without visual isolation from the rest of the page.
+   - Fix: fixed-width sidebar (e.g. `w-64`/`w-72`), `border-r border-border/50` only (no full box border), height clipped to match the grid preview section exactly (not viewport height) — sidebar and grid are one visually-paired unit, not independent panels.
+
+3. **Heavy top header** — table title, description, and step progress currently consume several stacked rows.
+   - Fix: collapse into a single-row header, **56–64px** tall, with step progress rendered as inline pills (`○ Entities → ○ Columns → ○ Review` style) next to the title instead of a separate progress bar row. Title/description inputs move to a secondary compact row or inline-edit-on-click, not permanent large textareas.
+
+4. **AI prompt box crowding the center** — "Describe a table and let AI draft it" is currently a large static card occupying the top-center, blocking the grid.
+   - Fix: **Floating AI Command Dock** — a fixed, bottom-anchored floating bar, not a page section:
+     - Position: `fixed bottom-6 left-1/2 -translate-x-1/2 z-50`
+     - Style: glassmorphism — `backdrop-blur-md bg-background/80 shadow-2xl border border-border/50 rounded-2xl`
+     - Contents: the AI-draft text input/action **and** the Whisper `VoiceButton` (`components/voice/VoiceButton.tsx`) embedded inline, both interactive from the dock — voice input and typed AI-draft become one floating control, not two separate entry points.
+     - This frees the full center column for the live grid at all times; the dock overlays rather than reserving layout space.
+
+5. **Base-lists-left / templates-top arrangement** — current screenshot already has Base Lists as a left rail and Column Templates as a horizontal chip row above the grid. Proposed direction: **keep this arrangement** (left rail = rows source, top rail = columns source, center = grid) — it matches § New Create-Table Flow's ASCII layout above and needs polish (spacing, borders, chip styling), not restructuring. Flagged here as confirmed rather than open, pending final visual sign-off.
+
+6. **Missing navbar** — `app/dashboard/tables/new/page.tsx` renders `DynamicTableCreator` standalone with no `AppHeader`, unlike every other dashboard route (e.g. `app/dashboard/tables/page.tsx`).
+   - Fix: wrap the create-table page in the same `AppHeader` (`components/AppHeader.tsx`) used elsewhere, so the page reads as part of the app rather than an isolated tool. The compacted in-page header (item 3) sits *below* `AppHeader`, not in place of it.
+
+### Implementation checklist (visual pass)
+
+- [ ] Replace heavy borders/containers in `DynamicTableCreator.tsx` with soft tokens (exact values deferred to general theme pass)
+- [ ] Refactor Base Lists rail to fixed-width, single right border, height-matched to grid section
+- [ ] Compact title/description/step-progress into a single ~56–64px header row with inline step pills
+- [ ] Extract AI-draft box + `VoiceButton` into a floating bottom-anchored glassmorphic dock (`fixed bottom-6 left-1/2 -translate-x-1/2 z-50`)
+- [ ] Add `AppHeader` to `app/dashboard/tables/new/page.tsx`
+- [ ] Confirm final left-rail/top-rail/grid arrangement with visual sign-off (structure itself not changing, per item 5)
+
+---
+
 ## Screen-by-screen disposition
 
 | Current screen | Disposition |
