@@ -156,7 +156,29 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
       const dedupedExtraColumns = extraColumns.map((col) =>
         occupiedIds.has(col.id) ? { ...col, id: `${col.id}_ai` } : col
       );
-      setColumns([...injectedColumns, ...dedupedExtraColumns, ...activeTemplateCols]);
+      // De-duplicate previously-selected template columns against the same ids —
+      // a template column can share the base list's slug (e.g. both "Name" -> `name`),
+      // which otherwise leaves two columns with the same id/key. Any formula that
+      // referenced a remapped column id must be remapped too.
+      const idRemap = new Map<string, string>();
+      const dedupedTemplateCols: ColumnDef[] = activeTemplateCols.map((col) => {
+        if (!occupiedIds.has(col.id)) return col;
+        const uniqueId = `${col.id}_tpl`;
+        idRemap.set(col.id, uniqueId);
+        return { ...col, id: uniqueId };
+      });
+      const remappedTemplateCols = dedupedTemplateCols.map((col) =>
+        col.formula
+          ? {
+              ...col,
+              formula: {
+                ...col.formula,
+                references: col.formula.references.map((refId) => idRemap.get(refId) ?? refId),
+              },
+            }
+          : col
+      );
+      setColumns([...injectedColumns, ...dedupedExtraColumns, ...remappedTemplateCols]);
 
       const injectedRows: RowData[] = baseList.entities?.map((entity: { id: string; values: Record<string, string> }) => ({
         id: entity.id,
