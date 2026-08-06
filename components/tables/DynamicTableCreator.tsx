@@ -427,11 +427,8 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
 
   return (
     <div className="flex flex-col w-full h-[calc(100vh-3.5rem)] bg-background">
-      {/* Compact single-row header: title/description + base-list badge — sits
-          above BOTH the sidebar and the grid so the two share one height
-          below it, instead of the sidebar stretching the full page while the
-          grid is squeezed under a tall form. */}
-      <div className="h-16 shrink-0 border-b border-border/50 flex items-center gap-4 px-4">
+      {/* Full-width Top Header: table name + description, above everything else */}
+      <div className="h-14 shrink-0 border-b border-border/50 flex items-center gap-3 px-4">
         <Input
           name="tableName"
           placeholder="Untitled table"
@@ -457,9 +454,10 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
         )}
       </div>
 
+      {/* Main 2-Column Container */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar — height-matched to the grid section via the shared flex row above */}
-        <div className="w-72 shrink-0 border-r border-border/50 flex flex-col">
+        {/* Left Column — Base Lists panel. Fixed width, never stretches into the right column. */}
+        <div className="w-72 shrink-0 border-r border-border/50 flex flex-col overflow-hidden">
           <BaseListSidebar
             selectedId={selectedBaseListId}
             onSelect={handleBaseListSelect}
@@ -467,90 +465,90 @@ export function DynamicTableCreator({ onClose, onSuccess }: DynamicTableCreatorP
           />
         </div>
 
-        {/* Main Grid Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Template Track */}
-        <div className="border-b bg-muted/20 px-4 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Column Templates
-            </span>
-            {selectedTemplateId && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-xs px-2"
-                onClick={() => setSelectedTemplateId(null)}
-              >
-                Clear
-              </Button>
+        {/* Right Column — Table Workbench panel, fills all remaining space */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {/* Top Toolbar: template chips, scoped to this column only */}
+          <div className="border-b border-border/50 bg-muted/10 px-4 py-3 shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Column Templates
+              </span>
+              {selectedTemplateId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs px-2"
+                  onClick={() => setSelectedTemplateId(null)}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+
+            {templatesLoading ? (
+              <p className="text-xs text-muted-foreground py-1">Loading templates…</p>
+            ) : templates.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-1">No templates available</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="flex gap-3 pb-2 w-max">
+                  {templates.map((template) => {
+                    const emoji = CATEGORY_EMOJI[template.category?.toLowerCase() ?? ''] ?? '📐';
+                    const isSelected = selectedTemplateId === template.id;
+                    const colCount = template.schema?.columns?.length ?? '?';
+
+                    return (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => handleTemplateSelect(template.id)}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2 rounded-lg border bg-card text-left',
+                          'text-sm whitespace-nowrap transition-all duration-150',
+                          'hover:shadow-md hover:ring-2 hover:ring-purple-500/40',
+                          isSelected
+                            ? 'ring-2 ring-primary border-primary shadow-sm bg-primary/5'
+                            : 'border-border hover:border-purple-300'
+                        )}
+                      >
+                        <span className="text-base leading-none">{emoji}</span>
+                        <span className="font-medium">{template.name}</span>
+                        <span className="text-xs text-muted-foreground">({colCount} cols)</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
 
-          {templatesLoading ? (
-            <p className="text-xs text-muted-foreground py-1">Loading templates…</p>
-          ) : templates.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-1">No templates available</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <div className="flex gap-3 pb-2 w-max">
-                {templates.map((template) => {
-                  const emoji = CATEGORY_EMOJI[template.category?.toLowerCase() ?? ''] ?? '📐';
-                  const isSelected = selectedTemplateId === template.id;
-                  const colCount = template.schema?.columns?.length ?? '?';
-
-                  return (
-                    <button
-                      key={template.id}
-                      type="button"
-                      onClick={() => handleTemplateSelect(template.id)}
-                      className={cn(
-                        'flex items-center gap-2 px-3 py-2 rounded-lg border bg-card text-left',
-                        'text-sm whitespace-nowrap transition-all duration-150',
-                        'hover:shadow-md hover:ring-2 hover:ring-purple-500/40',
-                        isSelected
-                          ? 'ring-2 ring-primary border-primary shadow-sm bg-primary/5'
-                          : 'border-border hover:border-purple-300'
-                      )}
-                    >
-                      <span className="text-base leading-none">{emoji}</span>
-                      <span className="font-medium">{template.name}</span>
-                      <span className="text-xs text-muted-foreground">({colCount} cols)</span>
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Central Grid Canvas — fills the remaining width/height of the right column;
+              no max-width centering, so it isn't squeezed to a small block. */}
+          <div className="flex-1 overflow-auto bg-muted/10">
+            <div className="min-w-full px-6 py-6 pb-64">
+              <SharedBuilderGrid
+                columns={columns}
+                rows={rows}
+                representativeColumnId={representativeColumnId}
+                onRepresentativeColumnChange={handleRepresentativeColumnChange}
+                representativeEligibleColumnIds={representativeEligibleColumnIds}
+                onAccessClick={setAccessModalColumnId}
+                {...gridActions}
+              />
             </div>
-          )}
-        </div>
-
-        {/* Grid Container — bottom padding clears the floating AI dock so the
-            last rows/"Add Row" control are never hidden behind it. */}
-        <div className="flex-1 overflow-auto bg-muted/20">
-          <div className="container max-w-7xl mx-auto px-6 py-8 pb-64">
-            <SharedBuilderGrid
-              columns={columns}
-              rows={rows}
-              representativeColumnId={representativeColumnId}
-              onRepresentativeColumnChange={handleRepresentativeColumnChange}
-              representativeEligibleColumnIds={representativeEligibleColumnIds}
-              onAccessClick={setAccessModalColumnId}
-              {...gridActions}
-            />
           </div>
         </div>
+      </div>
 
-        {/* Bottom Actions (This was the part that got cut off!) */}
-        <div className="border-t p-4 flex justify-between bg-white">
-          <Button variant="outline" onClick={handleCancel}>
-            <X className="h-4 w-4 mr-2" />
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Save Table'}
-          </Button>
-        </div>
-        </div>
+      {/* Bottom Actions */}
+      <div className="shrink-0 border-t border-border/50 p-4 flex justify-between bg-background">
+        <Button variant="outline" onClick={handleCancel}>
+          <X className="h-4 w-4 mr-2" />
+          Cancel
+        </Button>
+        <Button onClick={handleSave} disabled={isSubmitting}>
+          {isSubmitting ? 'Saving...' : 'Save Table'}
+        </Button>
       </div>
 
       {accessModalColumn && (
