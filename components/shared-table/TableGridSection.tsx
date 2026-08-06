@@ -1,8 +1,12 @@
+'use client';
+
+import { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from './DataTable';
 import { NavigationModeToggle } from './NavigationModeToggle';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
-import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
+import { VoiceButton } from '@/components/voice/VoiceButton';
+import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/shared/types/table-schema';
 
 interface TableGridSectionProps {
   /** Required for editable (Table) views; omit when isReadOnly is true. */
@@ -37,6 +41,9 @@ export function TableGridSection({
     description ??
     `Integrated view combining Base List entities and Table data columns${hasData ? ` (${totalRows} ${totalRows === 1 ? 'row' : 'rows'})` : ''}`;
 
+  const tableSchema = useMemo<TableSchema>(() => ({ columns, rows }), [columns, rows]);
+  const showVoiceButton = !isReadOnly && hasData && !!tableId;
+
   return (
     <Card>
       <CardHeader className={isReadOnly ? undefined : 'flex flex-row items-start justify-between gap-4'}>
@@ -59,6 +66,12 @@ export function TableGridSection({
             rows={rows}
             isReadOnly={isReadOnly}
           />
+        )}
+        {showVoiceButton && (
+          <div className="mt-6 pt-4 border-t border-border/50">
+            {/* tableId is guaranteed defined here: showVoiceButton requires !!tableId */}
+            <VoiceButton tableId={tableId as string} tableSchema={tableSchema} layout="inline" />
+          </div>
         )}
       </CardContent>
     </Card>

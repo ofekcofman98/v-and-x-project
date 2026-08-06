@@ -27,12 +27,19 @@ interface VoiceButtonInnerProps {
    * row-to-row cell navigation does not.
    */
   hasActiveCell: boolean;
+  /**
+   * 'stacked' (default) — orb with status text centered beneath it, for floating placement.
+   * 'inline' — orb on the left, status text/level bar in a flex-1 column to its right,
+   * for embedding as a footer row inside a card (docs/design/src/App.tsx demo orb layout).
+   */
+  layout?: 'stacked' | 'inline';
 }
 
 export const VoiceButtonInner = React.memo(function VoiceButtonInner({
   tableId,
   tableSchema,
   hasActiveCell,
+  layout = 'stacked',
 }: VoiceButtonInnerProps): React.JSX.Element {
   const {
     isListening,
@@ -54,9 +61,17 @@ export const VoiceButtonInner = React.memo(function VoiceButtonInner({
   // `recording ? '#13501B' : '#000'` binary, extended for this app's richer state machine.
   const orbBackground = isError ? '#dc2626' : isBusy ? '#9ca3af' : isActive ? FOREST : '#000';
 
+  const isInline = layout === 'inline';
+
   return (
     <TooltipProvider>
-      <div className="relative flex flex-col items-center gap-2">
+      <div
+        className={
+          isInline
+            ? 'relative flex items-center gap-4'
+            : 'relative flex flex-col items-center gap-2'
+        }
+      >
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="relative flex items-center justify-center w-20 h-20 select-none">
@@ -106,51 +121,56 @@ export const VoiceButtonInner = React.memo(function VoiceButtonInner({
           </TooltipContent>
         </Tooltip>
 
-        {/* Visual progress bar while listening */}
-        {isListening && (
-          <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full"
-              style={{ background: FOREST }}
-              animate={{
-                width: `${Math.max(40, visualLevel * 100)}%`,
-                opacity: [0.6, 1],
-              }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-            />
-          </div>
-        )}
-
-        {/* Status text */}
-        <div className="text-xs font-medium text-center" style={{ color: isError ? '#dc2626' : '#6b7280' }}>
-          {continuousMode ? (
-            <>
-              {isListening && (
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block h-2 w-2 rounded-full animate-pulse"
-                    style={{ background: FOREST }}
-                  />
-                  <span style={{ color: FOREST_DARK }}>Listening for speech...</span>
-                </div>
-              )}
-              {isProcessing && 'Processing...'}
-              {isConfirming && 'Confirm entry'}
-              {isCommitting && 'Saving...'}
-              {isAdvancing && 'Advancing...'}
-              {isError && 'Error occurred'}
-              {!isListening &&
-                !isProcessing &&
-                !isConfirming &&
-                !isError &&
-                !isCommitting &&
-                !isAdvancing &&
-                'Continuous Active'}
-              <div className="text-xs text-gray-400 mt-1">Press Esc to stop</div>
-            </>
-          ) : (
-            'Tap to activate continuous'
+        <div className={isInline ? 'flex-1 min-w-0' : 'contents'}>
+          {/* Visual progress bar while listening */}
+          {isListening && (
+            <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+              <motion.div
+                className="h-full"
+                style={{ background: FOREST }}
+                animate={{
+                  width: `${Math.max(40, visualLevel * 100)}%`,
+                  opacity: [0.6, 1],
+                }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+              />
+            </div>
           )}
+
+          {/* Status text */}
+          <div
+            className={`text-xs font-medium ${isInline ? 'text-left' : 'text-center'}`}
+            style={{ color: isError ? '#dc2626' : '#6b7280' }}
+          >
+            {continuousMode ? (
+              <>
+                {isListening && (
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full animate-pulse"
+                      style={{ background: FOREST }}
+                    />
+                    <span style={{ color: FOREST_DARK }}>Listening for speech...</span>
+                  </div>
+                )}
+                {isProcessing && 'Processing...'}
+                {isConfirming && 'Confirm entry'}
+                {isCommitting && 'Saving...'}
+                {isAdvancing && 'Advancing...'}
+                {isError && 'Error occurred'}
+                {!isListening &&
+                  !isProcessing &&
+                  !isConfirming &&
+                  !isError &&
+                  !isCommitting &&
+                  !isAdvancing &&
+                  'Continuous Active'}
+                <div className="text-xs text-gray-400 mt-1">Press Esc to stop</div>
+              </>
+            ) : (
+              'Tap to activate continuous'
+            )}
+          </div>
         </div>
       </div>
     </TooltipProvider>

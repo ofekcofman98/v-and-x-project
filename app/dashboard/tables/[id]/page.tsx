@@ -24,8 +24,7 @@ import { prismaColumnTypeToColumnType } from '@/lib/shared/types/models';
 import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
-import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/shared/types/table-schema';
-import { VoiceButton } from '@/components/voice/VoiceButton';
+import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 import { GridChatButton } from '@/components/ai/GridChatButton';
 import { GridChatPanel } from '@/components/ai/GridChatPanel';
 
@@ -138,9 +137,6 @@ export default function TableDetailsPage() {
         }));
     }, [table, columns]);
 
-    // Stable reference for VoiceButton — only recreated when columns/rows change.
-    const tableSchema = useMemo<TableSchema>(() => ({ columns, rows }), [columns, rows]);
-
     // Stable stat card descriptors — only recreated when the counts or date change.
     const statCards = useMemo<StatCardConfig[]>(() => {
         if (!table) return [];
@@ -240,7 +236,7 @@ export default function TableDetailsPage() {
       <>
         <AppHeader />
         <main className="flex flex-1 flex-col">
-          <section className="container py-8 md:py-12 pb-32">
+          <section className="container py-8 md:py-12 pb-12">
             <div className="space-y-6">
               <DetailPageHeader
                 name={table.name}
@@ -282,13 +278,6 @@ export default function TableDetailsPage() {
               </div>
             </section>
           </main>
-
-          {/* Voice Input Button - Fixed Position */}
-          {hasData && (
-            <div className="fixed bottom-8 right-8 z-50">
-              <VoiceButton tableId={id} tableSchema={tableSchema} />
-            </div>
-          )}
 
           {/* Grid Chat Button - Fixed Position */}
           {hasData && (

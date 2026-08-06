@@ -16,9 +16,10 @@ import type { TableSchema } from '@/lib/shared/types/table-schema';
 interface VoiceButtonProps {
   tableId: string;
   tableSchema: TableSchema;
+  layout?: 'stacked' | 'inline';
 }
 
-export function VoiceButton({ tableId, tableSchema }: VoiceButtonProps): React.JSX.Element {
+export function VoiceButton({ tableId, tableSchema, layout }: VoiceButtonProps): React.JSX.Element {
   const hasActiveCell = useUIStore((s) => s.activeCell !== null);
 
   return (
@@ -26,6 +27,7 @@ export function VoiceButton({ tableId, tableSchema }: VoiceButtonProps): React.J
       tableId={tableId}
       tableSchema={tableSchema}
       hasActiveCell={hasActiveCell}
+      layout={layout}
     />
   );
 }
