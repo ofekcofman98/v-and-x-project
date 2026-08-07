@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { DataTable } from './DataTable';
 import { NavigationModeToggle } from './NavigationModeToggle';
 import { EmptyEntitiesState } from '@/components/states/empty-state';
-import { VoiceButton } from '@/components/voice/VoiceButton';
+import { VoiceEntrySurface } from '@/components/voice/VoiceEntrySurface';
 import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/shared/types/table-schema';
 
 interface TableGridSectionProps {
@@ -70,7 +70,7 @@ export function TableGridSection({
         {showVoiceButton && (
           <div className="mt-6 pt-4 border-t border-border/50">
             {/* tableId is guaranteed defined here: showVoiceButton requires !!tableId */}
-            <VoiceButton tableId={tableId as string} tableSchema={tableSchema} layout="inline" />
+            <VoiceEntrySurface tableId={tableId as string} tableSchema={tableSchema} layout="inline" />
           </div>
         )}
       </CardContent>

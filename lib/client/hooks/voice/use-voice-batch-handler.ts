@@ -130,6 +130,20 @@ export function useVoiceBatchHandler({
         nextCell = strategy.getNext(nextCell, tableSchema, rowIndexMap, colIndexMap);
       }
 
+      // Partial-commit semantics (docs/features/03_ai_table_agent.md §5.3):
+      // committing the resolved entries must not discard entries still
+      // awaiting disambiguation/dismissal — only clear the pending batch
+      // once nothing committable remains in it.
+      const remaining = pendingBatchConfirmation.filter(
+        (w) => !committable.includes(w as BatchCellWrite & { rowKey: string })
+      );
+
+      if (remaining.length > 0) {
+        setPendingBatchConfirmation(remaining);
+        setRecordingState('confirming');
+        return;
+      }
+
       setPendingBatchConfirmation(null);
 
       if (nextCell) {
@@ -163,20 +177,21 @@ export function useVoiceBatchHandler({
       setPendingBatchConfirmation(result.writes, result.overflowCount);
       setRecordingState('confirming');
 
-      // A fully-resolved batch (every entry already 'auto') has nothing for
-      // the user to disambiguate — auto-commit it after the same delay the
-      // single-entry flow uses for its undo window, rather than waiting
-      // indefinitely for a manual "Confirm" click that a hands-free/
-      // continuous-voice flow will never produce.
-      // docs/features/03_ai_table_agent.md §5.3
-      const isFullyResolved = result.writes.every((w) => w.confidenceRoute === 'auto');
+      // Auto-commit whenever at least one entry resolved ('auto') — resolved
+      // entries must not wait on unresolved ones (docs/features/03_ai_table_
+      // agent.md §5.3, "partial-commit semantics"). confirmBatch only clears
+      // the pending batch once nothing committable remains in it, so any
+      // entries the user later resolves manually (disambiguation, edits)
+      // stay visible for the explicit "Confirm N resolved" action rather
+      // than being swept up retroactively by this timer.
+      const hasResolvedEntry = result.writes.some((w) => w.confidenceRoute === 'auto');
 
       if (autoCommitTimerRef.current) {
         clearTimeout(autoCommitTimerRef.current);
         autoCommitTimerRef.current = null;
       }
 
-      if (isFullyResolved && result.writes.length > 0) {
+      if (hasResolvedEntry) {
         const { autoAdvanceDelay } = useUIStore.getState().preferences;
         autoCommitTimerRef.current = setTimeout(() => {
           autoCommitTimerRef.current = null;

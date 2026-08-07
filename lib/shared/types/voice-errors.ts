@@ -154,6 +154,9 @@ export const ErrorCodes = {
   REC_TOO_SHORT: 'REC_TOO_SHORT',
   REC_TOO_LONG: 'REC_TOO_LONG',
 
+  // Continuous-mode VAD chunking (VAD_xxx) — docs/05_VOICE_PIPELINE.md §9.5
+  VAD_CHUNK_TOO_LONG: 'VAD_CHUNK_TOO_LONG',
+
   // Speech-to-Text errors (STT_xxx)
   STT_TIMEOUT: 'STT_TIMEOUT',
   STT_NO_SPEECH: 'STT_NO_SPEECH',

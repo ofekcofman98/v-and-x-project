@@ -46,10 +46,15 @@ async function resolveRowFirstBatch(
   let pathTaken: VoiceBatchResult['pathTaken'] = 'BATCH_LOCAL_SEGMENTATION';
 
   if (!rawValues) {
+    console.log('[VoiceEntryService][Batch] Local bare-value segmentation ambiguous, trying LLM:', transcript);
     try {
       rawValues = await segmentBareValuesViaLLM(transcript);
       pathTaken = 'BATCH_LLM_SEGMENTATION';
-    } catch {
+    } catch (err) {
+      console.warn('[VoiceEntryService][Batch] LLM bare-value segmentation failed, degrading to single-entry:', {
+        transcript,
+        error: err instanceof Error ? err.message : err,
+      });
       throw new BatchSegmentationFailedError();
     }
   }
@@ -72,14 +77,19 @@ async function resolveColumnFirstBatch(
     throw new BatchSegmentationFailedError();
   }
 
-  let pairs = segmentEntityValuePairsLocal(transcript);
+  let pairs = segmentEntityValuePairsLocal(transcript, activeColumn, ctx);
   let pathTaken: VoiceBatchResult['pathTaken'] = 'BATCH_LOCAL_SEGMENTATION';
 
   if (!pairs) {
+    console.log('[VoiceEntryService][Batch] Local entity-value segmentation ambiguous, trying LLM:', transcript);
     try {
       pairs = await segmentEntityValuePairsViaLLM(transcript);
       pathTaken = 'BATCH_LLM_SEGMENTATION';
-    } catch {
+    } catch (err) {
+      console.warn('[VoiceEntryService][Batch] LLM entity-value segmentation failed, degrading to single-entry:', {
+        transcript,
+        error: err instanceof Error ? err.message : err,
+      });
       throw new BatchSegmentationFailedError();
     }
   }
@@ -102,6 +112,11 @@ export async function processVoiceEntryBatch(
   payload: VoiceEntryPayload,
   timings: { transcriptionDuration: number; totalStartTime: number }
 ): Promise<VoiceBatchResult> {
+  console.log('[VoiceEntryService][Batch] Detection gate tripped:', {
+    transcript,
+    navigationMode: payload.navigationMode,
+  });
+
   const parsingStartTime = Date.now();
 
   const { writes, overflowCount, pathTaken } =
@@ -111,6 +126,21 @@ export async function processVoiceEntryBatch(
 
   const parsingDuration = Date.now() - parsingStartTime;
   const totalDuration = Date.now() - timings.totalStartTime;
+
+  const routeTally = writes.reduce<Record<string, number>>((tally, w) => {
+    tally[w.confidenceRoute] = (tally[w.confidenceRoute] ?? 0) + 1;
+    return tally;
+  }, {});
+
+  console.log('[VoiceEntryService][Batch] Complete:', {
+    transcript,
+    pathTaken,
+    segmentCount: writes.length,
+    overflowCount,
+    routeTally,
+    parsingDuration,
+    totalDuration,
+  });
 
   return {
     isBatch: true,

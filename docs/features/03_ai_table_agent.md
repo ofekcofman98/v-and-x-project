@@ -3,8 +3,8 @@
 **Feature:** 03 — AI Table Agent
 **Priority:** High
 **Dependencies:** 02_ARCHITECTURE.md, 03_DATABASE.md, 07_MATCHING_ENGINE.md, 11_API_ROUTES.md, 14_PRODUCT_DATA_FLOW.md, `prisma/schema.prisma`
-**Status:** Spec — Not Started
-**Last Updated:** 2026-07-23
+**Status:** Pillar 3 (Multi-Entity Batch Voice Entry) implemented; Pillars 1–2 (Schema Agent, Grid Agent) spec — not started
+**Last Updated:** 2026-08-07
 
 ---
 
@@ -363,6 +363,8 @@ sequenceDiagram
 
 **Division of labor:** local regex segmentation is tried first (no LLM cost); gpt-4o-mini is a fallback for ambiguous transcripts only, doing *segmentation* ("split this utterance into (name, value) pairs"). The local matching engine (`fastest-levenshtein` + `soundex-code`, `lib/server/matching/matcher.ts`'s `matchAsync`) does *resolution* against the actual entity list — the same call the single-entry pipeline's LLM-fallback stage already uses. This keeps resolution fast, deterministic, cheap, and language-robust (phonetic matching handles Whisper's transliteration variance for Hebrew names).
 
+**Local segmentation must fail closed.** "Tried first" only holds if local segmentation returns `null` (ambiguous) on anything it isn't confident about, rather than emitting a low-confidence guess that silently blocks the LLM fallback from ever running. Concretely: a naive comma-split of "Rachel Green, 72, Noa Cohen, 33" cannot itself distinguish a name↔value comma from a pair↔pair comma — it must recombine the alternating-token shape explicitly (or bail to LLM segmentation) rather than let a downstream regex misparse "Rachel Green" as `{entity: "Rachel", value: "Green"}`. Likewise, a resolved value that fails the active column's `ColumnType` parse is grounds to return `null`, not to commit a bad value.
+
 ### 5.3 Confidence Routing & Fallbacks
 
 | Match confidence | Behavior |
@@ -374,7 +376,7 @@ sequenceDiagram
 | Local segmentation ambiguous | Falls back to gpt-4o-mini segmentation (still entity-less for row-first) before giving up |
 | LLM segmentation fails Zod parse | One retry; then whole transcript falls back to the existing single-entry pipeline logic already in `pipeline.ts` (no duplicate fallback path) |
 
-**Partial-commit semantics:** confirmed entries commit as one batch write (one transaction via `PATCH /api/tables/[tableId]/cells/batch`, one TanStack Query invalidation); unresolved entries remain visible until resolved or dismissed. The pointer advances (`navigationStrategies[navigationMode].getNext`, looped once per committed write, one `setActiveCell` call at the end) only after the successful mutation, per the smart-pointer rule.
+**Partial-commit semantics:** confirmed (`auto`-routed) entries commit as one batch write (one transaction via `PATCH /api/tables/[tableId]/cells/batch`, one TanStack Query invalidation) **as soon as at least one entry is resolved — they never wait on the rest of the batch.** Unresolved/disambiguating entries remain visible in the confirmation UI until resolved or dismissed; committing the resolved subset must not clear or discard them. The pointer advances (`navigationStrategies[navigationMode].getNext`, looped once per committed write, one `setActiveCell` call at the end) only after the successful mutation, per the smart-pointer rule, and only once nothing remains pending in the batch.
 
 ### 5.4 Batch Extraction Contract
 

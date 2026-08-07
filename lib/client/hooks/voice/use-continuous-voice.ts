@@ -7,6 +7,9 @@
 import { useCallback, useRef } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useVAD } from '@/lib/client/hooks/voice/use-vad';
+import { toast } from '@/components/ui/use-toast';
+import { ErrorCodes } from '@/lib/shared/types/voice-errors';
+import { getErrorMessage } from '@/lib/shared/errors/error-mapping';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { ParsedResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 import { isVoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
@@ -45,7 +48,8 @@ export function useContinuousVoice({
     silenceThreshold: vadSensitivity.silenceThreshold,
     silenceDurationMs: vadSensitivity.silenceDurationMs,
     speechDebounceMs: 150,
-    maxChunkMs: 15_000,
+    maxChunkMs: vadSensitivity.maxChunkMs,
+    hardMaxChunkMs: vadSensitivity.hardMaxChunkMs,
   });
 
   const isContinuousRef = useRef(false);
@@ -164,6 +168,16 @@ export function useContinuousVoice({
       onError: (err) => {
         onError(err);
         setRecordingState('error');
+      },
+      // Informational only — a long utterance was split into multiple
+      // chunks (docs/05_VOICE_PIPELINE.md §9.5, VAD_CHUNK_TOO_LONG). Deliberately
+      // NOT routed through useVoiceErrorHandler's dispatchError: that sets
+      // recordingState: 'error' and force-resets to 'idle' after 2s, which
+      // would tear down continuous mode over something that isn't a failure —
+      // the loop must keep listening straight through the split.
+      onChunkOverflow: () => {
+        const { title, message } = getErrorMessage(ErrorCodes.VAD_CHUNK_TOO_LONG);
+        toast({ title, description: message, duration: 3000 });
       },
     });
   }, [startVAD, handleChunk, onError, setRecordingState]);

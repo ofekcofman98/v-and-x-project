@@ -33,6 +33,16 @@ describe('isWhisperHallucination', () => {
       isWhisperHallucination('Noa Cohen', { audioDurationSec: 2, promptEntities: ['Noa Cohen'] })
     ).toBe(false);
   });
+
+  it('flags a transcript stitched from two known-hallucination sentences', () => {
+    expect(
+      isWhisperHallucination('Thank you for your time.  Thank you for the opportunity.')
+    ).toBe(true);
+  });
+
+  it('does not flag a real multi-sentence transcript', () => {
+    expect(isWhisperHallucination('Rachel Green, 72. Noa Cohen, 33.')).toBe(false);
+  });
 });
 
 describe('isDegenerateRepetition', () => {

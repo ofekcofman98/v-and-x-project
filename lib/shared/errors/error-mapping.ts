@@ -49,6 +49,13 @@ export const ErrorMessages: Record<string, ErrorMapping> = {
     action: 'Try Again',
   },
 
+  // Continuous-mode VAD chunking — informational, not an error; continuous
+  // mode keeps listening. docs/05_VOICE_PIPELINE.md §9.5
+  [ErrorCodes.VAD_CHUNK_TOO_LONG]: {
+    title: 'Long Input Detected',
+    message: 'Long input detected — processing what was said so far.',
+  },
+
   // Speech-to-Text errors
   [ErrorCodes.STT_TIMEOUT]: {
     title: 'Transcription Timeout',

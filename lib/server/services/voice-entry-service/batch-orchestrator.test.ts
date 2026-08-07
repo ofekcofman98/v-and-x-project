@@ -87,9 +87,10 @@ describe('processVoiceEntryBatch — column-first', () => {
       .mockResolvedValueOnce({ matched: 'Dan Cohen', confidence: 0.95, matchType: 'exact' })
       .mockResolvedValueOnce({ matched: 'Noa Levi', confidence: 0.95, matchType: 'exact' });
 
-    // "Dan, 85, Noa, 90" is ambiguous for local comma-splitting (see
-    // batch-segmentation.test.ts), so this exercises the LLM fallback path.
-    const result = await processVoiceEntryBatch('Dan, 85, Noa, 90', payload, timings);
+    // "Dan 85, Noa" is ambiguous for local segmentation — the trailing
+    // segment has no extractable value (see batch-segmentation.test.ts) —
+    // so this exercises the LLM fallback path.
+    const result = await processVoiceEntryBatch('Dan 85, Noa', payload, timings);
 
     expect(result.pathTaken).toBe('BATCH_LLM_SEGMENTATION');
     expect(result.writes).toHaveLength(2);
@@ -100,9 +101,54 @@ describe('processVoiceEntryBatch — column-first', () => {
       choices: [{ message: { content: JSON.stringify({ entries: [] }) } }],
     });
 
-    await expect(processVoiceEntryBatch('Dan, 85, Noa, 90', payload, timings)).rejects.toThrow(
+    await expect(processVoiceEntryBatch('Dan 85, Noa', payload, timings)).rejects.toThrow(
       BatchSegmentationFailedError
     );
+  });
+
+  it('recombines a fully comma-separated "Name, value, Name, value, ..." dictation locally', async () => {
+    matchAsyncMock
+      .mockResolvedValueOnce({ matched: 'Dan Cohen', confidence: 0.95, matchType: 'exact' })
+      .mockResolvedValueOnce({ matched: 'Noa Levi', confidence: 0.95, matchType: 'exact' })
+      .mockResolvedValueOnce({ matched: 'Yossi Mizrahi', confidence: 0.95, matchType: 'exact' });
+
+    const result = await processVoiceEntryBatch(
+      'Dan Cohen, 85, Noa Levi, 90, Yossi Mizrahi, 78',
+      payload,
+      timings
+    );
+
+    expect(result.pathTaken).toBe('BATCH_LOCAL_SEGMENTATION');
+    expect(result.writes).toHaveLength(3);
+    expect(result.writes.map((w) => w.rowKey)).toEqual(['row-dan', 'row-noa', 'row-yossi']);
+  });
+
+  it('falls back to LLM segmentation for a Whisper list-numbering artifact rather than mis-parsing it', async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              entries: [
+                { entityText: 'Rachel Green', rawValue: '72' },
+                { entityText: 'Noa Cohen', rawValue: '33' },
+              ],
+            }),
+          },
+        },
+      ],
+    });
+    matchAsyncMock
+      .mockResolvedValueOnce({ matched: 'Dan Cohen', confidence: 0.6, matchType: 'fuzzy' })
+      .mockResolvedValueOnce({ matched: 'Noa Levi', confidence: 0.6, matchType: 'fuzzy' });
+
+    const result = await processVoiceEntryBatch(
+      '26. Rachel Green, 85. Noa Cohen.',
+      payload,
+      timings
+    );
+
+    expect(result.pathTaken).toBe('BATCH_LLM_SEGMENTATION');
   });
 });
 

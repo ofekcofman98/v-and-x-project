@@ -5,6 +5,7 @@
  */
 
 import { useRef, useCallback, useState } from 'react';
+import { decideChunkFlush } from './vad-chunking';
 
 export interface VADOptions {
   /** RMS energy level (0–255) above which audio is considered speech. Default: 15 */
@@ -15,8 +16,19 @@ export interface VADOptions {
   silenceDurationMs?: number;
   /** Milliseconds of continuous speech required before recording starts (debounce). Default: 150 */
   speechDebounceMs?: number;
-  /** Maximum chunk duration in milliseconds before forcing a flush. Default: 15000 */
+  /**
+   * Soft cap, in milliseconds, on a single chunk's duration. Past this point
+   * the chunk does NOT cut immediately — the effective silence window
+   * shrinks to OVERFLOW_SILENCE_MS so it flushes at the next brief
+   * inter-word pause instead of mid-word. Default: 15000
+   */
   maxChunkMs?: number;
+  /**
+   * Hard ceiling, in milliseconds, on a single chunk's duration. Backstop
+   * for genuinely pause-free speech that never gives maxChunkMs a pause to
+   * flush at — force-flushes immediately. Default: 30000
+   */
+  hardMaxChunkMs?: number;
 }
 
 // Short, single-word utterances (e.g. a bare "85") were getting clipped right
@@ -29,10 +41,24 @@ export interface VADOptions {
 // docs/06_SMART_POINTER_LOGS.md
 const POST_SPEECH_PADDING_MS = 200;
 
+// Once a chunk has run past maxChunkMs, the effective silence window shrinks
+// to this so the chunk flushes at the next brief inter-word pause rather
+// than waiting for a full silenceDurationMs pause (or worse, cutting
+// mid-word at hardMaxChunkMs). Short enough to catch a natural gap between
+// dictated entries, long enough not to fire on a mid-word breath.
+const OVERFLOW_SILENCE_MS = 250;
+
 export interface VADCallbacks {
   onSpeechStart: () => void;
   onSpeechEnd: (audioBlob: Blob) => void;
   onError: (error: Error) => void;
+  /**
+   * Called when a chunk was flushed because it ran past maxChunkMs, rather
+   * than because the user paused — i.e. a single utterance was split into
+   * multiple chunks. Optional: callers that don't need to surface this
+   * (e.g. VAD_CHUNK_TOO_LONG, docs/05_VOICE_PIPELINE.md §9.5) can omit it.
+   */
+  onChunkOverflow?: () => void;
 }
 
 /**
@@ -47,6 +73,7 @@ export function useVAD(options: VADOptions = {}) {
     silenceDurationMs = 700,
     speechDebounceMs = 150,
     maxChunkMs = 15_000,
+    hardMaxChunkMs = 30_000,
   } = options;
 
   // Internal refs for audio processing
@@ -63,6 +90,13 @@ export function useVAD(options: VADOptions = {}) {
   const speechStartRef = useRef<number | null>(null);
   const recordingStartRef = useRef<number | null>(null);
   const callbacksRef = useRef<VADCallbacks | null>(null);
+  // True from the moment an overflow flush calls recorder.stop() until its
+  // onEmitted callback finishes restarting capture. recorder.stop() is
+  // synchronous about entering the 'inactive' state but onstop (where the
+  // restart happens) fires asynchronously — without this guard, the very
+  // next tick would see isSpeaking=false + an inactive recorder and race to
+  // start it itself from the "waiting for speech" branch below.
+  const restartPendingRef = useRef(false);
   const [volume, setVolume] = useState(0);
 
   /**
@@ -87,37 +121,76 @@ export function useVAD(options: VADOptions = {}) {
    * reading the refs) so a caller can capture them before scheduling a
    * delayed call — protecting against stopVAD nulling the refs out from
    * under a pending setTimeout (see flushChunk below).
+   * `onEmitted` runs after onSpeechEnd, at the point the recorder is
+   * reliably 'inactive' — the only safe place to restart capture for an
+   * overflow flush, since restarting from the tick loop's `!isSpeaking`
+   * branch requires the recorder to already be inactive (see tick()).
    */
-  const emitChunk = useCallback((recorder: MediaRecorder, callbacks: VADCallbacks | null) => {
-    if (recorder.state !== 'recording') return;
+  const emitChunk = useCallback(
+    (recorder: MediaRecorder, callbacks: VADCallbacks | null, onEmitted?: () => void) => {
+      if (recorder.state !== 'recording') return;
 
-    recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-      chunksRef.current = [];
-      callbacks?.onSpeechEnd(blob);
-    };
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        chunksRef.current = [];
+        callbacks?.onSpeechEnd(blob);
+        onEmitted?.();
+      };
 
-    recorder.stop();
-  }, []);
+      recorder.stop();
+    },
+    []
+  );
 
   /**
    * Flush the current recording chunk and trigger onSpeechEnd callback.
-   * Keeps capturing a little past the detected silence boundary — the
-   * recorder is still running, so this adds real trailing audio rather
-   * than silence, protecting short trailing sounds from being clipped.
+   *
+   * `reason: 'silence'` (default) — a real pause was detected. Keeps
+   * capturing a little past the detected silence boundary — the recorder is
+   * still running, so this adds real trailing audio rather than silence,
+   * protecting short trailing sounds from being clipped.
+   *
+   * `reason: 'overflow'` — the chunk ran past maxChunkMs and is being split
+   * mid-utterance (the user is still speaking). There is no trailing
+   * consonant to protect and the padding window is what previously opened a
+   * race that wedged the recorder (docs/06_SMART_POINTER_LOGS.md) — so this
+   * emits immediately and restarts capture right after, keeping the loop
+   * running instead of leaving `isSpeaking` true with an inactive recorder.
    */
-  const flushChunk = useCallback(() => {
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state === 'inactive') return;
+  const flushChunk = useCallback(
+    (reason: 'silence' | 'overflow' = 'silence') => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === 'inactive') return;
 
-    const callbacks = callbacksRef.current;
+      const callbacks = callbacksRef.current;
 
-    isSpeakingRef.current = false;
-    silenceStartRef.current = null;
-    recordingStartRef.current = null;
+      isSpeakingRef.current = false;
+      silenceStartRef.current = null;
+      recordingStartRef.current = null;
 
-    setTimeout(() => emitChunk(recorder, callbacks), POST_SPEECH_PADDING_MS);
-  }, [emitChunk]);
+      if (reason === 'overflow') {
+        restartPendingRef.current = true;
+        callbacks?.onChunkOverflow?.();
+        emitChunk(recorder, callbacks, () => {
+          // Recorder is reliably 'inactive' here (see emitChunk). Restart
+          // immediately — the user is still speaking through the split, so
+          // treat this exactly like an already-confirmed, already-running
+          // speech segment rather than re-arming the debounce from scratch.
+          if (mediaRecorderRef.current?.state === 'inactive') {
+            chunksRef.current = [];
+            mediaRecorderRef.current.start(100);
+          }
+          isSpeakingRef.current = true;
+          recordingStartRef.current = Date.now();
+          restartPendingRef.current = false;
+        });
+        return;
+      }
+
+      setTimeout(() => emitChunk(recorder, callbacks), POST_SPEECH_PADDING_MS);
+    },
+    [emitChunk]
+  );
 
   /**
    * Main VAD loop - runs on every animation frame
@@ -130,6 +203,14 @@ export function useVAD(options: VADOptions = {}) {
     const now = Date.now();
     const normalizedVolume = Math.min(1, Math.max(0, rms / 255));
     setVolume(normalizedVolume);
+
+    // An overflow restart is in flight (recorder.stop() called, onstop not
+    // yet fired) — skip processing this frame rather than racing it from
+    // the "waiting for speech" branch below. See restartPendingRef.
+    if (restartPendingRef.current) {
+      rafRef.current = requestAnimationFrame(tick);
+      return;
+    }
 
     if (!isSpeakingRef.current) {
       // Waiting for speech to start
@@ -169,9 +250,17 @@ export function useVAD(options: VADOptions = {}) {
     } else {
       // Currently recording
 
-      // Force-flush if chunk is too long
-      if (recordingStartRef.current && now - recordingStartRef.current >= maxChunkMs) {
-        flushChunk();
+      // Defense in depth: isSpeakingRef can in principle be left `true`
+      // while the recorder itself is inactive — that exact combination
+      // previously wedged the loop permanently, since a restart only ever
+      // lived in the `!isSpeaking` branch above (unreachable once stuck
+      // here). Detect and self-heal it so the stuck state is structurally
+      // unreachable rather than merely avoided by getting every flush path
+      // right. docs/06_SMART_POINTER_LOGS.md
+      if (mediaRecorderRef.current?.state !== 'recording') {
+        isSpeakingRef.current = false;
+        silenceStartRef.current = null;
+        recordingStartRef.current = null;
         rafRef.current = requestAnimationFrame(tick);
         return;
       }
@@ -179,17 +268,36 @@ export function useVAD(options: VADOptions = {}) {
       if (rms < silenceThreshold) {
         if (!silenceStartRef.current) {
           silenceStartRef.current = now;
-        } else if (now - silenceStartRef.current >= silenceDurationMs) {
-          // Silence confirmed - flush chunk
-          flushChunk();
         }
       } else {
         silenceStartRef.current = null;
       }
+
+      const chunkElapsedMs = recordingStartRef.current ? now - recordingStartRef.current : 0;
+      const silenceElapsedMs = silenceStartRef.current ? now - silenceStartRef.current : null;
+
+      const flushReason = decideChunkFlush(
+        { chunkElapsedMs, silenceElapsedMs },
+        { maxChunkMs, hardMaxChunkMs, silenceDurationMs, overflowSilenceMs: OVERFLOW_SILENCE_MS }
+      );
+
+      if (flushReason) {
+        flushChunk(flushReason);
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
     }
 
     rafRef.current = requestAnimationFrame(tick);
-  }, [speechThreshold, silenceThreshold, speechDebounceMs, silenceDurationMs, maxChunkMs, flushChunk]);
+  }, [
+    speechThreshold,
+    silenceThreshold,
+    speechDebounceMs,
+    silenceDurationMs,
+    maxChunkMs,
+    hardMaxChunkMs,
+    flushChunk,
+  ]);
 
   /**
    * Start VAD listening loop
@@ -263,6 +371,7 @@ export function useVAD(options: VADOptions = {}) {
     speechStartRef.current = null;
     silenceStartRef.current = null;
     recordingStartRef.current = null;
+    restartPendingRef.current = false;
     callbacksRef.current = null;
     streamRef.current = null;
     audioContextRef.current = null;

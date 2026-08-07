@@ -439,6 +439,33 @@ export async function processVoiceEntry(
   // run it through the matcher chain and risk AMBIGUOUS.
   const noEntitySpoken = !parsedResult.entity || parsedResult.entity.trim().length === 0;
 
+  // A transcript that hallucination-guard filters didn't anticipate (e.g. an
+  // unrecognized stock phrase) can reach here with GPT correctly reporting
+  // no entity AND no usable value. Attributing that to the active row would
+  // silently overwrite it — parsed.valid (a non-null, ColumnType-checked
+  // value) is required before the "no entity spoken" shortcut applies.
+  if (noEntitySpoken && !parsed.valid) {
+    console.warn(
+      '[VoiceEntryService] LLM fallback returned no entity and no usable value — refusing to attribute to the active row:',
+      { transcript, rawValue: parsedResult.value }
+    );
+
+    return {
+      entity: null,
+      entityMatch: null,
+      value: null,
+      valueValid: false,
+      action: 'ERROR',
+      error: parsed.error ?? 'Could not extract a usable entity or value from the transcript',
+      transcript,
+      transcriptionDuration,
+      parsingDuration,
+      totalDuration,
+      cached: false,
+      pathTaken: 'LLM_FALLBACK',
+    };
+  }
+
   let matchedEntity: string | null;
   let matchConfidence: number;
   let matchType: MatchType | null;

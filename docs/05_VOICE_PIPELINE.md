@@ -1346,6 +1346,16 @@ export interface VADOptions {
   /** Maximum chunk duration in milliseconds before forcing a flush. Default: 15000 */
   maxChunkMs?: number;
 }
+```
+
+**Implementation update — `maxChunkMs` is a soft cap, not a cut (supersedes the single-cap framing below).** A fixed cut at `maxChunkMs` corrupts whatever word it lands on and — if the flush path doesn't explicitly restart capture afterward — permanently wedges the loop (`isSpeaking` left `true` against an inactive recorder, with no code path left that can call `MediaRecorder.start()` again). Both failure modes are addressed by splitting the single cap into two:
+
+- **`maxChunkMs` (soft cap, default 15000):** once crossed, the chunk does not cut immediately. The effective silence-to-flush window shrinks from `silenceDurationMs` to a short `overflowSilenceMs` (default 250ms) so the chunk flushes at the next brief inter-word pause — between dictated entries, not mid-word.
+- **`hardMaxChunkMs` (hard ceiling, default 30000):** backstop for genuinely pause-free speech that never gives the soft cap a gap to flush at. Force-flushes unconditionally.
+
+**A force-flush past either cap must restart capture before returning to the loop** — this is the "Continue loop" recovery step in §9.5's `VAD_CHUNK_TOO_LONG` below, and its absence was the wedge bug. The pure decision logic (`decideChunkFlush`, when to flush and why) is factored out of the hook into `lib/client/hooks/voice/vad-chunking.ts` so it is unit-testable without mocking `MediaRecorder`/`AudioContext` — see the current `lib/client/hooks/voice/use-vad.ts` for the restart mechanics. Both cap values are user-tunable via `preferences.vadSensitivity` (`lib/client/stores/ui-store.ts`), consistent with `speechThreshold`/`silenceThreshold`/`silenceDurationMs`.
+
+```typescript
 
 export interface VADCallbacks {
   onSpeechStart: () => void;
@@ -1670,10 +1680,19 @@ Continuous mode introduces failure patterns not present in push-to-talk. These m
 },
 {
   code: 'VAD_CHUNK_TOO_LONG',
-  trigger: 'User spoke for > 15 seconds without pause',
+  trigger: 'A chunk crossed maxChunkMs (flushed at the next brief pause) or hardMaxChunkMs (flushed outright)',
   userMessage: 'Long input detected — processing what was said so far.',
-  recovery: ['Force-flush chunk at maxChunkMs', 'Continue loop'],
-  logLevel: 'info',
+  // "Continue loop" is load-bearing, not decorative: the flush path MUST
+  // restart capture (recorder.start()) before returning control to the tick
+  // loop. Skipping it — e.g. leaving `isSpeaking` true against a recorder
+  // the flush just stopped — wedges continuous mode with no remaining code
+  // path able to restart it, since the only place a stopped recorder is
+  // ever started is the "waiting for speech" branch, which `isSpeaking:
+  // true` makes unreachable.
+  recovery: ['Force-flush the chunk', 'Restart capture immediately', 'Continue loop'],
+  logLevel: 'info', // informational — must NOT route through dispatchError /
+                     // recordingState: 'error', which would tear down
+                     // continuous mode over a routine split
 },
 {
   code: 'VAD_CONSECUTIVE_FAILURES',

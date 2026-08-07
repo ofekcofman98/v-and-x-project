@@ -9,6 +9,10 @@ const WHISPER_HALLUCINATIONS: ReadonlySet<string> = new Set([
   'thank you for watching.',
   'thank you for your time',
   'thank you for your time.',
+  'thank you for the opportunity',
+  'thank you for the opportunity.',
+  'thank you for joining',
+  'thank you for joining.',
   'thanks for watching',
   'thanks for watching.',
   'bye',
@@ -25,6 +29,17 @@ const WHISPER_HALLUCINATIONS: ReadonlySet<string> = new Set([
   '(silence)',
 ]);
 
+// Splits on sentence boundaries so a transcript stitched from multiple
+// hallucinated phrases ("Thank you for your time.  Thank you for the
+// opportunity.") is still recognized — the whole-string Set lookup above
+// only ever catches a single phrase.
+function splitIntoSentences(normalized: string): string[] {
+  return normalized
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /**
  * Returns true when the transcript is a well-known Whisper hallucination.
  * Exported for unit testing.
@@ -39,6 +54,14 @@ export function isWhisperHallucination(
   if (normalized.length < 2) return true;
   if (WHISPER_HALLUCINATIONS.has(normalized)) return true;
   if (/^[.,!?;:\s]+$/.test(normalized)) return true;
+
+  // A transcript made up entirely of known-hallucination sentences (e.g.
+  // Whisper stitching two stock phrases together on silence/noise) is a
+  // hallucination even though the concatenated string is never itself a
+  // Set member. Requires 2+ sentences so a single non-matching real
+  // utterance ("Noa Cohen, 21.") never trips this on its own.
+  const sentences = splitIntoSentences(normalized);
+  if (sentences.length >= 2 && sentences.every((s) => WHISPER_HALLUCINATIONS.has(s))) return true;
 
   // Prompt-echo guard: a bare vocabulary entity with no value component on
   // a near-silent clip is almost always Whisper parroting the prompt back.

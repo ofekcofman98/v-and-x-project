@@ -56,6 +56,17 @@ export interface VADSensitivity {
   silenceThreshold: number;
   /** Ms of continuous silence before chunk flushes. Default: 700 */
   silenceDurationMs: number;
+  /**
+   * Soft cap, in ms, on a single chunk's duration. Past this point the
+   * chunk flushes at the next brief pause instead of at a full pause,
+   * splitting long dictated lists between entries. Default: 15000
+   */
+  maxChunkMs: number;
+  /**
+   * Hard ceiling, in ms, on a single chunk's duration — force-flushes
+   * pause-free speech that never gives maxChunkMs a natural gap. Default: 30000
+   */
+  hardMaxChunkMs: number;
 }
 
 /**
@@ -70,6 +81,8 @@ const defaultVADSensitivity: VADSensitivity = {
   speechThreshold: 15,
   silenceThreshold: 8,
   silenceDurationMs: 700,
+  maxChunkMs: 15_000,
+  hardMaxChunkMs: 30_000,
 };
 
 /**
