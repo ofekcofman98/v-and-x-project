@@ -11,6 +11,36 @@ import { useUIStore, type NavigationMode } from '@/lib/client/stores/ui-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/shared/utils/cn';
 
+/**
+ * 2×3 mini-grid preview matching the actual band shape each mode paints on
+ * the real grid (§6) — reinforces the mental model right where the mode is
+ * chosen. docs/features/15_realtime_voice_feedback.md §6.1
+ */
+function ModePreview({ mode, active }: { mode: NavigationMode; active: boolean }) {
+  const cellColor = (row: number, col: number) => {
+    const highlighted = mode === 'column-first' ? col === 0 : row === 0;
+    if (!highlighted) return 'rgba(255,255,255,0.35)';
+    return active ? 'rgba(255,255,255,0.95)' : '#13501B';
+  };
+
+  return (
+    <span
+      className="grid gap-[1.5px] shrink-0"
+      style={{ gridTemplateColumns: 'repeat(2, 3px)', gridTemplateRows: 'repeat(3, 3px)' }}
+      aria-hidden="true"
+    >
+      {Array.from({ length: 3 }).map((_, row) =>
+        Array.from({ length: 2 }).map((_, col) => (
+          <span
+            key={`${row}-${col}`}
+            style={{ width: 3, height: 3, background: cellColor(row, col), borderRadius: 0.5 }}
+          />
+        ))
+      )}
+    </span>
+  );
+}
+
 const MODE_OPTIONS: Array<{
   mode: NavigationMode;
   label: string;
@@ -60,6 +90,7 @@ export function NavigationModeToggle() {
                 >
                   <Icon className="h-4 w-4" />
                   <span>{label}</span>
+                  <ModePreview mode={mode} active={isActive} />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" align="center">

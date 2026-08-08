@@ -9,6 +9,7 @@
 
 import { memo, useEffect, useRef, useState } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
+import { useShallow } from 'zustand/react/shallow';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { cn } from '@/lib/shared/utils/cn';
 import { ColumnType, formatCellValue } from '@/lib/shared/types/column-types';
@@ -49,11 +50,39 @@ export const DataTableCell = memo(
     // Local state for editing
     const [editedValue, setEditedValue] = useState(value?.toString() || '');
 
-    const isActive = useUIStore(
-      (state) =>
-        state.activeCell?.rowKey === rowKey &&
-        state.activeCell?.tableColumnId === tableColumnId
+    // Extract ONLY primitive values from the store, shallow-compared —
+    // then derive every boolean (isActive, isInActiveBand,
+    // isProvisionalTarget) from those primitives in the render body below,
+    // not inside the selector. Computing derived/composite values inside a
+    // selector risks the equality check on the derived output missing an
+    // update in some edge case; deriving from freshly-extracted primitives
+    // in the same render pass cannot. This was the root cause of a real bug:
+    // switching navigationMode without changing activeCell left most of the
+    // previous mode's band stuck until the NEXT toggle. docs/features/15_realtime_voice_feedback.md §6, §3-§4
+    const { activeRowKey, activeColumnId, navigationMode, provisionalRowKey } = useUIStore(
+      useShallow((state) => ({
+        activeRowKey: state.activeCell?.rowKey ?? null,
+        activeColumnId: state.activeCell?.tableColumnId ?? null,
+        navigationMode: state.navigationMode,
+        provisionalRowKey: state.provisionalFeedback.provisionalRowKey,
+      }))
     );
+
+    const isActive = activeRowKey === rowKey && activeColumnId === tableColumnId;
+
+    const isInActiveBand =
+      !isActive &&
+      activeRowKey !== null &&
+      (navigationMode === 'column-first'
+        ? activeColumnId === tableColumnId
+        : activeRowKey === rowKey);
+
+    const isProvisionalTarget =
+      !isActive && provisionalRowKey === rowKey && activeColumnId === tableColumnId;
+
+    // Only subscribe to recordingState if this cell is active —
+    // prevents inactive cells from re-rendering when recordingState changes (§3.1)
+    const recordingState = useUIStore((state) => (isActive ? state.recordingState : 'idle'));
 
     // Only check lastUpdatedCell for this specific cell
     const isJustUpdated = useTableCellStore((state) =>
@@ -107,12 +136,6 @@ export const DataTableCell = memo(
       }
     };
 
-    // Only subscribe to recordingState if this cell is active —
-    // prevents inactive cells from re-rendering when recordingState changes (§3.1)
-    const recordingState = useUIStore((state) =>
-      isActive ? state.recordingState : 'idle'
-    );
-
     const formattedValue = formatCellValue(value, columnType);
 
     return (
@@ -140,6 +163,11 @@ export const DataTableCell = memo(
               ? recordingState === 'listening'
                 ? '#e8f2e9'
                 : '#f2f8f2'
+              // Deliberately weaker than the active-cell tints above, and
+              // weaker than the provisional dashed outline's implied
+              // urgency — this is structural context, not a pointer.
+              : isInActiveBand && !isReadOnly
+              ? 'rgba(19,80,27,0.05)'
               : undefined,
         }}
       >
@@ -179,6 +207,15 @@ export const DataTableCell = memo(
             >
               <span className="truncate">{formattedValue || '—'}</span>
             </div>
+          )}
+
+          {/* Provisional target — dashed grey outline, deliberately weaker
+              than the active cell's solid ring, marking an unconfirmed guess. */}
+          {isProvisionalTarget && !isReadOnly && (
+            <div
+              className="absolute inset-0 rounded pointer-events-none"
+              style={{ border: '2px dashed #9ca3af' }}
+            />
           )}
 
           {/* Active indicator (blue corner triangle) */}

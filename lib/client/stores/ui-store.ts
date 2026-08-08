@@ -142,7 +142,19 @@ interface UIState {
    * user. Transient — cleared on the next recording start, never persisted.
    */
   lastTranscript: string | null;
-  
+
+  /**
+   * Provisional (Web Speech shadow) feedback — the UI's *guess* while the
+   * user is still speaking. Never authoritative, never writes a cell.
+   * Cleared on speech end, error, mode toggle, and cell change per the
+   * reconciliation rules. docs/features/15_realtime_voice_feedback.md §3.2, §4
+   */
+  provisionalFeedback: {
+    interimTranscript: string | null;
+    provisionalRowKey: string | null;
+    provisionalValue: string | null;
+  };
+
   // User Preferences (persisted)
   preferences: UIPreferences;
   
@@ -162,6 +174,13 @@ interface UIState {
 
   /** Set (or clear, with null) the most recently heard transcript */
   setLastTranscript: (transcript: string | null) => void;
+
+  /** Merge partial provisional feedback fields (interim transcript and/or guessed target) */
+  setProvisionalFeedback: (
+    feedback: Partial<UIState['provisionalFeedback']>
+  ) => void;
+  /** Clear all provisional feedback fields back to null */
+  clearProvisionalFeedback: () => void;
 
   // Preferences actions
   updatePreferences: (preferences: Partial<UIPreferences>) => void;
@@ -194,6 +213,11 @@ export const useUIStore = create<UIState>()(
         batchOverflowCount: 0,
         continuousMode: false,
         lastTranscript: null,
+        provisionalFeedback: {
+          interimTranscript: null,
+          provisionalRowKey: null,
+          provisionalValue: null,
+        },
         preferences: defaultPreferences,
 
         // Actions
@@ -227,6 +251,20 @@ export const useUIStore = create<UIState>()(
         setContinuousMode: (enabled) => set({ continuousMode: enabled }),
 
         setLastTranscript: (transcript) => set({ lastTranscript: transcript }),
+
+        setProvisionalFeedback: (feedback) =>
+          set((state) => ({
+            provisionalFeedback: { ...state.provisionalFeedback, ...feedback },
+          })),
+
+        clearProvisionalFeedback: () =>
+          set({
+            provisionalFeedback: {
+              interimTranscript: null,
+              provisionalRowKey: null,
+              provisionalValue: null,
+            },
+          }),
 
         // Preferences actions
         updatePreferences: (prefs) => set((state) => ({
@@ -276,6 +314,11 @@ export const useUIStore = create<UIState>()(
             batchOverflowCount: 0,
             continuousMode: false,
             lastTranscript: null,
+            provisionalFeedback: {
+              interimTranscript: null,
+              provisionalRowKey: null,
+              provisionalValue: null,
+            },
           });
         },
       }),

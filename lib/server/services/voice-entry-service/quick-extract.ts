@@ -1,31 +1,7 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Fast-path regex extraction
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
- * Attempts to extract entity + value via lightweight regex patterns before
- * falling back to the LLM.
- * docs/10_PERFORMANCE.md §4.5
+ * Relocated to lib/shared/utils/extract-entity-quick.ts — dependency-free
+ * and isomorphic, now reused by the client-side provisional voice feedback
+ * layer. Re-exported here so existing server imports are unchanged.
+ * docs/features/15_realtime_voice_feedback.md §3.3
  */
-export function extractEntityQuick(
-  transcript: string
-): { entity: string; value: number | string } | null {
-  const PATTERNS: RegExp[] = [
-    /^(.+?),\s*(\d+\.?\d*)$/,  // "Student A, 84"
-    /^(.+?)\s+(\d+\.?\d*)$/,   // "Student A 84"
-    /^(.+?),\s*([a-zA-Z]+)$/,  // "Student A, present"
-    /^(.+?)\s+([a-zA-Z]+)$/,   // "Student A present"
-  ];
-
-  for (const pattern of PATTERNS) {
-    const regexMatch = transcript.trim().match(pattern);
-    if (regexMatch) {
-      const entity = regexMatch[1].trim();
-      const rawValue = regexMatch[2];
-      const value: number | string = isNaN(Number(rawValue)) ? rawValue : Number(rawValue);
-      return { entity, value };
-    }
-  }
-
-  return null;
-}
+export { extractEntityQuick } from '@/lib/shared/utils/extract-entity-quick';

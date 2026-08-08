@@ -52,6 +52,7 @@ export const VoiceButtonInner = React.memo(function VoiceButtonInner({
     continuousMode,
     visualLevel,
     lastTranscript,
+    provisionalTranscript,
     handleToggle,
     tooltipText,
   } = useVoicePipeline({ tableId, tableSchema, hasActiveCell });
@@ -170,9 +171,22 @@ export const VoiceButtonInner = React.memo(function VoiceButtonInner({
               )}
             </div>
 
+            {/* Provisional layer — Web Speech's live guess while still
+                speaking, grey/italic to mark it as unconfirmed. Cleared the
+                instant processing starts, so it never overlaps the confirmed
+                line below. docs/features/15_realtime_voice_feedback.md §3, §4 */}
+            {isListening && provisionalTranscript && (
+              <p
+                className={`text-xs mt-1.5 italic truncate ${isInline ? 'text-left' : 'text-center'}`}
+                style={{ color: '#9ca3af' }}
+                title={provisionalTranscript}
+              >
+                &ldquo;{provisionalTranscript}&hellip;&rdquo;
+              </p>
+            )}
+
             {/* What Whisper actually heard — the confirmed layer. Rendered in
-                both continuous and manual mode; sits above where Phase 2's
-                provisional (grey, live) transcript line will go. */}
+                both continuous and manual mode. */}
             {lastTranscript && (
               <p
                 className={`text-xs mt-1.5 truncate ${isInline ? 'text-left' : 'text-center'}`}

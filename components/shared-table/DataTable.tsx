@@ -9,6 +9,7 @@
 
 import { memo, useCallback, useEffect, useState } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
+import { useShallow } from 'zustand/react/shallow';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { useToast } from '@/components/ui/use-toast';
 import { usePointerKeyboardNav } from '@/lib/client/hooks/shared/use-pointer-keyboard-nav';
@@ -20,6 +21,44 @@ import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 import type { ColumnAccess } from '@/lib/shared/types/column-access';
 import type { ColumnDef } from './types';
+
+/**
+ * Row-number cell — carries the row-first nav-mode band (§6). Extracted so
+ * only this one cell subscribes to activeCell/navigationMode per row,
+ * instead of DataTable re-rendering its full rows.map() on every pointer
+ * move. Primitives extracted via useShallow, boolean derived below —
+ * deriving a composite boolean inside the selector itself was the root
+ * cause of a real bug (a mode toggle without an activeCell change could
+ * leave the previous mode's band stuck by one toggle).
+ * docs/features/15_realtime_voice_feedback.md §6.1
+ */
+const RowIndexCell = memo(function RowIndexCell({
+  rowKey,
+  index,
+}: {
+  rowKey: string;
+  index: number;
+}) {
+  const { navigationMode, activeRowKey } = useUIStore(
+    useShallow((state) => ({
+      navigationMode: state.navigationMode,
+      activeRowKey: state.activeCell?.rowKey ?? null,
+    }))
+  );
+  const isActiveRowBand = navigationMode === 'row-first' && activeRowKey === rowKey;
+
+  return (
+    <td
+      className="h-9 w-10 text-center text-sm text-gray-400 select-none font-mono transition-colors duration-200"
+      style={{
+        background: isActiveRowBand ? 'rgba(19,80,27,0.08)' : '#f5f5f5',
+        borderRight: isActiveRowBand ? '2px solid #13501B' : '1px solid #e5e7eb',
+      }}
+    >
+      {index + 1}
+    </td>
+  );
+});
 
 /**
  * Adapts a ColumnDefinition (table-schema) to the ColumnDef shape ColumnHeaderCell expects.
@@ -64,6 +103,15 @@ export const DataTable = memo(function DataTable({
   isReadOnly = false,
 }: DataTableProps) {
   const setActiveCell = useUIStore((state) => state.setActiveCell);
+  // Included in the row/cell/header `key`s below so a toggle forces a full
+  // remount of the grid instead of relying on each cell's own reactive
+  // subscription to pick up the new mode — a remounted component reads
+  // current store state at mount time, so no stale band is possible even if
+  // some in-place update were ever missed. Toggling nav mode is rare and
+  // user-initiated, unlike pointer movement, so this doesn't reintroduce the
+  // full-grid-re-render cost docs/features/11_perf_and_navigation.md §2a
+  // warns against. docs/features/15_realtime_voice_feedback.md §6.1
+  const navigationMode = useUIStore((state) => state.navigationMode);
   const isLoading = useTableCellStore((state) => state.isLoading);
   const error = useTableCellStore((state) => state.error);
   const fetchCells = useTableCellStore((state) => state.fetchCells);
@@ -167,7 +215,7 @@ export const DataTable = memo(function DataTable({
 
                   return (
                     <ColumnHeaderCell
-                      key={`${column.id}-${index}`}
+                      key={`${column.id}-${index}-${navigationMode}`}
                       column={toColumnDef(column)}
                       isRepresentative={isRepresentative}
                       onRepresentativeClick={
@@ -197,25 +245,21 @@ export const DataTable = memo(function DataTable({
                   className="hover:bg-gray-50 transition-colors"
                   style={{ background: index % 2 === 0 ? '#fff' : '#fafafa', borderBottom: '1px solid #f0f0f0' }}
                 >
-                  {/* Row number */}
-                  <td
-                    className="h-9 w-10 text-center text-sm text-gray-400 select-none font-mono"
-                    style={{ background: '#f5f5f5', borderRight: '1px solid #e5e7eb' }}
-                  >
-                    {index + 1}
-                  </td>
+                  {/* Row number — carries the row-first band */}
+                  <RowIndexCell key={`${row.id}-${navigationMode}`} rowKey={row.id} index={index} />
 
                   {/* Data cells */}
                   {columns.map((column) =>
                     column.type === ColumnType.COMPUTED && column.formula ? (
                       <ComputedCell
-                        key={`${row.id}-${column.id}-${index}`}
+                        key={`${row.id}-${column.id}-${index}-${navigationMode}`}
                         rowKey={row.id}
+                        tableColumnId={column.id}
                         formula={column.formula}
                       />
                     ) : (
                       <DataTableCell
-                        key={`${row.id}-${column.id}-${index}`}
+                        key={`${row.id}-${column.id}-${index}-${navigationMode}`}
                         tableId={tableId ?? ''}
                         rowKey={row.id}
                         tableColumnId={column.id}

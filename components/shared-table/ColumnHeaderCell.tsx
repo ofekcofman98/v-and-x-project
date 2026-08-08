@@ -2,6 +2,8 @@
 
 import { Button } from '@/components/ui/button';
 import { Trash2, Lock, Key, Calculator } from 'lucide-react';
+import { useUIStore } from '@/lib/client/stores/ui-store';
+import { useShallow } from 'zustand/react/shallow';
 import type { ColumnDef } from './types';
 
 const FOREST = '#13501B';
@@ -34,10 +36,30 @@ export function ColumnHeaderCell({
   const isComputed = column.type === 'computed';
   const isPrivate = column.access?.visibility === 'private';
 
+  // Column-first nav-mode band's header cap — a store subscription rather
+  // than a prop, since `column` is rebuilt fresh every render by the
+  // adapter in DataTable.tsx (toColumnDef) and a prop would defeat any
+  // memoization. Primitives extracted via useShallow, boolean derived
+  // below — deriving composite booleans inside the selector itself was the
+  // root cause of a real bug (a mode toggle without an activeCell change
+  // could leave the previous mode's band stuck by one toggle).
+  // docs/features/15_realtime_voice_feedback.md §6.1
+  const { navigationMode, activeColumnId } = useUIStore(
+    useShallow((state) => ({
+      navigationMode: state.navigationMode,
+      activeColumnId: state.activeCell?.tableColumnId ?? null,
+    }))
+  );
+  const isActiveColumnBand = navigationMode === 'column-first' && activeColumnId === column.id;
+
   return (
     <th
       className="border-l first:border-l-0 min-w-[180px] group transition-colors"
-      style={{ background: isRepresentative ? FOREST_SUBTLE : '#f9fafb', borderColor: '#e5e7eb' }}
+      style={{
+        background: isActiveColumnBand ? 'rgba(19,80,27,0.08)' : isRepresentative ? FOREST_SUBTLE : '#f9fafb',
+        borderColor: '#e5e7eb',
+        borderTop: isActiveColumnBand ? '2px solid #13501B' : undefined,
+      }}
     >
       <div className="flex items-center justify-between p-2 gap-2">
         <div className="flex items-center gap-1.5 flex-1 min-w-0">

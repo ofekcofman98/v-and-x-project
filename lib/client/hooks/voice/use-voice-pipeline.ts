@@ -13,6 +13,8 @@ import { useContinuousVoice } from '@/lib/client/hooks/voice/use-continuous-voic
 import { useVoiceActionHandler } from '@/lib/client/hooks/voice/use-voice-action-handler';
 import { useVoiceBatchHandler } from '@/lib/client/hooks/voice/use-voice-batch-handler';
 import { useVoiceErrorHandler } from '@/lib/client/hooks/voice/use-voice-error-handler';
+import { useSpeechShadow } from '@/lib/client/hooks/voice/use-speech-shadow';
+import { useProvisionalTarget } from '@/lib/client/hooks/voice/use-provisional-target';
 import { toast } from '@/components/ui/use-toast';
 import type { VoiceEntryResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 import { isVoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
@@ -43,6 +45,8 @@ export interface UseVoicePipelineReturn {
   visualLevel: number;
   /** Most recent transcript Whisper actually heard, or null before the first entry / after a reset */
   lastTranscript: string | null;
+  /** Provisional (Web Speech shadow) transcript, growing live while speaking — null when unsupported or idle */
+  provisionalTranscript: string | null;
   /** Stable toggle handler — activates or deactivates continuous mode */
   handleToggle: () => Promise<void>;
   /** Derived tooltip string based on current state flags */
@@ -59,6 +63,10 @@ export function useVoicePipeline({
   const recordingState = useUIStore((s) => s.recordingState);
   const continuousMode = useUIStore((s) => s.continuousMode);
   const lastTranscript = useUIStore((s) => s.lastTranscript);
+  // navigationMode changes rarely (explicit user toggle) — cheap to subscribe
+  // directly, unlike activeCell which changes on every pointer advance.
+  const navigationMode = useUIStore((s) => s.navigationMode);
+  const provisionalTranscript = useUIStore((s) => s.provisionalFeedback.interimTranscript);
 
   // Stable action dispatchers — Zustand guarantees these never change.
   const setRecordingState = useUIStore((s) => s.setRecordingState);
@@ -317,6 +325,31 @@ export function useVoicePipeline({
   const currentDisplayLevel = continuousMode ? continuousAudioLevel : audioLevel;
   const visualLevel = Math.max(0, Math.min(1, currentDisplayLevel ?? 0));
 
+  // ── Provisional (Web Speech shadow) layer ───────────────────────────────────
+  // Restarted per-utterance (on every listening-state edge, not once per
+  // continuous session) so each utterance's interim transcript starts clean —
+  // otherwise Web Speech's running transcript would keep accumulating across
+  // utterances and extractEntityQuick's anchored regex would stop matching.
+  // docs/features/15_realtime_voice_feedback.md §3.2, §4
+  const speechShadow = useSpeechShadow();
+
+  useEffect(() => {
+    if (isListening) {
+      speechShadow.start();
+    } else {
+      speechShadow.stop();
+    }
+    // speechShadow's start/stop identities are stable (useCallback, no deps).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isListening]);
+
+  useProvisionalTarget({
+    interimTranscript: speechShadow.interimTranscript,
+    tableSchema,
+    navigationMode,
+    isActive: isListening && speechShadow.isSupported,
+  });
+
   const tooltipText = (() => {
     if (isProcessing || isConfirming) return 'Processing...';
     if (continuousMode) return 'Continuous mode active - Press ESC to stop';
@@ -334,6 +367,7 @@ export function useVoicePipeline({
     continuousMode,
     visualLevel,
     lastTranscript,
+    provisionalTranscript,
     handleToggle,
     tooltipText,
   };
