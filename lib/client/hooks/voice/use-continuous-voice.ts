@@ -11,7 +11,7 @@ import { toast } from '@/components/ui/use-toast';
 import { ErrorCodes } from '@/lib/shared/types/voice-errors';
 import { getErrorMessage } from '@/lib/shared/errors/error-mapping';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
-import type { ParsedResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
+import type { ParsedResult, VoiceEntryResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 import { isVoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 
 interface UseContinuousVoiceOptions {
@@ -38,6 +38,7 @@ export function useContinuousVoice({
   // must propagate to useVAD so the audio pipeline reinitialises with the new thresholds.
   const vadSensitivity = useUIStore((s) => s.preferences.vadSensitivity);
   const setRecordingState = useUIStore((s) => s.setRecordingState);
+  const setLastTranscript = useUIStore((s) => s.setLastTranscript);
 
   // activeCell and navigationMode are read imperatively inside handleChunk via
   // useUIStore.getState() — avoids re-creating the callback on every cell-selection change.
@@ -94,7 +95,14 @@ export function useContinuousVoice({
         }
 
         const payload = await response.json();
-        const result: ParsedResult | VoiceBatchResult = payload.data;
+        const result: VoiceEntryResult | VoiceBatchResult = payload.data;
+
+        // Echo what Whisper actually heard, including on the empty/hallucination
+        // early-exit below — that's exactly when the user most needs to see it.
+        // docs/features/15_realtime_voice_feedback.md §3.4
+        if (result) {
+          setLastTranscript(result.transcript);
+        }
 
         // Batch results are routed separately — see docs/features/03_ai_table_agent.md §5.
         if (result && isVoiceBatchResult(result)) {
@@ -143,6 +151,7 @@ export function useContinuousVoice({
       onBatchResult,
       onError,
       setRecordingState,
+      setLastTranscript,
       stopVAD,
     ]
     // activeCell and navigationMode intentionally omitted —
@@ -156,6 +165,7 @@ export function useContinuousVoice({
   const startContinuous = useCallback(async () => {
     isContinuousRef.current = true;
     consecutiveFailuresRef.current = 0;
+    setLastTranscript(null);
     setRecordingState('listening');
 
     await startVAD({
@@ -180,7 +190,7 @@ export function useContinuousVoice({
         toast({ title, description: message, duration: 3000 });
       },
     });
-  }, [startVAD, handleChunk, onError, setRecordingState]);
+  }, [startVAD, handleChunk, onError, setRecordingState, setLastTranscript]);
 
   /**
    * Stop continuous mode

@@ -14,7 +14,7 @@ import { useVoiceActionHandler } from '@/lib/client/hooks/voice/use-voice-action
 import { useVoiceBatchHandler } from '@/lib/client/hooks/voice/use-voice-batch-handler';
 import { useVoiceErrorHandler } from '@/lib/client/hooks/voice/use-voice-error-handler';
 import { toast } from '@/components/ui/use-toast';
-import type { ParsedResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
+import type { VoiceEntryResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 import { isVoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import { VoiceErrors, VoiceInputError } from '@/lib/shared/types/voice-errors';
@@ -41,6 +41,8 @@ export interface UseVoicePipelineReturn {
   continuousMode: boolean;
   /** Merged audio level from manual or VAD recorder, clamped to [0, 1] */
   visualLevel: number;
+  /** Most recent transcript Whisper actually heard, or null before the first entry / after a reset */
+  lastTranscript: string | null;
   /** Stable toggle handler — activates or deactivates continuous mode */
   handleToggle: () => Promise<void>;
   /** Derived tooltip string based on current state flags */
@@ -56,11 +58,13 @@ export function useVoicePipeline({
   // activeCell, navigationMode are read imperatively inside callbacks.
   const recordingState = useUIStore((s) => s.recordingState);
   const continuousMode = useUIStore((s) => s.continuousMode);
+  const lastTranscript = useUIStore((s) => s.lastTranscript);
 
   // Stable action dispatchers — Zustand guarantees these never change.
   const setRecordingState = useUIStore((s) => s.setRecordingState);
   const setPendingConfirmation = useUIStore((s) => s.setPendingConfirmation);
   const setContinuousMode = useUIStore((s) => s.setContinuousMode);
+  const setLastTranscript = useUIStore((s) => s.setLastTranscript);
 
   const autoRestartTimerRef = useRef<NodeJS.Timeout | null>(null);
   // Holds the latest stopContinuous reference so onEndOfTable can invoke it without
@@ -135,7 +139,12 @@ export function useVoicePipeline({
         throw new VoiceInputError(errorCode, errorMessage, true);
       }
 
-      const data = payload.data as ParsedResult | VoiceBatchResult;
+      const data = payload.data as VoiceEntryResult | VoiceBatchResult;
+
+      // Echo what Whisper actually heard before any batch/single-entry fork or
+      // error branch below — a failed match is exactly when the user most
+      // needs to see the transcript. docs/features/15_realtime_voice_feedback.md §3.4
+      setLastTranscript(data.transcript);
 
       if (isVoiceBatchResult(data)) {
         trackVoiceMetrics({ phase: 'voice-entry', duration, success: true });
@@ -171,7 +180,7 @@ export function useVoicePipeline({
       trackVoiceMetrics({ phase: 'voice-entry', duration, success: true });
       await handleParsedResult(parsed);
     },
-    [tableId, tableSchema, handleParsedResult, handleBatchResult]
+    [tableId, tableSchema, handleParsedResult, handleBatchResult, setLastTranscript]
   );
 
   /**
@@ -180,6 +189,7 @@ export function useVoicePipeline({
   const handleAudioReady = useCallback(
     async (audioBlob: Blob) => {
       setPendingConfirmation(null);
+      setLastTranscript(null);
       setRecordingState('processing');
 
       const totalStartTime = Date.now();
@@ -194,7 +204,7 @@ export function useVoicePipeline({
         dispatchError(error, { phase: 'voice-entry', durationMs: totalDuration });
       }
     },
-    [processVoiceEntry, dispatchError, setPendingConfirmation, setRecordingState]
+    [processVoiceEntry, dispatchError, setPendingConfirmation, setLastTranscript, setRecordingState]
   );
 
   /**
@@ -323,6 +333,7 @@ export function useVoicePipeline({
     isAdvancing,
     continuousMode,
     visualLevel,
+    lastTranscript,
     handleToggle,
     tooltipText,
   };

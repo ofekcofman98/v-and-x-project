@@ -13,6 +13,7 @@ import { Mic, Infinity as InfinityIcon, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useVoicePipeline } from '@/lib/client/hooks/voice/use-voice-pipeline';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Waveform } from '@/components/voice/Waveform';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 
 const FOREST = '#13501B';
@@ -50,6 +51,7 @@ export const VoiceButtonInner = React.memo(function VoiceButtonInner({
     isError,
     continuousMode,
     visualLevel,
+    lastTranscript,
     handleToggle,
     tooltipText,
   } = useVoicePipeline({ tableId, tableSchema, hasActiveCell });
@@ -122,53 +124,63 @@ export const VoiceButtonInner = React.memo(function VoiceButtonInner({
         </Tooltip>
 
         <div className={isInline ? 'flex-1 min-w-0' : 'contents'}>
-          {/* Visual progress bar while listening */}
+          {/* Real waveform while listening — bars collapse to near-zero on
+              silence, unlike the previous 40%-floored single bar. */}
           {isListening && (
-            <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
-              <motion.div
-                className="h-full"
-                style={{ background: FOREST }}
-                animate={{
-                  width: `${Math.max(40, visualLevel * 100)}%`,
-                  opacity: [0.6, 1],
-                }}
-                transition={{ duration: 0.15, ease: 'easeOut' }}
-              />
+            <div className="mb-2">
+              <Waveform level={visualLevel} active={isListening} />
             </div>
           )}
 
-          {/* Status text */}
-          <div
-            className={`text-xs font-medium ${isInline ? 'text-left' : 'text-center'}`}
-            style={{ color: isError ? '#dc2626' : '#6b7280' }}
-          >
-            {continuousMode ? (
-              <>
-                {isListening && (
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className="inline-block h-2 w-2 rounded-full animate-pulse"
-                      style={{ background: FOREST }}
-                    />
-                    <span style={{ color: FOREST_DARK }}>Listening for speech...</span>
-                  </div>
-                )}
-                {isProcessing && 'Processing...'}
-                {isConfirming && 'Confirm entry'}
-                {isCommitting && 'Saving...'}
-                {isAdvancing && 'Advancing...'}
-                {isError && 'Error occurred'}
-                {!isListening &&
-                  !isProcessing &&
-                  !isConfirming &&
-                  !isError &&
-                  !isCommitting &&
-                  !isAdvancing &&
-                  'Continuous Active'}
-                <div className="text-xs text-gray-400 mt-1">Press Esc to stop</div>
-              </>
-            ) : (
-              'Tap to activate continuous'
+          {/* Status text + transcript echo — announced to assistive tech since
+              this is a hands-free, eyes-free surface with no other feedback
+              channel. docs/features/15_realtime_voice_feedback.md §3.4 */}
+          <div aria-live="polite" aria-atomic="false">
+            <div
+              className={`text-xs font-medium ${isInline ? 'text-left' : 'text-center'}`}
+              style={{ color: isError ? '#dc2626' : '#6b7280' }}
+            >
+              {continuousMode ? (
+                <>
+                  {isListening && (
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full animate-pulse"
+                        style={{ background: FOREST }}
+                      />
+                      <span style={{ color: FOREST_DARK }}>Listening for speech...</span>
+                    </div>
+                  )}
+                  {isProcessing && 'Processing...'}
+                  {isConfirming && 'Confirm entry'}
+                  {isCommitting && 'Saving...'}
+                  {isAdvancing && 'Advancing...'}
+                  {isError && 'Error occurred'}
+                  {!isListening &&
+                    !isProcessing &&
+                    !isConfirming &&
+                    !isError &&
+                    !isCommitting &&
+                    !isAdvancing &&
+                    'Continuous Active'}
+                  <div className="text-xs text-gray-400 mt-1">Press Esc to stop</div>
+                </>
+              ) : (
+                'Tap to activate continuous'
+              )}
+            </div>
+
+            {/* What Whisper actually heard — the confirmed layer. Rendered in
+                both continuous and manual mode; sits above where Phase 2's
+                provisional (grey, live) transcript line will go. */}
+            {lastTranscript && (
+              <p
+                className={`text-xs mt-1.5 truncate ${isInline ? 'text-left' : 'text-center'}`}
+                style={{ color: FOREST_DARK, fontFamily: 'var(--font-mono, monospace)' }}
+                title={lastTranscript}
+              >
+                &ldquo;{lastTranscript}&rdquo;
+              </p>
             )}
           </div>
         </div>

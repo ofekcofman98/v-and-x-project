@@ -135,6 +135,13 @@ interface UIState {
   // Continuous Flow (docs/04_STATE_MANAGEMENT.md §7)
   /** Whether the VAD continuous loop is active */
   continuousMode: boolean;
+
+  // Real-time voice feedback (docs/features/15_realtime_voice_feedback.md §3.4)
+  /**
+   * The most recent transcript Whisper actually heard, echoed back to the
+   * user. Transient — cleared on the next recording start, never persisted.
+   */
+  lastTranscript: string | null;
   
   // User Preferences (persisted)
   preferences: UIPreferences;
@@ -152,7 +159,10 @@ interface UIState {
   // Continuous mode actions
   /** Toggle continuous mode on/off */
   setContinuousMode: (enabled: boolean) => void;
-  
+
+  /** Set (or clear, with null) the most recently heard transcript */
+  setLastTranscript: (transcript: string | null) => void;
+
   // Preferences actions
   updatePreferences: (preferences: Partial<UIPreferences>) => void;
   
@@ -183,8 +193,9 @@ export const useUIStore = create<UIState>()(
         pendingBatchConfirmation: null,
         batchOverflowCount: 0,
         continuousMode: false,
+        lastTranscript: null,
         preferences: defaultPreferences,
-        
+
         // Actions
         setActiveCell: (cell) => set({ activeCell: cell }),
         
@@ -214,7 +225,9 @@ export const useUIStore = create<UIState>()(
 
         // Continuous mode actions
         setContinuousMode: (enabled) => set({ continuousMode: enabled }),
-        
+
+        setLastTranscript: (transcript) => set({ lastTranscript: transcript }),
+
         // Preferences actions
         updatePreferences: (prefs) => set((state) => ({
           preferences: { ...state.preferences, ...prefs },
@@ -262,6 +275,7 @@ export const useUIStore = create<UIState>()(
             pendingBatchConfirmation: null,
             batchOverflowCount: 0,
             continuousMode: false,
+            lastTranscript: null,
           });
         },
       }),
