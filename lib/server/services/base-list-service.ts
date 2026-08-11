@@ -51,7 +51,13 @@ export async function listBaseLists(userId: string, organizationIds: string[]) {
 export async function getBaseListById(userId: string, organizationIds: string[], id: string) {
   const baseList = await prisma.baseList.findFirst({
     where: { id, ...ownershipWhere(userId, organizationIds) },
-    include: { entities: true },
+    include: {
+      entities: true,
+      tables: {
+        select: { id: true, name: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
   });
 
   if (!baseList) throw new Error("BaseList not found");

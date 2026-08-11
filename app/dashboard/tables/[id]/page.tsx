@@ -18,46 +18,18 @@ import { useToast } from '@/components/ui/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { TableGridSection } from '@/components/shared-table/TableGridSection';
-import type { TableWithRelations, TableCell, TableColumn, ListEntity, BaseListWithEntities, BaseListSchema } from '@/lib/shared/types/models';
-import { ColumnType } from '@/lib/shared/types/column-types';
-import { prismaColumnTypeToColumnType } from '@/lib/shared/types/models'; 
 import { LoadingSkeleton } from '@/components/states/loading-skeleton';
 import { NotFoundState } from '@/components/states/not-found-state';
 import { ErrorState } from '@/components/states/error-state';
-import type { ColumnDefinition, RowDefinition } from '@/lib/shared/types/table-schema';
 import { GridChatButton } from '@/components/ai/GridChatButton';
 import { GridChatPanel } from '@/components/ai/GridChatPanel';
+import {
+  deriveTableColumns,
+  deriveTableRows,
+  type TableWithRelationsDTO,
+} from '@/lib/shared/utils/table-schema-derivation';
 
-interface ListEntityDTO extends Omit<ListEntity, 'createdAt' | 'updatedAt'> {
-    createdAt: string;
-    updatedAt: string;
-}
 
-interface BaseListWithEntitiesDTO extends Omit<BaseListWithEntities, 'createdAt' | 'updatedAt' | 'entities'> {
-    createdAt: string;
-    updatedAt: string;
-    entities: ListEntityDTO[];
-}
-
-interface TableCellDTO extends Omit<TableCell, 'createdAt' | 'updatedAt'> {
-    createdAt: string;
-    updatedAt: string;
-}
-
-interface TableColumnDTO extends Omit<TableColumn, 'createdAt' | 'updatedAt'> {
-    createdAt: string;
-    updatedAt: string;
-}
-
-interface TableWithRelationsDTO extends Omit<TableWithRelations, 'createdAt' | 'updatedAt' | 'columns' | 'cells' | 'baseList'> {
-    createdAt: string;
-    updatedAt: string;
-    columns: TableColumnDTO[];
-    cells?: TableCellDTO[];
-    baseList?: BaseListWithEntitiesDTO | null;
-}
-
-      
 
 export default function TableDetailsPage() {
     const params = useParams();
@@ -78,64 +50,10 @@ export default function TableDetailsPage() {
     // hook call order is stable across renders. Guards against null table.
     // -------------------------------------------------------------------------
 
-    // table.schema.columns (JSONB) is the single source of truth for the grid layout.
-    // For tables created via apply-template it holds the complete merged schema
-    // (identity + template columns). Only fall back to the legacy path of combining
-    // baseList.schema + relational table.columns for pre-existing tables where the
-    // JSON schema is empty — this preserves backward compatibility.
-    const columns = useMemo<ColumnDefinition[]>(() => {
-        if (!table) return [];
-        const baseList = table.baseList;
-        const baseListSchemaColumnIds = new Set(
-            ((baseList?.schema as BaseListSchema)?.columns ?? []).map((c) => c.id)
-        );
-        const tableSchemaColumns = table.schema?.columns ?? [];
-        const relationalTableColumns = table.columns ?? [];
-
-        return tableSchemaColumns.length > 0
-            ? tableSchemaColumns.map((col) => ({
-                  id: col.id,
-                  label: col.label,
-                  type: col.type as unknown as ColumnType,
-                  isBaseColumn: baseListSchemaColumnIds.has(col.id),
-                  formula: col.formula,
-              }))
-            : [
-                  ...((baseList?.schema as BaseListSchema)?.columns ?? []).map((col) => ({
-                      id: col.id,
-                      label: col.label,
-                      type: (col.type as string).toUpperCase() as ColumnType,
-                      isBaseColumn: true as const,
-                  })),
-                  ...relationalTableColumns.map((col) => ({
-                      id: col.id,
-                      label: col.label,
-                      type: prismaColumnTypeToColumnType(col.type),
-                      isBaseColumn: false as const,
-                      access: col.access,
-                      formula: col.formula ?? undefined,
-                  })),
-              ];
-    }, [table]);
-
-    const rows = useMemo<RowDefinition[]>(() => {
-        if (!table) return [];
-        const entities = table.baseList?.entities ?? [];
-        const repColId = table.representativeColumnKey;
-        // Resolve entity display labels. Only search within base columns because
-        // entity.values exclusively holds data for base-list-originated columns.
-        const firstTextBaseColId =
-            columns.find((col) => col.isBaseColumn && (col.type as string).toUpperCase() === 'TEXT')?.id ??
-            columns.find((col) => col.isBaseColumn)?.id;
-
-        return entities.map((entity) => ({
-            id: entity.id,
-            label:
-                (entity.values[repColId] ?? entity.values[firstTextBaseColId ?? ''])?.toString() ||
-                entity.id,
-            values: entity.values,
-        }));
-    }, [table, columns]);
+    // See lib/shared/utils/table-schema-derivation.ts for the derivation rules
+    // (JSONB table.schema.columns as source of truth, legacy fallback below it).
+    const columns = useMemo(() => deriveTableColumns(table), [table]);
+    const rows = useMemo(() => deriveTableRows(table, columns), [table, columns]);
 
     // Stable stat card descriptors — only recreated when the counts or date change.
     const statCards = useMemo<StatCardConfig[]>(() => {

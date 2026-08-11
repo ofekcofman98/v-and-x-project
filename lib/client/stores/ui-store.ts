@@ -116,7 +116,13 @@ const defaultPreferences: UIPreferences = {
 interface UIState {
   // Smart Pointer
   activeCell: CellPosition | null;
-  
+
+  /**
+   * The table the Smart Pointer / voice pipeline currently target.
+   * Un-persisted — see setActiveTable. docs/features/16_master_detail_workspace.md §5
+   */
+  activeTableId: string | null;
+
   // Voice Recording
   recordingState: RecordingState;
   
@@ -160,6 +166,15 @@ interface UIState {
   
   // Actions
   setActiveCell: (cell: CellPosition | null) => void;
+
+  /**
+   * Single owned transition for "the workspace moved to a different table":
+   * updates activeTableId and, only when it actually changed, clears the
+   * pointer and every piece of in-flight voice/confirmation state so nothing
+   * from the previous table leaks into the new one.
+   * docs/features/16_master_detail_workspace.md §5
+   */
+  setActiveTable: (tableId: string | null) => void;
   setRecordingState: (state: RecordingState) => void;
   setNavigationMode: (mode: NavigationMode) => void;
   setPendingConfirmation: (confirmation: PendingConfirmation | null) => void;
@@ -206,6 +221,7 @@ export const useUIStore = create<UIState>()(
       (set) => ({
         // Initial state
         activeCell: null,
+        activeTableId: null,
         recordingState: 'idle',
         navigationMode: 'column-first',
         pendingConfirmation: null,
@@ -222,7 +238,27 @@ export const useUIStore = create<UIState>()(
 
         // Actions
         setActiveCell: (cell) => set({ activeCell: cell }),
-        
+
+        setActiveTable: (tableId) =>
+          set((state) => {
+            if (state.activeTableId === tableId) return { activeTableId: tableId };
+            return {
+              activeTableId: tableId,
+              activeCell: null,
+              pendingConfirmation: null,
+              pendingBatchConfirmation: null,
+              batchOverflowCount: 0,
+              continuousMode: false,
+              recordingState: 'idle',
+              lastTranscript: null,
+              provisionalFeedback: {
+                interimTranscript: null,
+                provisionalRowKey: null,
+                provisionalValue: null,
+              },
+            };
+          }),
+
         setRecordingState: (state) => set({ recordingState: state }),
         
         setNavigationMode: (mode) => set({ navigationMode: mode }),
@@ -307,6 +343,7 @@ export const useUIStore = create<UIState>()(
         resetUI: () => {
           set({
             activeCell: null,
+            activeTableId: null,
             recordingState: 'idle',
             navigationMode: 'column-first',
             pendingConfirmation: null,

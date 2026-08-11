@@ -286,6 +286,8 @@ const nextConfig = {
 - ❌ Chakra UI: Runtime cost
 - ❌ Ant Design: Not Tailwind-compatible
 
+**Radix primitives in use** (each wrapped under `components/ui/` in shadcn style): `react-alert-dialog`, `react-dialog`, `react-dropdown-menu`, `react-label`, `react-scroll-area`, `react-select`, `react-toast`, `react-tooltip`, and — added for the Master-Detail Workspace (`docs/features/16_master_detail_workspace.md`) — `react-collapsible`, `react-tabs`, `react-separator`.
+
 ---
 
 ### 2.2 State Management

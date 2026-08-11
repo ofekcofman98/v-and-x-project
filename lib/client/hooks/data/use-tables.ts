@@ -26,6 +26,32 @@ export function useTablesQuery() {
   });
 }
 
+async function fetchTable(id: string) {
+  const response = await fetch(`/api/tables/${id}`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Failed to fetch table' }));
+    throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch table`);
+  }
+
+  const result = await response.json();
+  return result.data;
+}
+
+/**
+ * Fetches a single Table with its columns/cells/baseList. Powers the
+ * workspace grid (docs/features/16_master_detail_workspace.md §6), replacing
+ * the hand-rolled useState/useEffect/fetch previously local to
+ * app/dashboard/tables/[id]/page.tsx so template-tab revisits are cached.
+ */
+export function useTableQuery(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.tables.detail(id ?? ''),
+    queryFn: () => fetchTable(id as string),
+    enabled: !!id,
+  });
+}
+
 export function useDeleteTableMutation() {
   const queryClient = useQueryClient();
 

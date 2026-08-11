@@ -139,6 +139,24 @@ export interface BaseListWithEntities extends BaseList {
 }
 
 /**
+ * Minimal Table shape attached to a BaseList — one entry per applied
+ * Column Template (see applyTemplateToBaseList in base-list-service.ts).
+ * Powers the workspace's template tab bar: docs/features/16_master_detail_workspace.md §4.
+ */
+export interface BaseListTableSummary {
+  id: string;
+  name: string;
+  createdAt: Date;
+}
+
+/**
+ * BaseList with relations (entities + the Tables produced by applied templates)
+ */
+export interface BaseListWithTables extends BaseListWithEntities {
+  tables: BaseListTableSummary[];
+}
+
+/**
  * API DTO for BaseList (dates serialized as ISO strings)
  */
 export interface BaseListDTO {

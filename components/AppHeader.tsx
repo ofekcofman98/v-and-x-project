@@ -68,6 +68,12 @@ export function AppHeader() {
             >
               Library
             </Link>
+            <Link
+              href="/dashboard/workspace"
+              className="text-sm font-medium text-foreground/60 transition-colors hover:text-foreground/80"
+            >
+              Workspace
+            </Link>
             <AuthSlot />
           </nav>
         </div>

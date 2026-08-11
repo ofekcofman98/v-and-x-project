@@ -244,6 +244,26 @@ export function useVoicePipeline({
   }, [stopContinuous]);
 
   /**
+   * Stop any in-flight recording when the active table changes or this
+   * surface unmounts. Without this, a running VAD session's onSpeechEnd
+   * callback (captured at startVAD time) would still POST audio against the
+   * table it started on — masked today only because every table switch is a
+   * full page navigation. docs/features/16_master_detail_workspace.md §5
+   */
+  const previousTableIdRef = useRef(tableId);
+  useEffect(() => {
+    if (previousTableIdRef.current !== tableId) {
+      stopContinuousRef.current?.();
+      setContinuousMode(false);
+      previousTableIdRef.current = tableId;
+    }
+
+    return () => {
+      stopContinuousRef.current?.();
+    };
+  }, [tableId, setContinuousMode]);
+
+  /**
    * Auto-restart continuous listening after the pointer advances.
    * Reads fresh store state inside the timer to avoid stale-closure infinite loops.
    */
