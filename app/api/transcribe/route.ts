@@ -1,16 +1,12 @@
 /**
  * Transcribe API Route
- * Converts audio files to text using OpenAI Whisper API
+ * HTTP transport layer only — synthesis lives in
+ * lib/server/services/stt-service/transcribe.ts.
  * Based on: docs/05_VOICE_PIPELINE.md §3.1
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-import { isWhisperHallucination, isDegenerateRepetition } from '@/lib/server/services/voice-entry-service/hallucination';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { transcribeChatAudio } from '@/lib/server/services/stt-service/transcribe';
 
 export const runtime = 'nodejs';
 
@@ -29,16 +25,16 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 function checkRateLimit(userId: string): boolean {
   const now = Date.now();
   const userLimit = rateLimitMap.get(userId);
-  
+
   if (!userLimit || userLimit.resetAt < now) {
     rateLimitMap.set(userId, { count: 1, resetAt: now + 60000 });
     return true;
   }
-  
+
   if (userLimit.count >= RATE_LIMIT) {
     return false;
   }
-  
+
   userLimit.count++;
   return true;
 }
@@ -46,76 +42,54 @@ function checkRateLimit(userId: string): boolean {
 export async function POST(req: NextRequest): Promise<NextResponse<TranscribeResponse | ErrorResponse>> {
   try {
     const userId = req.headers.get('x-user-id') || 'anonymous';
-    
+
     if (!checkRateLimit(userId)) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait a moment.' },
         { status: 429 }
       );
     }
-    
+
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File | null;
-    
+
     if (!audioFile) {
       return NextResponse.json(
         { error: 'No audio file provided' },
         { status: 400 }
       );
     }
-    
+
     if (audioFile.size > 25 * 1024 * 1024) {
       return NextResponse.json(
         { error: 'Audio file too large (max 25MB)' },
         { status: 400 }
       );
     }
-    
-    const language = req.headers.get('x-language') || undefined;
-    
-    const startTime = Date.now();
-    const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
-      model: 'whisper-1',
-      language: language as 'en' | 'he' | undefined,
-      response_format: 'json',
-      // Reduces hallucination amplification — no vocabulary prompt is sent
-      // for chat transcription, so there's no prompt-echo risk to weigh
-      // against (docs/features/17-voice-chat-loop.md §3.1).
-      temperature: 0,
-    });
-    const duration = Date.now() - startTime;
 
-    // Server-side hallucination guard (docs/features/17-voice-chat-loop.md
-    // §3.2) — no `opts` passed: chat sends no vocabulary prompt and this
-    // route's `response_format: 'json'` carries no audio duration, so the
-    // prompt-echo branch is structurally inapplicable here. A filtered
-    // transcript is not an error — the caller treats empty text as
-    // "nothing to add" to the chat input.
-    const rawText = transcription.text;
-    const text = isWhisperHallucination(rawText) || isDegenerateRepetition(rawText) ? '' : rawText;
+    const languageHeader = req.headers.get('x-language');
+    const language = languageHeader === 'he' ? 'he' : languageHeader === 'en' ? 'en' : undefined;
 
-    return NextResponse.json({
-      text,
-      duration,
-    });
+    const result = await transcribeChatAudio(audioFile, language);
+
+    return NextResponse.json(result);
   } catch (error: unknown) {
     const err = error as { status?: number; message?: string };
-    
+
     if (err?.status === 429) {
       return NextResponse.json(
         { error: 'OpenAI rate limit exceeded. Please try again in a moment.' },
         { status: 429 }
       );
     }
-    
+
     if (err?.status === 400) {
       return NextResponse.json(
         { error: 'Invalid audio format. Please try recording again.' },
         { status: 400 }
       );
     }
-    
+
     return NextResponse.json(
       { error: 'Transcription failed. Please try again.' },
       { status: 500 }
