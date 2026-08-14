@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { isWhisperHallucination, isDegenerateRepetition } from '@/lib/server/services/voice-entry-service/hallucination';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -78,11 +79,24 @@ export async function POST(req: NextRequest): Promise<NextResponse<TranscribeRes
       model: 'whisper-1',
       language: language as 'en' | 'he' | undefined,
       response_format: 'json',
+      // Reduces hallucination amplification — no vocabulary prompt is sent
+      // for chat transcription, so there's no prompt-echo risk to weigh
+      // against (docs/features/17-voice-chat-loop.md §3.1).
+      temperature: 0,
     });
     const duration = Date.now() - startTime;
-    
+
+    // Server-side hallucination guard (docs/features/17-voice-chat-loop.md
+    // §3.2) — no `opts` passed: chat sends no vocabulary prompt and this
+    // route's `response_format: 'json'` carries no audio duration, so the
+    // prompt-echo branch is structurally inapplicable here. A filtered
+    // transcript is not an error — the caller treats empty text as
+    // "nothing to add" to the chat input.
+    const rawText = transcription.text;
+    const text = isWhisperHallucination(rawText) || isDegenerateRepetition(rawText) ? '' : rawText;
+
     return NextResponse.json({
-      text: transcription.text,
+      text,
       duration,
     });
   } catch (error: unknown) {

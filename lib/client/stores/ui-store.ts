@@ -163,7 +163,16 @@ interface UIState {
 
   // User Preferences (persisted)
   preferences: UIPreferences;
-  
+
+  /**
+   * Whether agent chat responses auto-play as spoken audio. Session-scoped —
+   * intentionally excluded from partialize (same reasoning as
+   * continuousMode: mirrors the mic-must-never-auto-activate precedent, here
+   * applied to audio-must-never-auto-play-on-reload). Defaults on.
+   * docs/features/17-voice-chat-loop.md §6
+   */
+  voiceOutputEnabled: boolean;
+
   // Actions
   setActiveCell: (cell: CellPosition | null) => void;
 
@@ -199,7 +208,10 @@ interface UIState {
 
   // Preferences actions
   updatePreferences: (preferences: Partial<UIPreferences>) => void;
-  
+
+  /** Toggle spoken auto-playback of agent chat responses on/off. */
+  setVoiceOutputEnabled: (enabled: boolean) => void;
+
   // Voice recording lifecycle actions
   startRecording: () => void;
   stopRecording: () => void;
@@ -235,6 +247,7 @@ export const useUIStore = create<UIState>()(
           provisionalValue: null,
         },
         preferences: defaultPreferences,
+        voiceOutputEnabled: true,
 
         // Actions
         setActiveCell: (cell) => set({ activeCell: cell }),
@@ -306,7 +319,9 @@ export const useUIStore = create<UIState>()(
         updatePreferences: (prefs) => set((state) => ({
           preferences: { ...state.preferences, ...prefs },
         })),
-        
+
+        setVoiceOutputEnabled: (enabled) => set({ voiceOutputEnabled: enabled }),
+
         // Voice recording lifecycle actions
         startRecording: () => set({ recordingState: 'listening' }),
         

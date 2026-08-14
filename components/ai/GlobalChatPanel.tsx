@@ -23,11 +23,16 @@ import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/shared/utils/cn';
 import { useGlobalChatStore } from '@/lib/client/stores/global-chat-store';
-import { useGlobalAgentTurnMutation, type GlobalAgentError } from '@/lib/client/hooks/ai/use-global-agent';
+import { useUIStore } from '@/lib/client/stores/ui-store';
+import { useGlobalAgentTurnMutation, GlobalAgentError } from '@/lib/client/hooks/ai/use-global-agent';
+import { useSpeakResponse } from '@/lib/client/hooks/voice/use-speak-response';
+import { useChatVoiceLoop } from '@/lib/client/hooks/voice/use-chat-voice-loop';
 import { useBaseListsQuery } from '@/lib/client/hooks/data/use-base-lists';
 import { useMentionInput } from '@/lib/client/hooks/ai/use-mention-input';
 import { MentionAutocomplete } from './MentionAutocomplete';
 import { GlobalActionConfirmDialog } from './GlobalActionConfirmDialog';
+import { ChatMicButton } from './ChatMicButton';
+import { VoiceOutputToggle } from './VoiceOutputToggle';
 
 export function GlobalChatPanel() {
   const isOpen = useGlobalChatStore((s) => s.isOpen);
@@ -38,15 +43,26 @@ export function GlobalChatPanel() {
   const setActiveMention = useGlobalChatStore((s) => s.setActiveMention);
   const setPendingAction = useGlobalChatStore((s) => s.setPendingAction);
 
+  const voiceOutputEnabled = useUIStore((s) => s.voiceOutputEnabled);
+
   const { data: baseLists = [] } = useBaseListsQuery();
   const [error, setError] = useState<GlobalAgentError | null>(null);
   const [limitNotice, setLimitNotice] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const turnMutation = useGlobalAgentTurnMutation();
+  const { speak } = useSpeakResponse();
+
+  // Hands-free voice conversation: press the mic once, ask questions, hear
+  // answers, repeat — until stop. docs/features/17-voice-chat-loop.md §5
+  const voiceLoop = useChatVoiceLoop({
+    onSubmit: (text) => handleSubmit(text),
+    onError: (err) => setError(new GlobalAgentError(err.message)),
+  });
 
   const {
     raw,
+    setRaw,
     chips,
     mentions,
     activeIndex,
@@ -73,14 +89,20 @@ export function GlobalChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  function handleSubmit() {
-    const message = raw.trim();
+  // `overrideMessage` lets voiceLoop hand in the transcribed question
+  // directly — `raw` state hasn't re-rendered yet when a voice turn fires,
+  // so reading it here would race the transcript.
+  function handleSubmit(overrideMessage?: string) {
+    const message = (overrideMessage ?? raw).trim();
     if (!message || turnMutation.isPending) return;
 
     const mention = mentions[0] ?? activeMention;
     if (!mention) {
       setError(null);
       setLimitNotice('Mention a @BaseList to start — e.g. "@ClassA1 who scored above 60 in Q1?"');
+      // A voice question with no active mention still ends the turn — the
+      // mic must re-arm rather than silently die here.
+      void voiceLoop.endTurn();
       return;
     }
 
@@ -95,13 +117,19 @@ export function GlobalChatPanel() {
       {
         onSuccess: (response) => {
           if ('pendingAction' in response) {
-            appendMessage({ role: 'assistant', content: `Proposed: ${response.pendingAction.summary}` });
+            const summary = `Proposed: ${response.pendingAction.summary}`;
+            appendMessage({ role: 'assistant', content: summary });
             setPendingAction(response.pendingAction);
+            void voiceLoop.endTurn(voiceOutputEnabled ? speak(summary) : undefined);
           } else {
             appendMessage({ role: 'assistant', content: response.answer });
+            void voiceLoop.endTurn(voiceOutputEnabled ? speak(response.answer) : undefined);
           }
         },
-        onError: (err) => setError(err),
+        onError: (err) => {
+          setError(err);
+          void voiceLoop.endTurn();
+        },
       }
     );
   }
@@ -119,13 +147,16 @@ export function GlobalChatPanel() {
     <>
       <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
         <SheetContent side="right" className="flex flex-col">
-          <SheetHeader>
-            <SheetTitle>Global Chat</SheetTitle>
-            <SheetDescription>
-              {activeBaseListName
-                ? `Chatting about @${activeBaseListName}. Mention a different @BaseList to switch.`
-                : 'Mention a @BaseList to ask questions across all of its linked tables.'}
-            </SheetDescription>
+          <SheetHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <SheetTitle>Global Chat</SheetTitle>
+              <SheetDescription>
+                {activeBaseListName
+                  ? `Chatting about @${activeBaseListName}. Mention a different @BaseList to switch.`
+                  : 'Mention a @BaseList to ask questions across all of its linked tables.'}
+              </SheetDescription>
+            </div>
+            <VoiceOutputToggle />
           </SheetHeader>
 
           <ScrollArea className="flex-1 -mx-6 px-6">
@@ -139,7 +170,7 @@ export function GlobalChatPanel() {
                 <div
                   key={index}
                   className={cn('max-w-[85%] rounded-2xl px-3 py-2 text-sm', {
-                    'self-end bg-blue-600 text-white': message.role === 'user',
+                    'self-end bg-primary text-primary-foreground': message.role === 'user',
                     'self-start bg-gray-100 text-gray-900 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-4 [&_ol]:pl-4 [&_li]:mt-0.5 [&_strong]:font-semibold [&_p:not(:last-child)]:mb-1.5':
                       message.role === 'assistant',
                   })}
@@ -182,25 +213,28 @@ export function GlobalChatPanel() {
               </div>
             )}
 
-            <div className="relative">
-              <Textarea
-                ref={textareaRef}
-                value={raw}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                onBlur={handleBlur}
-                placeholder="@ClassA1 who scored above 60 in Q1?"
-                disabled={turnMutation.isPending}
-                className="min-h-[64px]"
-              />
-              {isDropdownOpen && (
-                <MentionAutocomplete
-                  items={suggestions}
-                  activeIndex={activeIndex}
-                  onSelect={handleSelectSuggestion}
-                  onHoverIndex={setActiveIndex}
+            <div className="flex items-end gap-2">
+              <div className="relative flex-1">
+                <Textarea
+                  ref={textareaRef}
+                  value={raw}
+                  onChange={handleChange}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleBlur}
+                  placeholder="@ClassA1 who scored above 60 in Q1?"
+                  disabled={turnMutation.isPending}
+                  className="min-h-[64px]"
                 />
-              )}
+                {isDropdownOpen && (
+                  <MentionAutocomplete
+                    items={suggestions}
+                    activeIndex={activeIndex}
+                    onSelect={handleSelectSuggestion}
+                    onHoverIndex={setActiveIndex}
+                  />
+                )}
+              </div>
+              <ChatMicButton loop={voiceLoop} disabled={turnMutation.isPending} />
             </div>
 
             <div className="flex items-center justify-between">
@@ -211,7 +245,7 @@ export function GlobalChatPanel() {
               ) : (
                 <span className="text-xs text-gray-400">Ctrl/Cmd + Enter to send</span>
               )}
-              <Button onClick={handleSubmit} disabled={!raw.trim() || turnMutation.isPending}>
+              <Button onClick={() => handleSubmit()} disabled={!raw.trim() || turnMutation.isPending}>
                 {turnMutation.isPending ? 'Sending…' : 'Send'}
               </Button>
             </div>

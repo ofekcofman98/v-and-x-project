@@ -3,7 +3,7 @@
 **Feature:** 17 — Voice Chat Loop
 **Priority:** Medium (POC)
 **Dependencies:** `docs/05_VOICE_PIPELINE.md`, `docs/features/03_ai_table_agent.md`, `docs/features/15_realtime_voice_feedback.md`, `.claude/rules/architecture.md`, `.claude/rules/voice-pipeline.md`
-**Status:** Spec — Not Started
+**Status:** Implemented (revised after user testing)
 **Last Updated:** 2026-08-14
 
 ---
@@ -67,19 +67,26 @@ These correct two assumptions in the original ask and are load-bearing for the d
    **`/api/transcribe` calls the filter with no `opts`** (blacklist + repetition-loop checks
    only) and stays on `response_format: 'json'`.
 
-3. **`useVAD` (`lib/client/hooks/voice/use-vad.ts`) is a continuous chunker, not a
-   press-and-transcribe-once hook.** Its rAF loop can call `onSpeechEnd` multiple times per
-   session (silence flush, `maxChunkMs`/`hardMaxChunkMs` overflow splitting). Chat input is
-   a single click-to-start / click-or-silence-to-stop interaction — no new capture hook is
-   needed, but the consuming code must handle multiple `onSpeechEnd` chunks by **appending**
-   each transcribed chunk to the input field, and must call `stopVAD()` on mic-off instead of
-   only relying on silence.
+3. **A press-to-record dictation button already exists, but it is the wrong shape for a
+   hands-free chat conversation.** `components/ai/PromptDictationButton.tsx` +
+   `lib/client/hooks/voice/use-voice-entry.ts` implement click-to-start /
+   click-to-stop-only recording (no silence detection at all) with the transcript appended
+   to the input for manual review-then-submit — correct for `SchemaAgentPromptBar.tsx`
+   (dictating a long table description you want to edit before drafting), but user testing
+   of the first cut of this feature confirmed it is the wrong interaction for a quick chat
+   question: the mic never stopped on its own, and the user had to click Send by hand,
+   breaking the "just talk" expectation. **Revised decision: `PromptDictationButton` is left
+   untouched for the schema bar; the chat panels get a new, purpose-built
+   `useChatVoiceLoop` (§5) that wraps `useVAD` — the same continuous-chunker hook
+   `use-continuous-voice.ts` already uses for cell-fill — to auto-stop on silence and
+   auto-submit.**
 
 4. **`GridChatPanel.tsx` and `GlobalChatPanel.tsx` already duplicate the input/submit/render
    shape** (message list, `Textarea` + `Button` row, `SheetHeader`). Per the DRY rule
-   (`.claude/rules/architecture.md`, "extract at second repetition"), the mic button and the
-   speak-on-answer behavior must be one shared hook + one shared component consumed by both
-   panels — not implemented twice.
+   (`.claude/rules/architecture.md`, "extract at second repetition"), the mic behavior must
+   not be implemented twice — resolved by both panels consuming the same
+   `useChatVoiceLoop` + `ChatMicButton` (§5), and the speak-on-answer hook (§6) is likewise
+   one shared hook consumed by both panels.
 
 5. **No audio playback exists anywhere in the codebase today**, and no TTS call exists
    either. The `openai` SDK is already an approved, installed dependency
@@ -91,12 +98,33 @@ These correct two assumptions in the original ask and are load-bearing for the d
    `ui-store.ts`'s `partialize` allowlist so it doesn't leak into `localStorage`. The mute
    toggle here follows the same pattern.
 
+7. **Barge-in being out of scope (§8) makes echo prevention free, not something that needs
+   its own design.** With no requirement to let the user interrupt playback, the voice loop
+   can be strictly half-duplex — the mic is fully torn down (`stopVAD()`) the instant a
+   question is ready to submit, and only re-armed (fresh `startVAD()`) after the answer has
+   finished playing. There is never a window where the mic is open while the agent's own
+   TTS audio is playing, so it can never transcribe itself.
+
+8. **The agent's answer text is not plain text — it's Markdown the chat prompt itself asks
+   for.** `buildSystemPrompt` (`lib/server/services/ai-service/grid-agent-prompts.ts:94`)
+   explicitly instructs "**Bold** every entity/row name" and to format multi-item answers as
+   Markdown lists. `ReactMarkdown` renders that correctly in the chat bubble, but the first
+   cut of this feature sent the raw string (e.g. `**Monica Geller**: 98 in Question 2`)
+   straight to `tts-1`, which drops/garbles the bolded span — the entity name went missing
+   from the spoken answer. **Revised decision: strip Markdown to plain text
+   (`lib/shared/utils/strip-markdown.ts`, new) before truncation, inside
+   `tts-service/speak.ts` (§6).**
+
 ---
 
 ## 4. Already Available (Reuse, Do Not Rebuild)
 
-- `useVAD` hook (`lib/client/hooks/voice/use-vad.ts`) — audio capture, RMS-based
-  silence/speech detection, trailing padding, overflow chunking.
+- `useVAD` (`lib/client/hooks/voice/use-vad.ts`) — silence/speech detection, overflow
+  chunking, `volume` for UI feedback. Wrapped by `useChatVoiceLoop` (§5), exactly as
+  `use-continuous-voice.ts` already wraps it for cell-fill — same shape, different endpoint
+  and payload.
+- `PromptDictationButton` / `useVoiceEntry` — left exactly as-is, still serving
+  `SchemaAgentPromptBar.tsx` only (§3.3).
 - `POST /api/transcribe` (`app/api/transcribe/route.ts`) — Whisper call, rate-limited per
   `x-user-id`. Reused as-is for chat; hardened per §3.1–3.2, §5.
 - `isWhisperHallucination` / `isDegenerateRepetition`
@@ -112,48 +140,77 @@ These correct two assumptions in the original ask and are load-bearing for the d
 
 ## 5. New Scope 1: Voice Input → Chat
 
-- **`app/api/transcribe/route.ts`** — add `temperature: 0` to the Whisper call and run the
-  transcript through `isWhisperHallucination(transcript)` /
-  `isDegenerateRepetition(transcript)` (no `opts`, per §3.2) before responding. A filtered
-  transcript returns `{ text: '' }` (200, not an error) — the caller treats empty text as
-  "nothing to add."
-- **`lib/client/hooks/voice/use-chat-voice-input.ts`** (new, client zone) — wraps `useVAD`
-  with a longer `silenceDurationMs` (chat questions run longer than single dictated
-  values). Exposes `{ isRecording, start, stop, onChunkTranscribed }`. On each
-  `onSpeechEnd` blob, POSTs to `/api/transcribe` and appends the returned (non-empty) text
-  to the caller-supplied input setter — never auto-sends. This hook only knows about audio
-  → text; it has no opinion on chat submission, per `.claude/rules/voice-pipeline.md`'s
-  lifecycle-ownership rule.
-- **`components/ai/ChatMicButton.tsx`** (new) — thin presentational button (idle/recording
-  states) driving `useChatVoiceInput`; takes `{ onTranscript: (text: string) => void }`.
-  Mounted in both `GridChatPanel.tsx` and `GlobalChatPanel.tsx`'s input row, next to the
-  existing `Textarea`.
-- Transcribed text is appended to `input` (Grid) / `raw` (Global via `useMentionInput`'s
-  existing `handleChange` path) — user reviews/edits before pressing Send, identical to
-  typed text from that point on.
+**Status: implemented (revised after user testing — see §3.3, §3.7).**
+
+- **`app/api/transcribe/route.ts`** — `temperature: 0` + `isWhisperHallucination` /
+  `isDegenerateRepetition` filtering (no `opts`, per §3.2) before responding. A filtered
+  transcript returns `{ text: '' }` (200, not an error).
+- **`lib/client/hooks/voice/use-chat-voice-loop.ts`** (new, client zone) — owns the whole
+  turn state machine: `phase: 'idle' | 'listening' | 'transcribing' | 'answering' |
+  'speaking'`. Wraps `useVAD` with `silenceDurationMs` raised to ~1100ms (a spoken question
+  has longer natural pauses than a dictated cell value). On `onSpeechEnd`, POSTs the chunk
+  to `/api/transcribe`; on a real silence flush (not a `maxChunkMs` overflow split — those
+  accumulate instead, so a long question doesn't send as two halves) with non-empty text, it
+  calls `stopVAD()` **before** calling the panel's `onSubmit(text)`, so the mic is fully
+  closed while the agent answers and speaks (§3.7). Exposes `endTurn(speakPromise?)`, which
+  the panel calls once its own mutation settles — `endTurn` awaits the panel's own
+  `useSpeakResponse().speak(...)` promise (it does not call `speak` itself, so audio still
+  plays for a typed question even when the voice loop isn't running) and then re-arms a
+  fresh `startVAD()`, but only if the loop is still active.
+- **`components/ai/ChatMicButton.tsx`** (new, presentational only — takes the loop object as
+  a prop rather than owning the hook, since the panel needs `endTurn` from its own mutation
+  callbacks). Mounted in both `GridChatPanel.tsx` and `GlobalChatPanel.tsx` in place of
+  `PromptDictationButton`.
+- Both panels' `handleSubmit` now takes an optional `overrideMessage` — the transcript is
+  passed directly rather than read from `input`/`raw` state, since that state hasn't
+  re-rendered yet when the voice turn fires. The turn mutation's `onSuccess` calls
+  `voiceLoop.endTurn(voiceOutputEnabled ? speak(answerOrSummary) : undefined)`; `onError`
+  (and, in Global Chat, the "no active `@BaseList` mention" early-bail) calls
+  `voiceLoop.endTurn()` with nothing to speak — every exit path re-arms the mic, so a
+  transcription or agent failure never silently ends the conversation.
+- Voice text still lands visibly in the input before sending; it now sends itself the
+  instant a real question is detected instead of waiting for a click.
 
 ## 6. New Scope 2: Voice Output
 
-- **`lib/server/services/tts-service/speak.ts`** (new, server zone) — calls
-  `openai.audio.speech.create({ model: 'tts-1', voice: 'alloy', input: text })`, returns the
-  raw audio buffer. Text is truncated to `MAX_SPEAK_CHARS` (500) at the last sentence
-  boundary under the cap before the call — a pure helper
-  (`lib/shared/utils/truncate-at-sentence.ts`) unit-tested the same way as
+**Status: implemented.**
+
+- **`lib/shared/utils/strip-markdown.ts`** (new) — strips bold/italic/code/heading markup
+  and list markers to plain speakable text before truncation (§3.8 — fixes the "bolded
+  entity name went missing from the spoken answer" defect). Unit-tested
+  (`strip-markdown.test.ts`).
+- **`lib/shared/utils/truncate-at-sentence.ts`** — pure helper, cuts text to
+  `MAX_SPEAK_CHARS` (500) at the last sentence boundary under the cap, hard-cutting only
+  when no boundary exists. Unit-tested (`truncate-at-sentence.test.ts`) the same way as
   `vad-chunking.ts`.
-- **`app/api/speak/route.ts`** (new) — thin route: Zod-validates the body against
-  `SpeakRequestSchema` (§7), delegates to `tts-service/speak.ts`, returns the audio as the
-  response body (`Content-Type: audio/mpeg`) with an `X-TTS-Cached: false` header (no
-  caching in this POC — see §7 for why the shape differs from the original ask).
-- **`lib/client/hooks/voice/use-speak-response.ts`** (new, client zone) — call on the turn
-  the agent's answer is appended to the message store: fetches `/api/speak`, builds an
-  object URL from the response blob, plays it via `new Audio(url)`, revokes the URL on
-  `ended`/unmount. Single-flight: starts by pausing/discarding any in-flight playback before
-  starting new audio, so overlapping responses never play concurrently. On fetch failure or
-  a non-2xx response: catch, no-op — text response is already rendered and unaffected.
-- **Mute toggle** — `voiceOutputEnabled: boolean` (default `true`) added to
-  `lib/client/stores/ui-store.ts`, excluded from `partialize` (§3.6) — resets to on each
-  session, not persisted across reloads. Toggle control rendered in both panels'
-  `SheetHeader`, next to the existing title.
+- **`lib/server/services/tts-service/speak.ts`** (server zone) — `synthesizeSpeech(text)`
+  runs `stripMarkdown` then `truncateAtSentence` before calling
+  `openai.audio.speech.create({ model: 'tts-1', voice: 'alloy', input })`, returns
+  `{ audio: Buffer, contentType: 'audio/mpeg' }`.
+- **`lib/shared/types/tts.ts`** — `SpeakRequestSchema` (Zod, §7).
+- **`app/api/speak/route.ts`** — thin route: Zod-validates the body, delegates to
+  `tts-service/speak.ts`, returns the audio as the response body
+  (`Content-Type: audio/mpeg`, `X-TTS-Cached: false`) — see §7 for why the shape differs
+  from the original ask's JSON `SpeakResponse`.
+- **`lib/client/hooks/voice/use-speak-response.ts`** — `speak(text)` fetches `/api/speak`,
+  builds an object URL from the response blob, plays it via `new Audio(url)`, revokes the
+  URL on `ended`/unmount. Single-flight: `stop()` pauses/discards any in-flight playback
+  before starting new audio. Both the fetch and the `audio.play()` promise are wrapped so a
+  non-2xx response, a network failure, or an autoplay-policy rejection all silently no-op —
+  the text response is already rendered and unaffected either way. **Revised:** `speak()`'s
+  promise now resolves only once playback actually **ends** (or immediately, on any failure
+  path), not as soon as `play()` is called — this is load-bearing for `useChatVoiceLoop`
+  (§5), which awaits it before re-arming the mic; resolving at playback-start would have let
+  the mic re-open mid-sentence and transcribe the agent's own voice.
+- **`components/ai/VoiceOutputToggle.tsx`** (new, shared) — reads/writes
+  `voiceOutputEnabled: boolean` (default `true`) on `lib/client/stores/ui-store.ts`,
+  excluded from `partialize` (§3.6) so it resets to on each session rather than persisting
+  across reloads. Mounted in both panels' `SheetHeader`, next to the existing title — one
+  component, not duplicated, per §3.4.
+- Both `GridChatPanel.tsx` and `GlobalChatPanel.tsx` call `speak(text)` right after
+  `appendMessage` in their turn mutation's `onSuccess`, gated on `voiceOutputEnabled` — for
+  both the plain-answer branch and the `pendingAction` summary branch, so a proposed write
+  is announced the same way a read answer is.
 
 ---
 
@@ -192,25 +249,32 @@ per the no-magic-numbers rule (`.claude/rules/typescript.md`).
 
 ## 9. Acceptance Criteria
 
-- [ ] User can click mic in Grid/Global chat, speak, see transcribed text in input.
-- [ ] User can submit as normal (voice text behaves identically to typed text).
-- [ ] Agent response auto-plays as audio within ~2s of text response completing.
-- [ ] TTS failure does not break or delay the text response.
-- [ ] Mute toggle works and persists for the session.
+- [x] User can click mic in Grid/Global chat, speak, see transcribed text in input.
+- [x] The question sends itself once the user stops talking — no manual Send needed.
+- [x] Agent response auto-plays as audio within ~2s of text response completing, including
+      the full text (entity names bolded in the chat bubble are still spoken, not dropped).
+- [x] TTS failure does not break or delay the text response.
+- [x] Mute toggle works and re-arms the mic immediately (no wait for silent "playback").
+- [x] After the agent finishes speaking, the mic re-arms automatically for a follow-up
+      question, until the user presses the mic again to stop.
+- [x] A voice question that can't be submitted (agent error, or — Global Chat only — no
+      active `@BaseList` mention) still re-arms the mic rather than ending the conversation.
 
 ---
 
 ## 10. Implementation Order
 
-Each step is independently shippable:
-
-1. `/api/transcribe` hardening (§5, temperature + hallucination guard) — no client change,
-   verify via existing hallucination test patterns (`hallucination.test.ts`).
-2. `use-chat-voice-input.ts` + `ChatMicButton.tsx`, wired into both panels — voice input
-   works end-to-end with no output half yet.
+1. `/api/transcribe` hardening (§5, temperature + hallucination guard). **Done.**
+2. First cut: `PromptDictationButton` wired into both panels, append-only input.
+   **Superseded** — replaced by step 5 below after user testing surfaced §3.3/§3.7's defects.
 3. `truncate-at-sentence.ts` (+ unit test) → `tts-service/speak.ts` → `/api/speak` →
-   `use-speak-response.ts` — voice output, independent of step 2.
-4. `voiceOutputEnabled` toggle in `ui-store.ts` + `SheetHeader` control in both panels.
+   `use-speak-response.ts` — voice output. **Done**, revised in step 5.
+4. `voiceOutputEnabled` toggle in `ui-store.ts` + `VoiceOutputToggle.tsx`. **Done.**
+5. **Fix pass** (§3.3, §3.7, §3.8): `strip-markdown.ts` (+ test) into `tts-service/speak.ts`;
+   `use-speak-response.ts` resolves on playback-end; new `use-chat-voice-loop.ts` +
+   `ChatMicButton.tsx` replacing `PromptDictationButton` in both chat panels; both panels'
+   `handleSubmit` takes an override transcript and every mutation exit path calls
+   `voiceLoop.endTurn(...)`. **Done.**
 
 ---
 
