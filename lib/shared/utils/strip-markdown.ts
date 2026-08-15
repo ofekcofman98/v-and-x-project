@@ -1,7 +1,7 @@
 /**
  * Strips Markdown syntax down to plain, speakable text for TTS. The chat
  * agents' system prompts instruct bold entity names and Markdown lists
- * (lib/server/services/ai-service/grid-agent-prompts.ts §"Formatting your
+ * (lib/server/services/ai-service/grid-agent/prompts.ts §"Formatting your
  * answers") — `ReactMarkdown` renders that for the chat bubble, but raw
  * markup sent to `tts-1` is dropped/garbled rather than spoken.
  * docs/features/17-voice-chat-loop.md §6

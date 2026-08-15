@@ -10,7 +10,7 @@ vi.mock('openai', () => ({
 }));
 
 const resolveMentionContextMock = vi.fn();
-vi.mock('@/lib/server/services/ai-service/context', () => ({
+vi.mock('@/lib/server/services/ai-service/shared/context', () => ({
   resolveMentionContext: (...args: unknown[]) => resolveMentionContextMock(...args),
 }));
 
@@ -23,9 +23,9 @@ const getTableColumnsForAgentMock = vi.fn();
 const queryGridDataMock = vi.fn();
 const getGridSummaryMock = vi.fn();
 
-vi.mock('@/lib/server/services/ai-grid-tools', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/server/services/ai-grid-tools')>(
-    '@/lib/server/services/ai-grid-tools'
+vi.mock('@/lib/server/services/ai-service/tools/grid-tools', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/server/services/ai-service/tools/grid-tools')>(
+    '@/lib/server/services/ai-service/tools/grid-tools'
   );
   return {
     ...actual,
@@ -40,7 +40,7 @@ vi.mock('@/lib/server/cache/global-agent-cache', () => ({
   pendingGlobalActionCache: { set: (...args: unknown[]) => cacheSetMock(...args), get: vi.fn(), evict: vi.fn() },
 }));
 
-import { runGlobalAgentTurn } from './global-agent';
+import { runGlobalAgentTurn } from './agent';
 
 const USER_ID = 'user-1';
 const ORG_IDS: string[] = [];

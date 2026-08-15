@@ -20,8 +20,8 @@ import {
   type SchemaAgentResponse,
   type TableDraft,
 } from '@/lib/shared/types/ai';
-import { resolveMentionContext, type MentionContext } from '@/lib/server/services/ai-service/context';
-import { buildSystemPrompt, buildUserPrompt } from '@/lib/server/services/ai-service/schema-agent-prompts';
+import { resolveMentionContext, type MentionContext } from '@/lib/server/services/ai-service/shared/context';
+import { buildSystemPrompt, buildUserPrompt } from './prompts';
 import { isIdentityColumn } from '@/lib/shared/utils/identity-column';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import { validateFormula } from '@/lib/shared/utils/formula';

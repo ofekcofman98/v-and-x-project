@@ -28,13 +28,13 @@ import {
   type GlobalCellUpdate,
   type QueryGridDataResult,
 } from '@/lib/shared/types/ai';
-import { resolveMentionContext } from '@/lib/server/services/ai-service/context';
-import { getTableColumnsForAgent, queryGridData, getGridSummary } from '@/lib/server/services/ai-grid-tools';
+import { resolveMentionContext } from '@/lib/server/services/ai-service/shared/context';
+import { getTableColumnsForAgent, queryGridData, getGridSummary } from '@/lib/server/services/ai-service/tools/grid-tools';
 import {
   globalAgentTools,
   buildGlobalSystemPrompt,
   type GlobalAgentTable,
-} from '@/lib/server/services/ai-service/global-agent-prompts';
+} from './prompts';
 import { pendingGlobalActionCache } from '@/lib/server/cache/global-agent-cache';
 import { openai } from '@/lib/server/services/ai-service/shared/openai-client';
 import { AI_MODELS, AI_LIMITS } from '@/lib/server/services/ai-service/shared/config';

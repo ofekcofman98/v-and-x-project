@@ -28,7 +28,7 @@ import {
   getGridSummary,
   executeUpdateCellsBatch,
   UnknownColumnKeyError,
-} from './ai-grid-tools';
+} from './grid-tools';
 
 const OWNER_ID = 'user-owner';
 const TABLE_ID = 'table-1';

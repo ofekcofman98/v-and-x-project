@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ColumnType } from '@/lib/shared/types/column-types';
-import { buildGlobalSystemPrompt } from './global-agent-prompts';
+import { buildGlobalSystemPrompt } from './prompts';
 
 describe('buildGlobalSystemPrompt', () => {
   it('lists every linked table with its tableId and columns', () => {

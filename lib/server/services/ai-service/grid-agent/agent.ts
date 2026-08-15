@@ -32,8 +32,8 @@ import {
   queryGridData,
   getGridSummary,
   UnknownColumnKeyError,
-} from '@/lib/server/services/ai-grid-tools';
-import { gridAgentTools, buildSystemPrompt } from '@/lib/server/services/ai-service/grid-agent-prompts';
+} from '@/lib/server/services/ai-service/tools/grid-tools';
+import { gridAgentTools, buildSystemPrompt } from './prompts';
 import { pendingGridActionCache } from '@/lib/server/cache/grid-agent-cache';
 import { openai } from '@/lib/server/services/ai-service/shared/openai-client';
 import { AI_MODELS, AI_LIMITS } from '@/lib/server/services/ai-service/shared/config';
