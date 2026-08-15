@@ -412,7 +412,10 @@ export async function processVoiceEntry(
         content:
           'You are a data entry assistant that extracts entities and values from voice transcripts.',
       },
-      { role: 'user', content: prompt },
+      { 
+        role: 'user',
+        content: prompt
+      },
     ],
     response_format: { type: 'json_object' },
     temperature: 0.1,
