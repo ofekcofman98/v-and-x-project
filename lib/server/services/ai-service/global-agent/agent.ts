@@ -2,7 +2,7 @@
  * Global Agent
  *
  * A tool-calling agent scoped to one `@BaseList` mention, spanning every
- * `Table` linked to it. Mirrors grid-agent.ts's guardrails, but `tableId` is
+ * `Table` linked to it. Mirrors grid-agent's guardrails, but `tableId` is
  * a per-tool-call, model-supplied argument (validated against the resolved
  * BaseList's table-id set) instead of one server-injected constant.
  *
@@ -14,9 +14,12 @@
  *   columns, before executing; an invalid one triggers a correction round.
  * - `updateCellsBatch` is only ever proposed and cached; the write itself
  *   happens later, exactly as previewed, via `executeUpdateCellsBatch`.
+ *
+ * The round loop, usage accounting, and message bookkeeping live in
+ * shared/tool-agent-runner.ts (identical to grid-agent's) — this file
+ * supplies only the BaseList-scoped validation/dispatch via `handleToolCall`.
  */
 
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import {
@@ -30,17 +33,10 @@ import {
 } from '@/lib/shared/types/ai';
 import { resolveMentionContext } from '@/lib/server/services/ai-service/shared/context';
 import { getTableColumnsForAgent, queryGridData, getGridSummary } from '@/lib/server/services/ai-service/tools/grid-tools';
-import {
-  globalAgentTools,
-  buildGlobalSystemPrompt,
-  type GlobalAgentTable,
-} from './prompts';
+import { globalAgentTools, buildGlobalSystemPrompt, type GlobalAgentTable } from './prompts';
 import { pendingGlobalActionCache } from '@/lib/server/cache/global-agent-cache';
-import { openai } from '@/lib/server/services/ai-service/shared/openai-client';
-import { AI_MODELS, AI_LIMITS } from '@/lib/server/services/ai-service/shared/config';
-
-const MAX_TOOL_ROUNDS = AI_LIMITS.MAX_TOOL_ROUNDS;
-const MAX_CORRECTION_ROUNDS = AI_LIMITS.MAX_CORRECTION_ROUNDS;
+import { runToolAgent, type ToolCallOutcome } from '@/lib/server/services/ai-service/shared/tool-agent-runner';
+import type { AgentUsage } from '@/lib/server/services/ai-service/shared/usage';
 
 export interface RunGlobalAgentTurnParams {
   userId: string;
@@ -50,16 +46,12 @@ export interface RunGlobalAgentTurnParams {
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
-export interface GlobalAgentUsage {
-  inputTokens: number;
-  outputTokens: number;
-}
+export type GlobalAgentUsage = AgentUsage;
 
 export type GlobalAgentTurnResult = GlobalAgentTurnResponse & { usage: GlobalAgentUsage };
 
 export async function runGlobalAgentTurn(params: RunGlobalAgentTurnParams): Promise<GlobalAgentTurnResult> {
   const { userId, organizationIds, mention, message, history = [] } = params;
-  const usage: GlobalAgentUsage = { inputTokens: 0, outputTokens: 0 };
 
   const [context] = await resolveMentionContext(userId, organizationIds, [mention]);
 
@@ -69,7 +61,7 @@ export async function runGlobalAgentTurn(params: RunGlobalAgentTurnParams): Prom
   });
 
   if (tableRows.length === 0) {
-    return { answer: `The BaseList "${context.name}" has no linked tables yet.`, usage };
+    return { answer: `The BaseList "${context.name}" has no linked tables yet.`, usage: { inputTokens: 0, outputTokens: 0 } };
   }
 
   const tables: GlobalAgentTable[] = await Promise.all(
@@ -82,97 +74,74 @@ export async function runGlobalAgentTurn(params: RunGlobalAgentTurnParams): Prom
   const tableNameById = new Map(tables.map((t) => [t.tableId, t.name]));
   const columnKeysByTable = new Map(tables.map((t) => [t.tableId, new Set(t.columns.map((c) => c.key))]));
 
-  const messages: ChatCompletionMessageParam[] = [
-    { role: 'system', content: buildGlobalSystemPrompt(context.name, tables) },
-    ...history.map((h) => ({ role: h.role, content: h.content }) as ChatCompletionMessageParam),
-    { role: 'user', content: message },
-  ];
-
   let lastQueryResult: (QueryGridDataResult & { tableId: string }) | null = null;
-  let correctionRounds = 0;
 
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const completion = await openai.chat.completions.create({
-      model: AI_MODELS.CHAT,
-      messages,
-      tools: globalAgentTools,
-      tool_choice: 'auto',
-    });
+  const handleToolCall = async (
+    name: string,
+    rawArgs: string
+  ): Promise<ToolCallOutcome<GlobalAgentTurnResponse>> => {
+    const correction = validateAndBuildCorrection(name, rawArgs, columnKeysByTable);
+    if (correction) return { kind: 'correction', content: correction };
 
-    usage.inputTokens += completion.usage?.prompt_tokens ?? 0;
-    usage.outputTokens += completion.usage?.completion_tokens ?? 0;
+    if (name === 'queryGridData') {
+      const { tableId, ...args } = GlobalQueryGridDataArgsSchema.parse(JSON.parse(rawArgs));
+      const result = await queryGridData(tableId, userId, args);
+      lastQueryResult = { ...result, tableId };
+      return { kind: 'result', content: JSON.stringify(result) };
+    }
 
-    const responseMessage = completion.choices[0]?.message;
-    if (!responseMessage) throw new Error('LLM returned no message');
+    if (name === 'getGridSummary') {
+      const { tableId } = GlobalGetGridSummaryArgsSchema.parse(JSON.parse(rawArgs));
+      const result = await getGridSummary(tableId, userId);
+      return { kind: 'result', content: JSON.stringify(result) };
+    }
 
-    const toolCalls = responseMessage.tool_calls;
-    if (!toolCalls || toolCalls.length === 0) {
+    if (name === 'updateCellsBatch') {
+      const { tableId, updates } = GlobalUpdateCellsBatchArgsSchema.parse(JSON.parse(rawArgs));
+      const actionId = randomUUID();
+      const updatesWithTable: GlobalCellUpdate[] = updates.map((u) => ({ ...u, tableId }));
+      const summary = buildUpdateSummary(updatesWithTable, tableNameById.get(tableId) ?? tableId);
+      pendingGlobalActionCache.set({
+        actionId,
+        kind: 'updateCellsBatch',
+        summary,
+        updates: updatesWithTable,
+        userId,
+      });
       return {
-        answer: responseMessage.content ?? '',
-        ...(lastQueryResult
-          ? {
-              evidence: {
-                rows: lastQueryResult.rows.map((r) => ({
-                  rowKey: r.rowKey,
-                  representativeLabel: r.representativeLabel,
-                  tableId: lastQueryResult!.tableId,
-                })),
-              },
-            }
-          : {}),
-        usage,
+        kind: 'terminate',
+        response: { pendingAction: { actionId, kind: 'updateCellsBatch', summary, updates: updatesWithTable } },
       };
     }
 
-    messages.push({
-      role: 'assistant',
-      content: responseMessage.content,
-      tool_calls: toolCalls,
-    });
+    return { kind: 'result', content: `Unknown tool: ${name}` };
+  };
 
-    for (const toolCall of toolCalls) {
-      if (toolCall.type !== 'function') continue;
-      const { name, arguments: rawArgs } = toolCall.function;
+  const { response, usage } = await runToolAgent<GlobalAgentTurnResponse>({
+    systemPrompt: buildGlobalSystemPrompt(context.name, tables),
+    history,
+    message,
+    tools: globalAgentTools,
+    handleToolCall,
+    buildFinalAnswer: (content) => ({
+      answer: content,
+      ...(lastQueryResult
+        ? {
+            evidence: {
+              rows: lastQueryResult.rows.map((r) => ({
+                rowKey: r.rowKey,
+                representativeLabel: r.representativeLabel,
+                tableId: lastQueryResult!.tableId,
+              })),
+            },
+          }
+        : {}),
+    }),
+    buildCorrectionLimitAnswer: () => ({ answer: `I couldn't resolve a valid table/column for that request.` }),
+    buildExhaustedAnswer: () => ({ answer: "I wasn't able to complete that — could you rephrase?" }),
+  });
 
-      const correction = validateAndBuildCorrection(name, rawArgs, columnKeysByTable);
-      if (correction) {
-        correctionRounds++;
-        if (correctionRounds > MAX_CORRECTION_ROUNDS) {
-          return { answer: `I couldn't resolve a valid table/column for that request.`, usage };
-        }
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: correction });
-        continue;
-      }
-
-      if (name === 'queryGridData') {
-        const { tableId, ...args } = GlobalQueryGridDataArgsSchema.parse(JSON.parse(rawArgs));
-        const result = await queryGridData(tableId, userId, args);
-        lastQueryResult = { ...result, tableId };
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
-      } else if (name === 'getGridSummary') {
-        const { tableId } = GlobalGetGridSummaryArgsSchema.parse(JSON.parse(rawArgs));
-        const result = await getGridSummary(tableId, userId);
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
-      } else if (name === 'updateCellsBatch') {
-        const { tableId, updates } = GlobalUpdateCellsBatchArgsSchema.parse(JSON.parse(rawArgs));
-        const actionId = randomUUID();
-        const updatesWithTable: GlobalCellUpdate[] = updates.map((u) => ({ ...u, tableId }));
-        const summary = buildUpdateSummary(updatesWithTable, tableNameById.get(tableId) ?? tableId);
-        pendingGlobalActionCache.set({
-          actionId,
-          kind: 'updateCellsBatch',
-          summary,
-          updates: updatesWithTable,
-          userId,
-        });
-        return { pendingAction: { actionId, kind: 'updateCellsBatch', summary, updates: updatesWithTable }, usage };
-      } else {
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: `Unknown tool: ${name}` });
-      }
-    }
-  }
-
-  return { answer: "I wasn't able to complete that — could you rephrase?", usage };
+  return { ...response, usage };
 }
 
 /**
