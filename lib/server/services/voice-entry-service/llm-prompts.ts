@@ -3,6 +3,7 @@ import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnDefinition, TableSchema } from '@/lib/shared/types/table-schema';
 import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
 import { openai } from './openai-client';
+import { AI_MODELS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod schema for LLM output validation
@@ -123,14 +124,14 @@ export async function extractValueOnlyViaLLM(transcript: string, activeColumn: C
   const prompt = buildValueOnlyPrompt(transcript, activeColumn.type);
 
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: AI_MODELS.CHAT,
     messages: [
       { role: 'system', content: 'You are a data extraction assistant that normalizes spoken values.' },
       { role: 'user', content: prompt },
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.1,
-    max_tokens: 64,
+    temperature: AI_TUNING.JSON_TEMPERATURE,
+    max_tokens: AI_TUNING.MAX_TOKENS.VALUE_ONLY,
   });
 
   const rawContent = completion.choices?.[0]?.message?.content;

@@ -12,7 +12,6 @@
  *   error appended to the retry prompt.
  */
 
-import OpenAI from 'openai';
 import { z } from 'zod';
 import {
   TableColumnDraftSchema,
@@ -26,8 +25,8 @@ import { buildSystemPrompt, buildUserPrompt } from '@/lib/server/services/ai-ser
 import { isIdentityColumn } from '@/lib/shared/utils/identity-column';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import { validateFormula } from '@/lib/shared/utils/formula';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { openai } from '@/lib/server/services/ai-service/shared/openai-client';
+import { AI_MODELS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
 
 // What we actually ask the LLM for — no baseListId, no representativeColumnKey.
 // Both are computed deterministically server-side (guardrail: LLM never
@@ -94,14 +93,14 @@ async function callLlm(
   userPrompt: string
 ): Promise<{ content: string; promptTokens: number; completionTokens: number }> {
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: AI_MODELS.CHAT,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.1,
-    max_tokens: 800,
+    temperature: AI_TUNING.JSON_TEMPERATURE,
+    max_tokens: AI_TUNING.MAX_TOKENS.SCHEMA_DRAFT,
   });
 
   const content = completion.choices?.[0]?.message?.content;

@@ -4,6 +4,7 @@ import { entityCache } from '@/lib/server/cache/entity-recognition-cache';
 import { ErrorCodes, ErrorSeverity, ErrorCategory, VocalGridError } from '@/lib/shared/types/voice-errors';
 import { buildWhisperPrompt as buildContextPrompt } from '@/lib/server/stt/context-prompt';
 import { openai } from './openai-client';
+import { AI_MODELS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
 
 // Default ON — set ENABLE_STT_CONTEXT_PROMPT=false to disable vocabulary
 // injection (e.g. to A/B the exact-match rate per docs/features/10 §2.3).
@@ -80,12 +81,12 @@ export async function transcribeAudio(
 
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
-      model: 'whisper-1',
+      model: AI_MODELS.TRANSCRIPTION,
       language: whisperLanguage,
       response_format: 'verbose_json',
       // temperature: 0 is required whenever a prompt is supplied — reduces
       // hallucination amplification (docs/features/10 §2.3).
-      temperature: 0,
+      temperature: AI_TUNING.TRANSCRIPTION_TEMPERATURE,
       ...(promptUsed ? { prompt: whisperPrompt } : {}),
     });
 

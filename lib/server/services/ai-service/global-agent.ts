@@ -16,7 +16,6 @@
  *   happens later, exactly as previewed, via `executeUpdateCellsBatch`.
  */
 
-import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
@@ -37,11 +36,11 @@ import {
   type GlobalAgentTable,
 } from '@/lib/server/services/ai-service/global-agent-prompts';
 import { pendingGlobalActionCache } from '@/lib/server/cache/global-agent-cache';
+import { openai } from '@/lib/server/services/ai-service/shared/openai-client';
+import { AI_MODELS, AI_LIMITS } from '@/lib/server/services/ai-service/shared/config';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const MAX_TOOL_ROUNDS = 3;
-const MAX_CORRECTION_ROUNDS = 2;
+const MAX_TOOL_ROUNDS = AI_LIMITS.MAX_TOOL_ROUNDS;
+const MAX_CORRECTION_ROUNDS = AI_LIMITS.MAX_CORRECTION_ROUNDS;
 
 export interface RunGlobalAgentTurnParams {
   userId: string;
@@ -94,7 +93,7 @@ export async function runGlobalAgentTurn(params: RunGlobalAgentTurnParams): Prom
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: AI_MODELS.CHAT,
       messages,
       tools: globalAgentTools,
       tool_choice: 'auto',

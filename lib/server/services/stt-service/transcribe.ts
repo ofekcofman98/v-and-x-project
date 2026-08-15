@@ -9,13 +9,12 @@
  *   layer maps them to HTTP status codes, mirroring lib/server/services/tts-service/speak.ts.
  */
 
-import OpenAI from 'openai';
 import {
   isWhisperHallucination,
   isDegenerateRepetition,
 } from '@/lib/server/services/voice-entry-service/hallucination';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { openai } from '@/lib/server/services/ai-service/shared/openai-client';
+import { AI_MODELS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
 
 export interface ChatTranscriptionResult {
   /** Empty string when the raw transcript was filtered as a hallucination — not an error. */
@@ -39,13 +38,13 @@ export async function transcribeChatAudio(
   const startTime = Date.now();
   const transcription = await openai.audio.transcriptions.create({
     file: audioFile,
-    model: 'whisper-1',
+    model: AI_MODELS.TRANSCRIPTION,
     language,
     response_format: 'json',
     // Reduces hallucination amplification — no vocabulary prompt is sent
     // for chat transcription, so there's no prompt-echo risk to weigh
     // against (docs/features/17-voice-chat-loop.md §3.1).
-    temperature: 0,
+    temperature: AI_TUNING.TRANSCRIPTION_TEMPERATURE,
   });
   const duration = Date.now() - startTime;
 

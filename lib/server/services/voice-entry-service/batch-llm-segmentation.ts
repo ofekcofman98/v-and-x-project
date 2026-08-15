@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { openai } from './openai-client';
+import { AI_MODELS, AI_LIMITS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
 
 // Zod schema for LLM output validation — mirrors llm-prompts.ts's convention
 // of colocating the schema with the call site rather than in shared types.
@@ -31,7 +32,7 @@ const EntityValueBatchExtractionSchema = z.object({
     .max(30),
 });
 
-const MAX_RETRIES = 1;
+const MAX_RETRIES = AI_LIMITS.MAX_RETRIES;
 
 function buildBareValuePrompt(transcript: string): string {
   return `
@@ -70,7 +71,7 @@ RESPOND ONLY IN JSON (strictly matching this schema):
 
 async function callSegmentationLLM(prompt: string): Promise<unknown> {
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: AI_MODELS.CHAT,
     messages: [
       {
         role: 'system',
@@ -79,8 +80,8 @@ async function callSegmentationLLM(prompt: string): Promise<unknown> {
       { role: 'user', content: prompt },
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.1,
-    max_tokens: 512,
+    temperature: AI_TUNING.JSON_TEMPERATURE,
+    max_tokens: AI_TUNING.MAX_TOKENS.SEGMENTATION,
   });
 
   const rawContent = completion.choices?.[0]?.message?.content;

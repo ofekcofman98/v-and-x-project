@@ -3,14 +3,10 @@
  * docs/features/17-voice-chat-loop.md §6
  */
 
-import OpenAI from 'openai';
 import { truncateAtSentence } from '@/lib/shared/utils/truncate-at-sentence';
 import { stripMarkdown } from '@/lib/shared/utils/strip-markdown';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const TTS_MODEL = 'tts-1';
-const TTS_VOICE = 'alloy';
+import { openai } from '@/lib/server/services/ai-service/shared/openai-client';
+import { AI_MODELS } from '@/lib/server/services/ai-service/shared/config';
 
 export interface SpeakResult {
   audio: Buffer;
@@ -29,8 +25,8 @@ export async function synthesizeSpeech(text: string): Promise<SpeakResult> {
   const input = truncateAtSentence(stripMarkdown(text));
 
   const response = await openai.audio.speech.create({
-    model: TTS_MODEL,
-    voice: TTS_VOICE,
+    model: AI_MODELS.TTS,
+    voice: AI_MODELS.TTS_VOICE,
     input,
   });
 

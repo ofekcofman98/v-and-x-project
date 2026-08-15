@@ -18,7 +18,6 @@
  *   happens later, exactly as previewed, via `executeUpdateCellsBatch`.
  */
 
-import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { randomUUID } from 'crypto';
 import {
@@ -36,11 +35,11 @@ import {
 } from '@/lib/server/services/ai-grid-tools';
 import { gridAgentTools, buildSystemPrompt } from '@/lib/server/services/ai-service/grid-agent-prompts';
 import { pendingGridActionCache } from '@/lib/server/cache/grid-agent-cache';
+import { openai } from '@/lib/server/services/ai-service/shared/openai-client';
+import { AI_MODELS, AI_LIMITS } from '@/lib/server/services/ai-service/shared/config';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const MAX_TOOL_ROUNDS = 3;
-const MAX_CORRECTION_ROUNDS = 2;
+const MAX_TOOL_ROUNDS = AI_LIMITS.MAX_TOOL_ROUNDS;
+const MAX_CORRECTION_ROUNDS = AI_LIMITS.MAX_CORRECTION_ROUNDS;
 
 export interface RunGridAgentTurnParams {
   userId: string;
@@ -74,7 +73,7 @@ export async function runGridAgentTurn(params: RunGridAgentTurnParams): Promise<
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: AI_MODELS.CHAT,
       messages,
       tools: gridAgentTools,
       tool_choice: 'auto',

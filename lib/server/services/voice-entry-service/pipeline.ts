@@ -39,6 +39,7 @@ import { buildParsePrompt, extractValueOnlyViaLLM, parseCompletion } from './llm
 import { logPerformanceStats } from './performance-logging';
 import { looksLikeBatchUtterance } from './batch-detect';
 import { processVoiceEntryBatch, BatchSegmentationFailedError } from './batch-orchestrator';
+import { AI_MODELS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
 
 /**
  * Runs the full voice entry pipeline and returns a structured result.
@@ -405,21 +406,21 @@ export async function processVoiceEntry(
   const prompt = buildParsePrompt({ transcript, tableSchema, activeCell, navigationMode });
 
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: AI_MODELS.CHAT,
     messages: [
       {
         role: 'system',
         content:
           'You are a data entry assistant that extracts entities and values from voice transcripts.',
       },
-      { 
+      {
         role: 'user',
         content: prompt
       },
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.1,
-    max_tokens: 256,
+    temperature: AI_TUNING.JSON_TEMPERATURE,
+    max_tokens: AI_TUNING.MAX_TOKENS.PARSE,
   });
 
   const llmDuration = Date.now() - llmStartTime;
