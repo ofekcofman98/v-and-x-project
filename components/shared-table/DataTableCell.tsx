@@ -80,9 +80,18 @@ export const DataTableCell = memo(
     const isProvisionalTarget =
       !isActive && provisionalRowKey === rowKey && activeColumnId === tableColumnId;
 
-    // Only subscribe to recordingState if this cell is active —
-    // prevents inactive cells from re-rendering when recordingState changes (§3.1)
-    const recordingState = useUIStore((state) => (isActive ? state.recordingState : 'idle'));
+    // Pure selector: derives from store state + stable props only, so this
+    // snapshot is always causally consistent with the activeCell snapshot
+    // above. Closing over the render-scope `isActive` here used to couple
+    // two independent subscriptions and could strand the `listening` tint
+    // on a cell the pointer had already left (same class of bug as the
+    // note at L53-61). Still only re-renders when this cell is active
+    // (§3.1) — the perf property is preserved, just derived purely.
+    const recordingState = useUIStore((state) =>
+      state.activeCell?.rowKey === rowKey && state.activeCell?.tableColumnId === tableColumnId
+        ? state.recordingState
+        : 'idle'
+    );
 
     // Only check lastUpdatedCell for this specific cell
     const isJustUpdated = useTableCellStore((state) =>
@@ -234,7 +243,7 @@ export const DataTableCell = memo(
 
           {/* Just updated overlay (green flash) */}
           {isJustUpdated && (
-            <div className="absolute inset-0 bg-green-500/30 rounded pointer-events-none animate-[fadeOut_1s_ease-out]" />
+            <div className="absolute inset-0 bg-green-500/30 rounded pointer-events-none animate-[fadeOut_1s_ease-out_forwards]" />
           )}
         </div>
       </td>

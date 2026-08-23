@@ -151,6 +151,27 @@ export function useVoiceActionHandler({
           return;
         }
 
+        // Defence in depth: a resolved entity with an unparseable value
+        // (parsed.value === null) must never be written — that would
+        // silently blank an existing cell. The voice hooks already guard
+        // this upstream (use-voice-pipeline.ts, use-continuous-voice.ts),
+        // but any other caller of handleParsedResult gets the same
+        // protection here.
+        if (parsed.value === null) {
+          setPendingConfirmation(
+            {
+              entity: parsed.entity ?? matched,
+              value: null,
+              confidence: 0,
+              alternatives: [],
+            },
+            requestId
+          );
+
+          setRecordingState('confirming');
+          return;
+        }
+
         // Determine where the data should land before mutating state
         const matchedCell: CellPosition = {
           rowKey: matchedRow.id,

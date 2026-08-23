@@ -335,6 +335,12 @@ export async function processVoiceEntry(
 
   // ── Optimisation 2: Fast path (regex + non-LLM matching, Levels 1–3) ──────
   const quickExtract = extractEntityQuick(transcript);
+  // Tracks whether quickExtract's entity guess actually resolved to a real
+  // row — if not, Optimisation 2.5 below still gets a shot at the transcript
+  // as a bare value (e.g. "Not here" split into entity:"Not" value:"here"
+  // must not block the bare-value path that would have parsed the whole
+  // transcript correctly).
+  let quickExtractMatchedRow = false;
 
   if (quickExtract) {
     console.log('[VoiceEntryService] Quick extraction found pattern:', quickExtract);
@@ -354,6 +360,7 @@ export async function processVoiceEntry(
       matchResult.confidence >= 0.85 &&
       matchResult.matchType !== 'none'
     ) {
+      quickExtractMatchedRow = true;
       console.log('[VoiceEntryService] 🎯 FAST_PATH: Non-LLM match successful');
       const parsingDuration = Date.now() - parsingStartTime;
       const totalDuration = Date.now() - totalStartTime;
@@ -411,9 +418,12 @@ export async function processVoiceEntry(
 
   // ── Optimisation 2.5: Bare-value fast path ────────────────────────────────
   // activeCell already identifies the row (via click, or via Smart Pointer
-  // row-first advance) — a lone value needs no entity restated. Only
-  // reachable when quickExtract's "Entity, value" pattern didn't match.
-  if (!quickExtract) {
+  // row-first advance) — a lone value needs no entity restated. Reachable
+  // when quickExtract's "Entity, value" pattern didn't match at all, OR when
+  // it matched but the guessed "entity" didn't resolve to a real row (e.g.
+  // "Not here" is split into entity:"Not" value:"here" — that guess is
+  // wrong, but the full transcript is a valid bare boolean value).
+  if (!quickExtract || !quickExtractMatchedRow) {
     const bareValue = resolveBareValueEntry(transcript, activeColumn, activeRow, toParseContext(language));
 
     if (bareValue) {

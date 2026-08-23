@@ -9,7 +9,7 @@ import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useVAD } from '@/lib/client/hooks/voice/use-vad';
 import { voiceTelemetry } from '@/lib/client/hooks/voice/use-voice-telemetry';
 import { toast } from '@/components/ui/use-toast';
-import { ErrorCodes } from '@/lib/shared/types/voice-errors';
+import { ErrorCodes, VoiceErrors } from '@/lib/shared/types/voice-errors';
 import { getErrorMessage } from '@/lib/shared/errors/error-mapping';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { ParsedResult, VoiceEntryResult, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
@@ -126,6 +126,18 @@ export function useContinuousVoice({
         if (!result || (!result.entity && !result.value)) {
           voiceTelemetry.setConfirmationRoute(requestId, 'abandoned');
           voiceTelemetry.flush(requestId);
+          setRecordingState('listening');
+          return;
+        }
+
+        // A resolved entity with an unparseable value (e.g. an unrecognized
+        // boolean phrase) must not fall through to onResult — that path
+        // auto-selects on confidence:1 and would silently write `null` over
+        // the cell. Surface it the same way the push-to-talk path does.
+        if (result.action === 'ERROR' || !result.valueValid) {
+          voiceTelemetry.setConfirmationRoute(requestId, 'abandoned');
+          voiceTelemetry.flush(requestId);
+          onError(VoiceErrors.PARSE_INVALID_VALUE);
           setRecordingState('listening');
           return;
         }

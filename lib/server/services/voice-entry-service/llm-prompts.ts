@@ -64,7 +64,7 @@ when a name/entity was actually spoken.
 
 CURRENT STATE:
 - Navigation mode: ${navigationMode}
-- Expected Column Type: ${columnType} (e.g. if 'number', convert word numbers like "eighty" to 80)
+- Expected Column Type: ${columnType} (e.g. if 'number', convert word numbers like "eighty" to 80; if 'boolean', map presence/affirmation words like "here", "present", "yes" to true and negation/absence words like "not here", "absent", "no" to false)
 
 USER SAID: "${transcript}"
 
@@ -102,7 +102,7 @@ The row has already been selected — your ONLY job is to extract and normalize
 the value from the transcript for the given column type. There is no entity
 or name to extract; ignore that entirely.
 
-Expected Column Type: ${columnType} (e.g. if 'number', convert word numbers like "eighty five" to 85)
+Expected Column Type: ${columnType} (e.g. if 'number', convert word numbers like "eighty five" to 85; if 'boolean', map presence/affirmation words like "here", "present", "yes" to true and negation/absence words like "not here", "absent", "no" to false)
 
 USER SAID: "${transcript}"
 

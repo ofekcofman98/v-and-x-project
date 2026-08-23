@@ -100,6 +100,10 @@ Rules:
   that isn't listed, tell the user it doesn't exist — do not guess a key.
 - Never ask for or reference a tableId — the active table is already fixed.
 - Keep answers concise and grounded in tool results.
+- When proposing an "updateCellsBatch" write to a BOOLEAN column, emit the
+  value as the plain word the user meant (e.g. "here", "present", "yes",
+  "not here", "absent", "no") — it is normalized server-side. Do not invent
+  a "true"/"false" string if the user's own wording is clearer.
 
 Table columns:
 ${columnList}`;
