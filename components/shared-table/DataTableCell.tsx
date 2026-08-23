@@ -59,12 +59,13 @@ export const DataTableCell = memo(
     // in the same render pass cannot. This was the root cause of a real bug:
     // switching navigationMode without changing activeCell left most of the
     // previous mode's band stuck until the NEXT toggle. docs/features/15_realtime_voice_feedback.md §6, §3-§4
-    const { activeRowKey, activeColumnId, navigationMode, provisionalRowKey } = useUIStore(
+    const { activeRowKey, activeColumnId, navigationMode, provisionalRowKey, provisionalValue } = useUIStore(
       useShallow((state) => ({
         activeRowKey: state.activeCell?.rowKey ?? null,
         activeColumnId: state.activeCell?.tableColumnId ?? null,
         navigationMode: state.navigationMode,
         provisionalRowKey: state.provisionalFeedback.provisionalRowKey,
+        provisionalValue: state.provisionalFeedback.provisionalValue,
       }))
     );
 
@@ -147,6 +148,23 @@ export const DataTableCell = memo(
 
     const formattedValue = formatCellValue(value, columnType);
 
+    // The ghost renders on the guessed cell in column-first, and on the
+    // active cell in row-first (where the pointer already fixes the row).
+    // It never covers a committed value — only an empty cell — so a wrong
+    // guess never looks like an overwrite. Deliberately does not reuse
+    // isProvisionalTarget: that one carries `!isActive` (correct for the
+    // dashed border, wrong here since row-first ghosts the active cell).
+    const isProvisionalGhost =
+      !isReadOnly &&
+      !isEditing &&
+      provisionalValue !== null &&
+      provisionalRowKey === rowKey &&
+      activeColumnId === tableColumnId &&
+      !formattedValue;
+    const formattedProvisionalValue = isProvisionalGhost
+      ? formatCellValue(provisionalValue, columnType)
+      : null;
+
     return (
       <td
         onClick={onClick}
@@ -214,7 +232,9 @@ export const DataTableCell = memo(
                 columnType === ColumnType.NUMBER && 'font-mono',
               )}
             >
-              <span className="truncate">{formattedValue || '—'}</span>
+              <span className={cn('truncate', isProvisionalGhost && 'text-gray-400 italic')}>
+                {isProvisionalGhost ? formattedProvisionalValue : formattedValue || '—'}
+              </span>
             </div>
           )}
 

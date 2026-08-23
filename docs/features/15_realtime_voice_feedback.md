@@ -90,7 +90,9 @@ Wall-clock time to commit is unchanged. Perceived time-to-first-feedback drops f
 
 - **`lib/client/hooks/voice/use-speech-shadow.ts`** — thin wrapper over `SpeechRecognition`. Exposes `{ interimTranscript: string, isSupported: boolean, start: () => void, stop: () => void }`. Feature-detects `window.SpeechRecognition ?? window.webkitSpeechRecognition`; if absent, `isSupported: false` and every method is a no-op. Follows the file/naming conventions of the other hooks in `lib/client/hooks/voice/`. This hook owns browser ASR lifecycle only — it has no opinion about tables, matching, or rows (mirrors the separation `.claude/rules/voice-pipeline.md` already requires between `useVoiceEntry`/`useVad`/`useContinuousVoice`).
 
-- **`lib/client/hooks/voice/use-provisional-target.ts`** — consumes `interimTranscript`, `tableSchema`, `navigationMode`, `activeCell`. Runs `extractEntityQuick` then the shared matcher chain (relocated per §3.3) against `tableSchema.rows` labels, debounced (not run on every interim event — e.g. every 150ms or on word-boundary). Publishes `{ provisionalRowKey, provisionalValue }` to the store. This hook is the only place that combines the shadow transcript with table data — `use-speech-shadow.ts` stays table-agnostic.
+- **`lib/client/hooks/voice/use-provisional-target.ts`** — consumes `interimTranscript`, `tableSchema`, `navigationMode`, `activeCell`. Runs `extractEntityQuick` then the shared matcher chain (relocated per §3.3) against `tableSchema.rows` labels, debounced (not run on every interim event — e.g. every 150ms or on word-boundary). Publishes `{ provisionalRowKey, provisionalValue }` to the store. This hook is the only place that combines the shadow transcript with table data — `use-speech-shadow.ts` stays table-agnostic. In row-first mode the row is already fixed by the pointer, so only `provisionalValue` is guessed (from the raw transcript, not run through the matcher) and published against the active row's key.
+
+- **`components/shared-table/DataTableCell.tsx`** — renders `provisionalValue` as grey italic ghost text in place of the empty-cell placeholder, on the guessed cell (column-first) or the active cell (row-first). Display-only: it is never written to the cell and never covers an already-populated cell, so a wrong guess cannot be mistaken for a completed write. See §9 — this was originally deferred and has since been implemented.
 
 - **`lib/client/stores/ui-store.ts`** — add a `provisionalFeedback` slice: `{ interimTranscript: string | null, provisionalRowKey: string | null, provisionalValue: string | null }` plus setters and a `clearProvisionalFeedback()` action. **Must be excluded from `partialize`** (`ui-store.ts:271-275`), same as `activeCell`/`continuousMode` — this is transient per-utterance state and must never survive a reload or leak into localStorage.
 
@@ -178,7 +180,6 @@ Ranked by perceived-improvement-to-effort ratio; answers "what else can be done 
 
 - **Server-side SSE/NDJSON stage streaming.** Real but modest gain: on the fast (non-LLM) path the transcript is only ~5-30ms ahead of the final result (`pipeline.ts` timings, §2 exploration), so streaming stages would mostly help the LLM-fallback path (~1500ms window) — smaller payoff than the client-side provisional layer, which is available on every path including the fast one, for less engineering.
 - **Switching STT models** (`gpt-4o-transcribe`, Realtime API) to get true server-side interim transcription. Bigger migration, cost/latency tradeoffs unverified, not needed given the Web Speech shadow achieves the same UX goal for $0.
-- **Ghost value rendered inside the target cell before commit.** Deferred: it would require extending `DataTableCell`'s memo comparator (`DataTableCell.tsx:208-217`) with new props rather than store-only subscriptions, and risks a provisional value being misread as already committed — a correctness-adjacent risk not worth taking for a nice-to-have.
 
 ---
 
@@ -202,6 +203,7 @@ This spec supersedes parts of two existing documents; per `.claude/rules/documen
 ### Phase 2 — Provisional layer (Web Speech shadow)
 - [ ] Matcher/quick-extract relocation to `lib/shared/` (§3.3), zero behavior change, existing tests pass unmodified
 - [ ] `use-speech-shadow.ts`, `use-provisional-target.ts`, `ui-store.ts` provisional slice
+- [x] Ghost value rendered inside the target cell before commit (`DataTableCell.tsx`) — display-only, guarded to never cover a populated cell; covers both column-first and row-first (§3.2)
 - [ ] Reconciliation rules (§4) implemented and covered by unit tests on the pure decision logic (mirrors the `vad-chunking.ts` pattern: extract reconciliation into a pure function, test that directly — no `@testing-library/react` in this repo, per prior work)
 - [ ] Exit: in Chrome/Edge, a row visibly marks within ~500ms of saying a recognizable name, and always resolves to (or clears in favor of) the confirmed result — never left stale
 
