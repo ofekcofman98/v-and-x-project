@@ -4,7 +4,7 @@
  * can change independently. Implements: docs/features/03_ai_table_agent.md §3.
  */
 
-import type { MentionContext } from '@/lib/server/services/ai-service/context';
+import type { MentionContext } from '@/lib/server/services/ai-service/shared/context';
 
 export function buildSystemPrompt(): string {
   return `You are a table schema generator for a data-tracking product. Given a

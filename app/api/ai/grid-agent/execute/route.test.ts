@@ -7,7 +7,7 @@ vi.mock('@/lib/server/services/auth', () => ({
 }));
 
 const executeUpdateCellsBatchMock = vi.fn();
-vi.mock('@/lib/server/services/ai-grid-tools', () => ({
+vi.mock('@/lib/server/services/ai-service/tools/grid-tools', () => ({
   executeUpdateCellsBatch: (...args: unknown[]) => executeUpdateCellsBatchMock(...args),
 }));
 

@@ -1,7 +1,7 @@
 /**
  * Grid Agent Execute API Route
  * HTTP transport layer only — all business logic lives in:
- *   lib/server/services/ai-grid-tools.ts (executeUpdateCellsBatch)
+ *   lib/server/services/ai-service/tools/grid-tools.ts (executeUpdateCellsBatch)
  *   lib/server/cache/grid-agent-cache.ts (pendingGridActionCache)
  *
  * Confirms and executes a previously proposed `updateCellsBatch` write.
@@ -12,7 +12,7 @@
 
 import { withErrorHandler, parseBody, apiSuccess, apiError } from '@/lib/shared/utils/api';
 import { getAuthenticatedUser } from '@/lib/server/services/auth';
-import { executeUpdateCellsBatch } from '@/lib/server/services/ai-grid-tools';
+import { executeUpdateCellsBatch } from '@/lib/server/services/ai-service/tools/grid-tools';
 import { pendingGridActionCache } from '@/lib/server/cache/grid-agent-cache';
 import { GridAgentExecuteRequestSchema } from '@/lib/shared/types/ai';
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ColumnType } from '@/lib/shared/types/column-types';
-import { buildSystemPrompt } from './grid-agent-prompts';
+import { buildSystemPrompt } from './prompts';
 
 describe('buildSystemPrompt', () => {
   it('tells the model that queryGridData rows carry a representativeLabel identity field', () => {

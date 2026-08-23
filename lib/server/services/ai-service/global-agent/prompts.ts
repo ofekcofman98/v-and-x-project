@@ -12,7 +12,7 @@ import {
   GlobalUpdateCellsBatchArgsSchema,
   GlobalGetGridSummaryArgsSchema,
 } from '@/lib/shared/types/ai';
-import type { AgentColumn } from '@/lib/server/services/ai-grid-tools';
+import type { AgentColumn } from '@/lib/server/services/ai-service/tools/grid-tools';
 
 function toJsonSchemaParameters(schema: z.ZodType): Record<string, unknown> {
   const { $schema, ...parameters } = z.toJSONSchema(schema) as Record<string, unknown>;

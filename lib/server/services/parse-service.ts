@@ -11,18 +11,13 @@
  *   mismatch). The route layer catches these and returns a 500 response.
  */
 
-import OpenAI from 'openai';
 import { z } from 'zod';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
 import { parseForColumn } from '@/lib/server/parsers/registry';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Module-level singleton
-// ─────────────────────────────────────────────────────────────────────────────
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { openai } from '@/lib/server/services/ai-service/shared/openai-client';
+import { AI_MODELS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Zod schema — validates the raw LLM JSON response
@@ -92,7 +87,7 @@ export async function executeTranscriptParse(
   const startTime = Date.now();
 
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: AI_MODELS.CHAT,
     messages: [
       {
         role: 'system',
@@ -102,8 +97,8 @@ export async function executeTranscriptParse(
       { role: 'user', content: prompt },
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.1,
-    max_tokens: 256,
+    temperature: AI_TUNING.JSON_TEMPERATURE,
+    max_tokens: AI_TUNING.MAX_TOKENS.PARSE,
   });
 
   const duration = Date.now() - startTime;

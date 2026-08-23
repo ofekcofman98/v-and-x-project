@@ -135,6 +135,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
   const navigationMode = (formData.get('navigationMode') as string) || 'column-first';
   const tableId = (formData.get('tableId') as string) || 'default';
   const language = req.headers.get('x-language') ?? undefined;
+  // docs/features/19_voice_telemetry.md §6 — a FormData field (not a header),
+  // so the OPTIONS CORS allow-list above needs no change.
+  const requestId = (formData.get('request_id') as string) || undefined;
 
   // ── Input validation ───────────────────────────────────────────────────────
   if (!audioFile) {
@@ -204,11 +207,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
     navigationMode: navigationMode as 'column-first' | 'row-first',
     tableId,
     language,
+    requestId,
   };
 
   try {
     const result = await processVoiceEntry(payload, audioFile);
-    return NextResponse.json({ success: true, data: result });
+    return NextResponse.json({ success: true, data: result, requestId });
   } catch (err) {
     if (err instanceof VocalGridError) {
       return NextResponse.json(

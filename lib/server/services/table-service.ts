@@ -137,7 +137,7 @@ export async function getTableById(userId: string, organizationIds: string[], id
   const table = await prisma.table.findFirst({
     where: { id, ...ownershipWhere(userId, organizationIds) },
     include: {
-      columns: true,
+      columns: { orderBy: { order: "asc" } },
       baseList: {
         include: { entities: { orderBy: { createdAt: "asc" } } },
       },

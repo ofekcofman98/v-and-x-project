@@ -16,10 +16,12 @@
  *   a correction round instead of execution (max 2 correction rounds).
  * - `updateCellsBatch` is only ever proposed and cached; the write itself
  *   happens later, exactly as previewed, via `executeUpdateCellsBatch`.
+ *
+ * The round loop, usage accounting, and message bookkeeping live in
+ * shared/tool-agent-runner.ts (identical to global-agent's) — this file
+ * supplies only the table-scoped validation/dispatch via `handleToolCall`.
  */
 
-import OpenAI from 'openai';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { randomUUID } from 'crypto';
 import {
   QueryGridDataArgsSchema,
@@ -32,15 +34,11 @@ import {
   getTableColumnsForAgent,
   queryGridData,
   getGridSummary,
-  UnknownColumnKeyError,
-} from '@/lib/server/services/ai-grid-tools';
-import { gridAgentTools, buildSystemPrompt } from '@/lib/server/services/ai-service/grid-agent-prompts';
+} from '@/lib/server/services/ai-service/tools/grid-tools';
+import { gridAgentTools, buildSystemPrompt } from './prompts';
 import { pendingGridActionCache } from '@/lib/server/cache/grid-agent-cache';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const MAX_TOOL_ROUNDS = 3;
-const MAX_CORRECTION_ROUNDS = 2;
+import { runToolAgent, type ToolCallOutcome } from '@/lib/server/services/ai-service/shared/tool-agent-runner';
+import type { AgentUsage } from '@/lib/server/services/ai-service/shared/usage';
 
 export interface RunGridAgentTurnParams {
   userId: string;
@@ -49,10 +47,7 @@ export interface RunGridAgentTurnParams {
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
-export interface GridAgentUsage {
-  inputTokens: number;
-  outputTokens: number;
-}
+export type GridAgentUsage = AgentUsage;
 
 export type GridAgentTurnResult = GridAgentTurnResponse & { usage: GridAgentUsage };
 
@@ -62,95 +57,71 @@ export async function runGridAgentTurn(params: RunGridAgentTurnParams): Promise<
   const columns = await getTableColumnsForAgent(tableId, userId);
   const columnKeys = new Set(columns.map((c) => c.key));
 
-  const messages: ChatCompletionMessageParam[] = [
-    { role: 'system', content: buildSystemPrompt(columns) },
-    ...history.map((h) => ({ role: h.role, content: h.content }) as ChatCompletionMessageParam),
-    { role: 'user', content: message },
-  ];
-
-  const usage: GridAgentUsage = { inputTokens: 0, outputTokens: 0 };
   let lastQueryResult: QueryGridDataResult | null = null;
-  let correctionRounds = 0;
 
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages,
-      tools: gridAgentTools,
-      tool_choice: 'auto',
-    });
+  const handleToolCall = async (
+    name: string,
+    rawArgs: string
+  ): Promise<ToolCallOutcome<GridAgentTurnResponse>> => {
+    const correction = validateAndBuildCorrection(name, rawArgs, columnKeys);
+    if (correction) return { kind: 'correction', content: correction };
 
-    usage.inputTokens += completion.usage?.prompt_tokens ?? 0;
-    usage.outputTokens += completion.usage?.completion_tokens ?? 0;
+    if (name === 'queryGridData') {
+      const args = QueryGridDataArgsSchema.parse(JSON.parse(rawArgs));
+      const result = await queryGridData(tableId, userId, args);
+      lastQueryResult = result;
+      return { kind: 'result', content: JSON.stringify(result) };
+    }
 
-    const responseMessage = completion.choices[0]?.message;
-    if (!responseMessage) throw new Error('LLM returned no message');
+    if (name === 'getGridSummary') {
+      const args = GetGridSummaryArgsSchema.parse(JSON.parse(rawArgs));
+      void args;
+      const result = await getGridSummary(tableId, userId);
+      return { kind: 'result', content: JSON.stringify(result) };
+    }
 
-    const toolCalls = responseMessage.tool_calls;
-    if (!toolCalls || toolCalls.length === 0) {
+    if (name === 'updateCellsBatch') {
+      const args = UpdateCellsBatchArgsSchema.parse(JSON.parse(rawArgs));
+      const actionId = randomUUID();
+      const summary = buildUpdateSummary(args.updates);
+      pendingGridActionCache.set({
+        actionId,
+        kind: 'updateCellsBatch',
+        summary,
+        updates: args.updates,
+        tableId,
+        userId,
+      });
       return {
-        answer: responseMessage.content ?? '',
-        ...(lastQueryResult
-          ? {
-              evidence: {
-                rows: lastQueryResult.rows.map((r) => ({ rowKey: r.rowKey, representativeLabel: r.representativeLabel })),
-              },
-            }
-          : {}),
-        usage,
+        kind: 'terminate',
+        response: { pendingAction: { actionId, kind: 'updateCellsBatch', summary, updates: args.updates } },
       };
     }
 
-    messages.push({
-      role: 'assistant',
-      content: responseMessage.content,
-      tool_calls: toolCalls,
-    });
+    return { kind: 'result', content: `Unknown tool: ${name}` };
+  };
 
-    for (const toolCall of toolCalls) {
-      if (toolCall.type !== 'function') continue;
-      const { name, arguments: rawArgs } = toolCall.function;
+  const { response, usage } = await runToolAgent<GridAgentTurnResponse>({
+    systemPrompt: buildSystemPrompt(columns),
+    history,
+    message,
+    tools: gridAgentTools,
+    handleToolCall,
+    buildFinalAnswer: (content) => ({
+      answer: content,
+      ...(lastQueryResult
+        ? {
+            evidence: {
+              rows: lastQueryResult.rows.map((r) => ({ rowKey: r.rowKey, representativeLabel: r.representativeLabel })),
+            },
+          }
+        : {}),
+    }),
+    buildCorrectionLimitAnswer: () => ({ answer: `I couldn't resolve a valid column for that request.` }),
+    buildExhaustedAnswer: () => ({ answer: "I wasn't able to complete that — could you rephrase?" }),
+  });
 
-      const correction = validateAndBuildCorrection(name, rawArgs, columnKeys);
-      if (correction) {
-        correctionRounds++;
-        if (correctionRounds > MAX_CORRECTION_ROUNDS) {
-          return { answer: `I couldn't resolve a valid column for that request.`, usage };
-        }
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: correction });
-        continue;
-      }
-
-      if (name === 'queryGridData') {
-        const args = QueryGridDataArgsSchema.parse(JSON.parse(rawArgs));
-        const result = await queryGridData(tableId, userId, args);
-        lastQueryResult = result;
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
-      } else if (name === 'getGridSummary') {
-        const args = GetGridSummaryArgsSchema.parse(JSON.parse(rawArgs));
-        void args;
-        const result = await getGridSummary(tableId, userId);
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
-      } else if (name === 'updateCellsBatch') {
-        const args = UpdateCellsBatchArgsSchema.parse(JSON.parse(rawArgs));
-        const actionId = randomUUID();
-        const summary = buildUpdateSummary(args.updates);
-        pendingGridActionCache.set({
-          actionId,
-          kind: 'updateCellsBatch',
-          summary,
-          updates: args.updates,
-          tableId,
-          userId,
-        });
-        return { pendingAction: { actionId, kind: 'updateCellsBatch', summary, updates: args.updates }, usage };
-      } else {
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: `Unknown tool: ${name}` });
-      }
-    }
-  }
-
-  return { answer: "I wasn't able to complete that — could you rephrase?", usage };
+  return { ...response, usage };
 }
 
 /**

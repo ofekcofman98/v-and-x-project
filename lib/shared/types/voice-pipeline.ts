@@ -1,4 +1,5 @@
 import type { TableSchema } from '@/lib/shared/types/table-schema';
+import type { ServerTelemetrySpans } from '@/lib/shared/types/voice-telemetry';
 
 export type MatchType = 'exact' | 'fuzzy' | 'phonetic' | 'semantic';
 
@@ -40,6 +41,8 @@ export interface VoiceEntryPayload {
   navigationMode: 'column-first' | 'row-first';
   tableId: string;
   language?: string;
+  /** docs/features/19_voice_telemetry.md §3 Constraint 1 — threaded from client capture start. */
+  requestId?: string;
 }
 
 /** Full processing result returned by the service and serialised in the API response. */
@@ -51,6 +54,8 @@ export interface VoiceEntryResult extends ParsedResult {
   cached?: boolean;
   matchType?: MatchType;
   pathTaken?: ProcessingPath;
+  /** docs/features/19_voice_telemetry.md §6 — server-side spans for the client to merge. */
+  telemetry?: ServerTelemetrySpans;
 }
 
 /** Standard API response envelope for the voice entry endpoint. */
@@ -62,6 +67,8 @@ export interface VoiceEntryResponse {
     message: string;
     details?: unknown;
   };
+  /** docs/features/19_voice_telemetry.md §7 — echoed back unchanged for correlation. */
+  requestId?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -98,6 +105,8 @@ export interface VoiceBatchResult {
   parsingDuration: number;
   totalDuration: number;
   pathTaken: BatchProcessingPath;
+  /** docs/features/19_voice_telemetry.md §6 — server-side spans for the client to merge. */
+  telemetry?: ServerTelemetrySpans;
 }
 
 /** Type guard distinguishing a batch result from a single-entry ParsedResult/VoiceEntryResult. */

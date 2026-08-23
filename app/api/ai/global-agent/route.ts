@@ -1,7 +1,7 @@
 /**
  * Global Agent API Route
  * HTTP transport layer only — all business logic lives in:
- *   lib/server/services/ai-service/global-agent.ts
+ *   lib/server/services/ai-service/global-agent/agent.ts
  *
  * Responsibilities of this file:
  *   - Auth the caller and resolve their accessible organization IDs

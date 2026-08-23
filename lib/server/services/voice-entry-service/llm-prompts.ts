@@ -3,6 +3,7 @@ import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnDefinition, TableSchema } from '@/lib/shared/types/table-schema';
 import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
 import { openai } from './openai-client';
+import { AI_MODELS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod schema for LLM output validation
@@ -63,7 +64,7 @@ when a name/entity was actually spoken.
 
 CURRENT STATE:
 - Navigation mode: ${navigationMode}
-- Expected Column Type: ${columnType} (e.g. if 'number', convert word numbers like "eighty" to 80)
+- Expected Column Type: ${columnType} (e.g. if 'number', convert word numbers like "eighty" to 80; if 'boolean', map presence/affirmation words like "here", "present", "yes" to true and negation/absence words like "not here", "absent", "no" to false)
 
 USER SAID: "${transcript}"
 
@@ -101,7 +102,7 @@ The row has already been selected — your ONLY job is to extract and normalize
 the value from the transcript for the given column type. There is no entity
 or name to extract; ignore that entirely.
 
-Expected Column Type: ${columnType} (e.g. if 'number', convert word numbers like "eighty five" to 85)
+Expected Column Type: ${columnType} (e.g. if 'number', convert word numbers like "eighty five" to 85; if 'boolean', map presence/affirmation words like "here", "present", "yes" to true and negation/absence words like "not here", "absent", "no" to false)
 
 USER SAID: "${transcript}"
 
@@ -123,14 +124,14 @@ export async function extractValueOnlyViaLLM(transcript: string, activeColumn: C
   const prompt = buildValueOnlyPrompt(transcript, activeColumn.type);
 
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: AI_MODELS.CHAT,
     messages: [
       { role: 'system', content: 'You are a data extraction assistant that normalizes spoken values.' },
       { role: 'user', content: prompt },
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.1,
-    max_tokens: 64,
+    temperature: AI_TUNING.JSON_TEMPERATURE,
+    max_tokens: AI_TUNING.MAX_TOKENS.VALUE_ONLY,
   });
 
   const rawContent = completion.choices?.[0]?.message?.content;

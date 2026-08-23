@@ -5,9 +5,10 @@
  * Whisper ever returns. This is the only hook that touches both the shadow
  * transcript and tableSchema — use-speech-shadow.ts stays table-agnostic.
  *
- * Column-first only: in row-first mode the active row is already fixed by
- * the pointer (mirrors the server's `isRowFirstMidRow` shortcut), so there
- * is nothing to guess — only the interim transcript is published.
+ * In row-first mode the active row is already fixed by the pointer
+ * (mirrors the server's `isRowFirstMidRow` shortcut), so there is no row
+ * to guess — but the value is still guessable from the raw transcript and
+ * is published against that fixed row.
  *
  * The result is a pure display guess. It never writes a cell and is always
  * superseded by the confirmed (Whisper) result — see the reconciliation
@@ -70,9 +71,18 @@ export function useProvisionalTarget({
 
     debounceRef.current = setTimeout(() => {
       // Row-first: the row is already fixed by the pointer, mirroring the
-      // server's isRowFirstMidRow shortcut — nothing to guess.
+      // server's isRowFirstMidRow shortcut — only the value needs guessing.
+      // Read the active row from the store directly (not a hook
+      // subscription) since this callback only ever fires while speech is
+      // active, and subscribing would re-run the effect on every pointer
+      // move for no benefit.
       if (navigationMode === 'row-first') {
-        setProvisionalFeedback({ interimTranscript });
+        const activeRowKey = useUIStore.getState().activeCell?.rowKey ?? null;
+        setProvisionalFeedback({
+          interimTranscript,
+          provisionalRowKey: activeRowKey,
+          provisionalValue: interimTranscript.trim() || null,
+        });
         return;
       }
 

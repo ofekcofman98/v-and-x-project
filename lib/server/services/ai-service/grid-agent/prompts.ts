@@ -7,7 +7,7 @@
 import { z } from 'zod';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 import { QueryGridDataArgsSchema, UpdateCellsBatchArgsSchema, GetGridSummaryArgsSchema } from '@/lib/shared/types/ai';
-import type { AgentColumn } from '@/lib/server/services/ai-grid-tools';
+import type { AgentColumn } from '@/lib/server/services/ai-service/tools/grid-tools';
 
 function toJsonSchemaParameters(schema: z.ZodType): Record<string, unknown> {
   const { $schema, ...parameters } = z.toJSONSchema(schema) as Record<string, unknown>;
@@ -100,6 +100,10 @@ Rules:
   that isn't listed, tell the user it doesn't exist — do not guess a key.
 - Never ask for or reference a tableId — the active table is already fixed.
 - Keep answers concise and grounded in tool results.
+- When proposing an "updateCellsBatch" write to a BOOLEAN column, emit the
+  value as the plain word the user meant (e.g. "here", "present", "yes",
+  "not here", "absent", "no") — it is normalized server-side. Do not invent
+  a "true"/"false" string if the user's own wording is clearer.
 
 Table columns:
 ${columnList}`;

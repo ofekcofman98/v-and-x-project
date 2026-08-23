@@ -24,6 +24,7 @@ import type {
   VoiceEntryResult,
   VoiceBatchResult,
 } from '@/lib/shared/types/voice-pipeline';
+import type { MatchingTier, ServerTelemetrySpans } from '@/lib/shared/types/voice-telemetry';
 import { parseForColumn } from '@/lib/server/parsers/registry';
 import { matchAsync } from '@/lib/server/matching/matcher';
 import { entityCache } from '@/lib/server/cache/entity-recognition-cache';
@@ -39,6 +40,8 @@ import { buildParsePrompt, extractValueOnlyViaLLM, parseCompletion } from './llm
 import { logPerformanceStats } from './performance-logging';
 import { looksLikeBatchUtterance } from './batch-detect';
 import { processVoiceEntryBatch, BatchSegmentationFailedError } from './batch-orchestrator';
+import { AI_MODELS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
+import { VOICE_ACCURACY_TELEMETRY_ENABLED } from '@/lib/server/services/telemetry/config';
 
 /**
  * Runs the full voice entry pipeline and returns a structured result.
@@ -63,7 +66,11 @@ export async function processVoiceEntry(
   const isMidRowValueOnly = isRowFirstMidRow(navigationMode, activeCell, tableSchema);
 
   // ── Stage 1: Transcription ─────────────────────────────────────────────────
+  // docs/features/19_voice_telemetry.md §6 — timed at this call site rather
+  // than inside transcription.ts itself (transcribeAudio already returns
+  // transcriptionDuration; only the wall-clock ISO boundaries are new here).
   const transcriptionStartTime = Date.now();
+  const transcriptionStartAt = new Date(transcriptionStartTime).toISOString();
   const { transcript, transcriptionDuration, audioDurationSec, promptEntities } = await transcribeAudio(
     audioFile,
     tableSchema,
@@ -72,6 +79,39 @@ export async function processVoiceEntry(
     transcriptionStartTime,
     { suppressVocabPrompt: isMidRowValueOnly }
   );
+  const transcriptionEndAt = new Date().toISOString();
+
+  // Mutable span state, filled in as later stages run; captured into a
+  // ServerTelemetrySpans object at every return point via buildTelemetry().
+  let llmParseStartAt: string | undefined;
+  let llmParseEndAt: string | undefined;
+  let matchingStartAt: string | undefined;
+  let matchingEndAt: string | undefined;
+  let matchingTierUsed: MatchingTier | undefined;
+
+  /**
+   * Assembles the telemetry spans object attached to every returned result.
+   * `matchedEntityLabel`, when accuracy telemetry is enabled, is the row
+   * label the pipeline resolved to (see §8: matched_entity_value).
+   */
+  function buildTelemetry(matchedEntityLabel?: string | null): ServerTelemetrySpans {
+    const spans: ServerTelemetrySpans = {
+      transcriptionStartAt,
+      transcriptionEndAt,
+      llmParseStartAt,
+      llmParseEndAt,
+      matchingStartAt,
+      matchingEndAt,
+      matchingTierUsed,
+    };
+
+    if (VOICE_ACCURACY_TELEMETRY_ENABLED) {
+      spans.whisperTranscript = transcript;
+      if (matchedEntityLabel) spans.matchedEntityValue = matchedEntityLabel;
+    }
+
+    return spans;
+  }
 
   // ── Stage 2: Hallucination guard ──────────────────────────────────────────
   // Fail fast on unusable transcripts (empty or a repetition-loop) rather
@@ -92,6 +132,7 @@ export async function processVoiceEntry(
       parsingDuration: 0,
       totalDuration: Date.now() - totalStartTime,
       pathTaken: 'LLM_FALLBACK',
+      telemetry: buildTelemetry(),
     };
   }
 
@@ -103,10 +144,11 @@ export async function processVoiceEntry(
   // docs/features/03_ai_table_agent.md §5.5
   if (looksLikeBatchUtterance(transcript)) {
     try {
-      return await processVoiceEntryBatch(transcript, payload, {
+      const batchResult = await processVoiceEntryBatch(transcript, payload, {
         transcriptionDuration,
         totalStartTime,
       });
+      return { ...batchResult, telemetry: buildTelemetry() };
     } catch (err) {
       if (!(err instanceof BatchSegmentationFailedError)) throw err;
       console.warn('[VoiceEntryService] Batch segmentation failed, degrading to single-entry:', transcript);
@@ -150,6 +192,9 @@ export async function processVoiceEntry(
       console.log('[VoiceEntryService] 🎯 FAST_PATH: Row-first mid-row value (no entity resolution)');
       const parsingDuration = Date.now() - parsingStartTime;
       const totalDuration = Date.now() - totalStartTime;
+      // No matchAsync call here — the pointer already identifies the row.
+      // matchingStartAt/EndAt stay null per §7; the tier is still known.
+      matchingTierUsed = 'exact';
 
       const result: VoiceEntryResult = {
         entity: activeRow.label,
@@ -171,6 +216,7 @@ export async function processVoiceEntry(
         cached: false,
         matchType: 'exact',
         pathTaken: 'FAST_PATH',
+        telemetry: buildTelemetry(activeRow.label),
       };
 
       logPerformanceStats({
@@ -191,10 +237,14 @@ export async function processVoiceEntry(
     // matchAsync, no AMBIGUOUS possible here: the row is already known.
     const parsingDuration = Date.now() - parsingStartTime;
     const llmStartTime = Date.now();
+    llmParseStartAt = new Date(llmStartTime).toISOString();
     const rawValue = await extractValueOnlyViaLLM(transcript, activeColumn);
+    llmParseEndAt = new Date().toISOString();
     const llmDuration = Date.now() - llmStartTime;
     const valueParsed = parseForColumn(rawValue, activeColumn, parseCtx);
     const totalDuration = Date.now() - totalStartTime;
+    // No matchAsync call here either — the pointer already identifies the row.
+    matchingTierUsed = 'exact';
 
     const result: VoiceEntryResult = {
       entity: activeRow.label,
@@ -217,6 +267,7 @@ export async function processVoiceEntry(
       cached: false,
       matchType: 'exact',
       pathTaken: 'LLM_FALLBACK',
+      telemetry: buildTelemetry(activeRow.label),
     };
 
     logPerformanceStats({
@@ -240,6 +291,8 @@ export async function processVoiceEntry(
     console.log('[VoiceEntryService] 🚀 ENTITY_CACHE_HIT: Saved ~1500ms LLM call');
     const parsingDuration = Date.now() - parsingStartTime;
     const totalDuration = Date.now() - totalStartTime;
+    // Cache hit bypasses matchAsync entirely — spans stay null, tier is known.
+    matchingTierUsed = cachedEntity.matchType;
 
     const parseCtx = toParseContext(language);
     const parsed = parseForColumn(cachedEntity.value, activeColumn, parseCtx);
@@ -264,6 +317,7 @@ export async function processVoiceEntry(
       cached: true,
       matchType: cachedEntity.matchType,
       pathTaken: 'ENTITY_CACHE_HIT',
+      telemetry: buildTelemetry(cachedEntity.entity),
     };
 
     logPerformanceStats({
@@ -281,22 +335,32 @@ export async function processVoiceEntry(
 
   // ── Optimisation 2: Fast path (regex + non-LLM matching, Levels 1–3) ──────
   const quickExtract = extractEntityQuick(transcript);
+  // Tracks whether quickExtract's entity guess actually resolved to a real
+  // row — if not, Optimisation 2.5 below still gets a shot at the transcript
+  // as a bare value (e.g. "Not here" split into entity:"Not" value:"here"
+  // must not block the bare-value path that would have parsed the whole
+  // transcript correctly).
+  let quickExtractMatchedRow = false;
 
   if (quickExtract) {
     console.log('[VoiceEntryService] Quick extraction found pattern:', quickExtract);
 
+    const matchStartTime = Date.now();
+    matchingStartAt = new Date(matchStartTime).toISOString();
     const matchResult = await matchAsync(quickExtract.entity, entities, tableId, {
       useCache: true,
       usePhonetic: true,
       useFuzzy: true,
       fuzzyThreshold: 4,
     });
+    matchingEndAt = new Date().toISOString();
 
     if (
       matchResult.matched !== null &&
       matchResult.confidence >= 0.85 &&
       matchResult.matchType !== 'none'
     ) {
+      quickExtractMatchedRow = true;
       console.log('[VoiceEntryService] 🎯 FAST_PATH: Non-LLM match successful');
       const parsingDuration = Date.now() - parsingStartTime;
       const totalDuration = Date.now() - totalStartTime;
@@ -305,6 +369,7 @@ export async function processVoiceEntry(
 
       // matchType is narrowed to MatchType by the !== 'none' guard above
       const safeMatchType: MatchType = matchResult.matchType;
+      matchingTierUsed = safeMatchType;
 
       entityCache.set(transcript, tableId, {
         transcript,
@@ -334,6 +399,7 @@ export async function processVoiceEntry(
         cached: false,
         matchType: safeMatchType,
         pathTaken: 'FAST_PATH',
+        telemetry: buildTelemetry(matchResult.matched),
       };
 
       logPerformanceStats({
@@ -352,15 +418,20 @@ export async function processVoiceEntry(
 
   // ── Optimisation 2.5: Bare-value fast path ────────────────────────────────
   // activeCell already identifies the row (via click, or via Smart Pointer
-  // row-first advance) — a lone value needs no entity restated. Only
-  // reachable when quickExtract's "Entity, value" pattern didn't match.
-  if (!quickExtract) {
+  // row-first advance) — a lone value needs no entity restated. Reachable
+  // when quickExtract's "Entity, value" pattern didn't match at all, OR when
+  // it matched but the guessed "entity" didn't resolve to a real row (e.g.
+  // "Not here" is split into entity:"Not" value:"here" — that guess is
+  // wrong, but the full transcript is a valid bare boolean value).
+  if (!quickExtract || !quickExtractMatchedRow) {
     const bareValue = resolveBareValueEntry(transcript, activeColumn, activeRow, toParseContext(language));
 
     if (bareValue) {
       console.log('[VoiceEntryService] 🎯 FAST_PATH: Bare value for already-selected cell');
       const parsingDuration = Date.now() - parsingStartTime;
       const totalDuration = Date.now() - totalStartTime;
+      // No matchAsync call — the active cell already identifies the row.
+      matchingTierUsed = 'exact';
 
       const result: VoiceEntryResult = {
         entity: bareValue.matched,
@@ -382,6 +453,7 @@ export async function processVoiceEntry(
         cached: false,
         matchType: 'exact',
         pathTaken: 'FAST_PATH',
+        telemetry: buildTelemetry(bareValue.matched),
       };
 
       logPerformanceStats({
@@ -401,24 +473,29 @@ export async function processVoiceEntry(
   // ── Optimisation 3: LLM fallback (GPT-4o-mini, Level 4) ──────────────────
   console.warn('[VoiceEntryService] ⚠️ LLM_FALLBACK: Fast path failed, falling back to GPT');
   const llmStartTime = Date.now();
+  llmParseStartAt = new Date(llmStartTime).toISOString();
 
   const prompt = buildParsePrompt({ transcript, tableSchema, activeCell, navigationMode });
 
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: AI_MODELS.CHAT,
     messages: [
       {
         role: 'system',
         content:
           'You are a data entry assistant that extracts entities and values from voice transcripts.',
       },
-      { role: 'user', content: prompt },
+      {
+        role: 'user',
+        content: prompt
+      },
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.1,
-    max_tokens: 256,
+    temperature: AI_TUNING.JSON_TEMPERATURE,
+    max_tokens: AI_TUNING.MAX_TOKENS.PARSE,
   });
 
+  llmParseEndAt = new Date().toISOString();
   const llmDuration = Date.now() - llmStartTime;
   const parsingDuration = Date.now() - parsingStartTime;
   const rawContent = completion.choices?.[0]?.message?.content;
@@ -463,6 +540,7 @@ export async function processVoiceEntry(
       totalDuration,
       cached: false,
       pathTaken: 'LLM_FALLBACK',
+      telemetry: buildTelemetry(),
     };
   }
 
@@ -474,13 +552,17 @@ export async function processVoiceEntry(
     matchedEntity = activeRow.label;
     matchConfidence = 1;
     matchType = 'exact';
+    matchingTierUsed = 'exact'; // No matchAsync call — the active row is already known.
   } else {
+    const matchStartTime = Date.now();
+    matchingStartAt = new Date(matchStartTime).toISOString();
     const finalMatch = await matchAsync(parsedResult.entity ?? '', entities, tableId, {
       useCache: true,
       usePhonetic: true,
       useFuzzy: true,
       fuzzyThreshold: 4,
     });
+    matchingEndAt = new Date().toISOString();
 
     // `finalMatch` is the real matcher chain's verdict (Exact/Phonetic/Fuzzy/
     // Vector) against the actual row labels — it's the only source of truth
@@ -494,6 +576,7 @@ export async function processVoiceEntry(
     matchedEntity = finalMatch.matched;
     matchConfidence = finalMatch.confidence;
     matchType = matchedEntity ? 'semantic' : null;
+    if (matchType) matchingTierUsed = matchType;
   }
 
   const responsePayload: VoiceEntryResult = {
@@ -521,6 +604,7 @@ export async function processVoiceEntry(
     cached: false,
     matchType: matchedEntity ? matchType ?? 'semantic' : undefined,
     pathTaken: 'LLM_FALLBACK',
+    telemetry: buildTelemetry(matchedEntity),
   };
 
   if (

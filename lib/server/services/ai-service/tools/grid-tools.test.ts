@@ -28,7 +28,7 @@ import {
   getGridSummary,
   executeUpdateCellsBatch,
   UnknownColumnKeyError,
-} from './ai-grid-tools';
+} from './grid-tools';
 
 const OWNER_ID = 'user-owner';
 const TABLE_ID = 'table-1';
@@ -192,8 +192,27 @@ describe('executeUpdateCellsBatch', () => {
     expect(result.updated).toBe(0);
     expect(result.failed).toEqual([
       { rowKey: 'row-1', columnKey: 'ghost', reason: 'Unknown column' },
-      { rowKey: 'row-2', columnKey: 'score', reason: 'Must be a number' },
+      { rowKey: 'row-2', columnKey: 'score', reason: 'Could not parse value for NUMBER column' },
     ]);
     expect(upsertCellsBatchMock).not.toHaveBeenCalled();
+  });
+
+  it('parses a spoken-word boolean value (e.g. "here") before validating, instead of rejecting it outright', async () => {
+    tableFindUnique.mockResolvedValue(ownedTable());
+    tableColumnFindMany.mockResolvedValue([
+      { id: 'col-present', key: 'present', type: ColumnType.BOOLEAN, access: null, validation: null },
+    ]);
+    upsertCellsBatchMock.mockResolvedValue([]);
+
+    const result = await executeUpdateCellsBatch(TABLE_ID, OWNER_ID, [
+      { rowKey: 'row-1', columnKey: 'present', value: 'here' },
+    ]);
+
+    expect(result).toEqual({ updated: 1, failed: [] });
+    expect(upsertCellsBatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        writes: [{ rowKey: 'row-1', tableColumnId: 'col-present', value: true }],
+      })
+    );
   });
 });

@@ -13,9 +13,9 @@ const getTableColumnsForAgentMock = vi.fn();
 const queryGridDataMock = vi.fn();
 const getGridSummaryMock = vi.fn();
 
-vi.mock('@/lib/server/services/ai-grid-tools', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/server/services/ai-grid-tools')>(
-    '@/lib/server/services/ai-grid-tools'
+vi.mock('@/lib/server/services/ai-service/tools/grid-tools', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/server/services/ai-service/tools/grid-tools')>(
+    '@/lib/server/services/ai-service/tools/grid-tools'
   );
   return {
     ...actual,
@@ -30,7 +30,7 @@ vi.mock('@/lib/server/cache/grid-agent-cache', () => ({
   pendingGridActionCache: { set: (...args: unknown[]) => cacheSetMock(...args), get: vi.fn(), evict: vi.fn() },
 }));
 
-import { runGridAgentTurn } from './grid-agent';
+import { runGridAgentTurn } from './agent';
 
 const TABLE_ID = 'table-1';
 const USER_ID = 'user-1';

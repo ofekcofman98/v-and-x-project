@@ -287,3 +287,39 @@ enum EntrySource {
 
   @@map("entry_source")
 }
+
+model VoiceInteraction {
+  id        String   @id @default(uuid()) @db.Uuid
+  requestId String   @unique @map("request_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  vadStartAt           DateTime? @map("vad_start_at") @db.Timestamptz(6)
+  recordingStopAt      DateTime? @map("recording_stop_at") @db.Timestamptz(6)
+  uploadCompleteAt     DateTime? @map("upload_complete_at") @db.Timestamptz(6)
+  transcriptionStartAt DateTime? @map("transcription_start_at") @db.Timestamptz(6)
+  transcriptionEndAt   DateTime? @map("transcription_end_at") @db.Timestamptz(6)
+  llmParseStartAt      DateTime? @map("llm_parse_start_at") @db.Timestamptz(6)
+  llmParseEndAt        DateTime? @map("llm_parse_end_at") @db.Timestamptz(6)
+  matchingStartAt      DateTime? @map("matching_start_at") @db.Timestamptz(6)
+  matchingEndAt        DateTime? @map("matching_end_at") @db.Timestamptz(6)
+  confirmShownAt       DateTime? @map("confirm_shown_at") @db.Timestamptz(6)
+  confirmReceivedAt    DateTime? @map("confirm_received_at") @db.Timestamptz(6)
+  dbWriteAckAt         DateTime? @map("db_write_ack_at") @db.Timestamptz(6)
+
+  recordingDurationMs     Int? @map("recording_duration_ms")
+  transcriptionDurationMs Int? @map("transcription_duration_ms")
+  llmParseDurationMs      Int? @map("llm_parse_duration_ms")
+  matchingDurationMs      Int? @map("matching_duration_ms")
+  confirmWaitDurationMs   Int? @map("confirm_wait_duration_ms")
+  totalDurationMs         Int? @map("total_duration_ms")
+
+  confirmationRoute  String? @map("confirmation_route")
+  webSttTranscript   String? @map("web_stt_transcript")
+  whisperTranscript  String? @map("whisper_transcript")
+  matchedEntityValue String? @map("matched_entity_value")
+  matchingTierUsed   String? @map("matching_tier_used")
+
+  @@index([requestId])
+  @@index([createdAt])
+  @@map("voice_interactions")
+}

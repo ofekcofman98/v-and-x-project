@@ -55,6 +55,7 @@
    - 8.2 [Custom Metrics](#82-custom-metrics)
    - 8.3 [Real User Monitoring](#83-real-user-monitoring)
    - 8.4 [Performance Budgets Tracking](#84-performance-budgets-tracking)
+   - 8.5 [Voice Interaction Telemetry](#85-voice-interaction-telemetry)
 
 9. [Mobile Performance](#9-mobile-performance)
    - 9.1 [Mobile-Specific Optimizations](#91-mobile-specific-optimizations)
@@ -1857,6 +1858,18 @@ budgetTracker.track('whisperAPI', transcriptionDuration, 'voicePipeline');
 const totalDuration = transcriptionDuration + parsingDuration;
 budgetTracker.track('totalE2E', totalDuration, 'voicePipeline');
 ```
+
+---
+
+### 8.5 Voice Interaction Telemetry
+
+> **Status:** Planned. Full design lives in `docs/features/19_voice_telemetry.md`.
+
+Everything above in §8 is illustrative example code (`gtag`, `PerformanceMonitor`, `BudgetTracker`) that is not actually wired into the app — the only real, persisted telemetry for voice interactions is the `voice_interactions` table defined in feature 19.
+
+Unlike the console-only logging in §6.3 and `performance-logging.ts` (which stays as-is — this is additive, not a replacement), `voice_interactions` persists one row per voice interaction via Prisma, covering the **full** span this chapter's other sections don't reach: mic-open (`vad_start_at`) through DB-write-ack (`db_write_ack_at`), including the recording duration and the confirm→write gap that today's `totalDuration` measurement excludes. Accuracy fields (`web_stt_transcript`, `whisper_transcript`, `matched_entity_value`, `matching_tier_used`) are behind a default-off flag (`ENABLE_VOICE_ACCURACY_TELEMETRY`).
+
+See `docs/features/19_voice_telemetry.md` for the full schema, capture points, and constraints — notably that most voice entries auto-commit with no confirmation step at all (`confirmation_route`), which is easy to misread from this chapter alone.
 
 ---
 

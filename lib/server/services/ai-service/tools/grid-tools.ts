@@ -15,6 +15,7 @@ import { prisma } from '@/lib/prisma';
 import { EntrySource, Prisma } from '@/lib/shared/generated/prisma/client';
 import { getTableAccessContext, filterAccessibleColumns, canAccessColumn } from '@/lib/server/services/column-access';
 import { validateValue } from '@/lib/server/parsers/value-parsers';
+import { parseForColumn } from '@/lib/server/parsers/registry';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnValidation } from '@/lib/shared/types/table-schema';
 import type {
@@ -265,8 +266,27 @@ export async function executeUpdateCellsBatch(
       continue;
     }
 
+    // Route the LLM-proposed value through the same schema-driven parser the
+    // voice pipeline uses before validating — the agent is never told the
+    // exact BOOLEAN/DATE/NUMBER vocabulary (docs/features/03_ai_table_agent.md
+    // §4.2), so a value like "here" or "yes" must be normalized to `true`
+    // rather than rejected outright as "Must be yes/no".
     // Prisma types `validation` as Json — its shape is enforced at the app layer, not the DB.
-    const validation = validateValue(update.value, column.type, column.validation as ColumnValidation | undefined);
+    const parsed = parseForColumn(
+      update.value,
+      { type: column.type as ColumnType, validation: column.validation as ColumnValidation | undefined },
+      { language: 'auto' }
+    );
+    if (!parsed.valid) {
+      failed.push({
+        rowKey: update.rowKey,
+        columnKey: update.columnKey,
+        reason: parsed.error ?? 'Invalid value',
+      });
+      continue;
+    }
+
+    const validation = validateValue(parsed.value, column.type, column.validation as ColumnValidation | undefined);
     if (!validation.valid) {
       failed.push({
         rowKey: update.rowKey,
@@ -276,7 +296,11 @@ export async function executeUpdateCellsBatch(
       continue;
     }
 
-    resolvedWrites.push({ rowKey: update.rowKey, tableColumnId: column.id, value: update.value });
+    resolvedWrites.push({
+      rowKey: update.rowKey,
+      tableColumnId: column.id,
+      value: parsed.value as string | number | boolean | null,
+    });
   }
 
   if (resolvedWrites.length > 0) {

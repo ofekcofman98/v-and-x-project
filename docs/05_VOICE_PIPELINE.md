@@ -916,8 +916,8 @@ export function parseNumber(input: string): number | null {
 export function parseBoolean(input: string): boolean | null {
   const lower = input.toLowerCase().trim();
   
-  const trueValues = ['yes', 'true', 'present', 'check', 'checked', '1', 'y'];
-  const falseValues = ['no', 'false', 'absent', 'uncheck', 'unchecked', '0', 'n'];
+  const trueValues = ['yes', 'true', 'present', 'here', 'check', 'checked', 'done', 'complete', 'completed', 'correct', '1', 'y', 'כן', 'נכון', 'חיובי', 'בוצע', 'הושלם', 'יש', 'נוכח', 'נוכחת', 'כאן', 'אישור', 'וי'];
+  const falseValues = ['no', 'false', 'absent', 'not here', 'uncheck', 'unchecked', 'not done', 'incomplete', 'wrong', '0', 'n', 'לא', 'שלילי', 'לא בוצע', 'חסר', 'חסרה', 'נעדר', 'נעדרת', 'לא כאן', 'ביטול', 'אין'];
   
   if (trueValues.includes(lower)) return true;
   if (falseValues.includes(lower)) return false;

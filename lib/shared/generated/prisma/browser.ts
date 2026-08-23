@@ -92,3 +92,8 @@ export type WorkbenchMember = Prisma.WorkbenchMemberModel
  * 
  */
 export type GroupMember = Prisma.GroupMemberModel
+/**
+ * Model VoiceInteraction
+ * 
+ */
+export type VoiceInteraction = Prisma.VoiceInteractionModel
