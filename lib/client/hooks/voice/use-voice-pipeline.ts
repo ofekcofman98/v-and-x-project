@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useVoiceEntry } from '@/lib/client/hooks/voice/use-voice-entry';
 import { useContinuousVoice } from '@/lib/client/hooks/voice/use-continuous-voice';
+import { voiceTelemetry } from '@/lib/client/hooks/voice/use-voice-telemetry';
 import { useVoiceActionHandler } from '@/lib/client/hooks/voice/use-voice-action-handler';
 import { useVoiceBatchHandler } from '@/lib/client/hooks/voice/use-voice-batch-handler';
 import { useVoiceErrorHandler } from '@/lib/client/hooks/voice/use-voice-error-handler';
@@ -111,7 +112,7 @@ export function useVoicePipeline({
    * Reads activeCell and navigationMode imperatively — no subscription required.
    */
   const processVoiceEntry = useCallback(
-    async (audioBlob: Blob) => {
+    async (audioBlob: Blob, requestId: string) => {
       const { activeCell, navigationMode } = useUIStore.getState();
 
       if (!activeCell) {
@@ -124,12 +125,16 @@ export function useVoicePipeline({
       formData.append('activeCell', JSON.stringify(activeCell));
       formData.append('navigationMode', navigationMode);
       formData.append('tableId', tableId);
+      formData.append('request_id', requestId);
 
       const startTime = Date.now();
       const response = await fetch('/api/voice-entry', {
         method: 'POST',
         body: formData,
       });
+      // docs/features/19_voice_telemetry.md §7 — response-received, not
+      // upload-bytes-flushed (documented limitation, see §9).
+      voiceTelemetry.mark(requestId, 'uploadCompleteAt');
 
       const duration = Date.now() - startTime;
       const payload = await response.json();
@@ -148,6 +153,7 @@ export function useVoicePipeline({
       }
 
       const data = payload.data as VoiceEntryResult | VoiceBatchResult;
+      voiceTelemetry.merge(requestId, data.telemetry);
 
       // Echo what Whisper actually heard before any batch/single-entry fork or
       // error branch below — a failed match is exactly when the user most
@@ -156,7 +162,7 @@ export function useVoicePipeline({
 
       if (isVoiceBatchResult(data)) {
         trackVoiceMetrics({ phase: 'voice-entry', duration, success: true });
-        handleBatchResult(data);
+        handleBatchResult(data, requestId);
         return;
       }
 
@@ -186,7 +192,7 @@ export function useVoicePipeline({
       }
 
       trackVoiceMetrics({ phase: 'voice-entry', duration, success: true });
-      await handleParsedResult(parsed);
+      await handleParsedResult(parsed, requestId);
     },
     [tableId, tableSchema, handleParsedResult, handleBatchResult, setLastTranscript]
   );
@@ -195,7 +201,7 @@ export function useVoicePipeline({
    * Callback for useVoiceEntry — invoked when a manual recording blob is ready.
    */
   const handleAudioReady = useCallback(
-    async (audioBlob: Blob) => {
+    async (audioBlob: Blob, requestId: string) => {
       setPendingConfirmation(null);
       setLastTranscript(null);
       setRecordingState('processing');
@@ -203,12 +209,15 @@ export function useVoicePipeline({
       const totalStartTime = Date.now();
 
       try {
-        await processVoiceEntry(audioBlob);
+        await processVoiceEntry(audioBlob, requestId);
 
         const totalDuration = Date.now() - totalStartTime;
         trackVoiceMetrics({ phase: 'total', duration: totalDuration, success: true });
       } catch (error) {
         const totalDuration = Date.now() - totalStartTime;
+        // docs/features/19_voice_telemetry.md §7 — flush on abandon, client-side error catch.
+        voiceTelemetry.setConfirmationRoute(requestId, 'abandoned');
+        voiceTelemetry.flush(requestId);
         dispatchError(error, { phase: 'voice-entry', durationMs: totalDuration });
       }
     },

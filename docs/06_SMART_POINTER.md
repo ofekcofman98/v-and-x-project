@@ -20,6 +20,7 @@
    - 3.1 [Column-First Mode](#31-column-first-mode)
    - 3.2 [Row-First Mode](#32-row-first-mode)
    - 3.3 [Unified Navigation Hook](#33-unified-navigation-hook)
+   - 3.4 [Entity-First Mode](#34-entity-first-mode)
 
 4. [Keyboard Navigation](#4-keyboard-navigation)
    - 4.1 [Keyboard Shortcuts](#41-keyboard-shortcuts)
@@ -539,6 +540,39 @@ export function usePointerNavigation(schema: TableSchema) {
   };
 }
 ```
+
+### 3.4 Entity-First Mode
+
+> **Status:** Planned. Full design (segmentation, LLM prompt/schema, batch resolution,
+> pointer re-targeting) lives in `docs/features/18_entity_first_navigation.md` — this
+> section only defines the mode so all three navigation modes stay listed in one place.
+
+**Pattern:** name an entity once, then speak that entity's values across columns,
+positionally, starting from the currently active column. Multiple entities may be named
+in one utterance.
+
+```
+Entity-First Mode (teacher grades student by student):
+
+┌─────────────┬─────────┬─────────┬─────────┐
+│ Student     │ Quiz 1  │ Quiz 2  │ Quiz 3  │
+├─────────────┼─────────┼─────────┼─────────┤
+│ Dana        │ [→90]   │         │         │ ← Pointer here
+│ Yossi       │         │         │         │
+└─────────────┴─────────┴─────────┴─────────┘
+
+Voice input: "Dana 90 85 70, Yossi 70 60 55"
+1. "Dana" resolves the row, values fill Quiz 1–3 left to right
+2. "Yossi" resolves the next row, values fill Quiz 1–3 the same way
+3. Pointer lands on Yossi's row, back at Quiz 1 — ready for the next utterance
+```
+
+Cell motion for this mode is identical to row-first's (§3.2) and is implemented by
+aliasing `rowFirstStrategy` in `lib/client/navigation/strategies.ts` rather than new
+motion math — the difference from row-first is entirely in how speech is parsed
+(whether a value carries an entity name) and in how the pointer re-targets after a
+batch commit (to the last resolved entity's row, not by counting writes). See the
+feature spec for the server-side segmentation/resolution design.
 
 ---
 

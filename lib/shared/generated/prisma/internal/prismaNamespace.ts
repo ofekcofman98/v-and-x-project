@@ -398,7 +398,8 @@ export const ModelName = {
   Group: 'Group',
   GroupBaseList: 'GroupBaseList',
   WorkbenchMember: 'WorkbenchMember',
-  GroupMember: 'GroupMember'
+  GroupMember: 'GroupMember',
+  VoiceInteraction: 'VoiceInteraction'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -414,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "baseList" | "listEntity" | "table" | "tableColumn" | "tableCell" | "columnTemplate" | "baseListTemplate" | "entityEmbedding" | "organization" | "organizationMember" | "workbench" | "group" | "groupBaseList" | "workbenchMember" | "groupMember"
+    modelProps: "baseList" | "listEntity" | "table" | "tableColumn" | "tableCell" | "columnTemplate" | "baseListTemplate" | "entityEmbedding" | "organization" | "organizationMember" | "workbench" | "group" | "groupBaseList" | "workbenchMember" | "groupMember" | "voiceInteraction"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1528,6 +1529,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    VoiceInteraction: {
+      payload: Prisma.$VoiceInteractionPayload<ExtArgs>
+      fields: Prisma.VoiceInteractionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.VoiceInteractionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.VoiceInteractionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload>
+        }
+        findFirst: {
+          args: Prisma.VoiceInteractionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.VoiceInteractionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload>
+        }
+        findMany: {
+          args: Prisma.VoiceInteractionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload>[]
+        }
+        create: {
+          args: Prisma.VoiceInteractionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload>
+        }
+        createMany: {
+          args: Prisma.VoiceInteractionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.VoiceInteractionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload>[]
+        }
+        delete: {
+          args: Prisma.VoiceInteractionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload>
+        }
+        update: {
+          args: Prisma.VoiceInteractionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload>
+        }
+        deleteMany: {
+          args: Prisma.VoiceInteractionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.VoiceInteractionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.VoiceInteractionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload>[]
+        }
+        upsert: {
+          args: Prisma.VoiceInteractionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceInteractionPayload>
+        }
+        aggregate: {
+          args: Prisma.VoiceInteractionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateVoiceInteraction>
+        }
+        groupBy: {
+          args: Prisma.VoiceInteractionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.VoiceInteractionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.VoiceInteractionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.VoiceInteractionCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1766,6 +1841,38 @@ export const GroupMemberScalarFieldEnum = {
 } as const
 
 export type GroupMemberScalarFieldEnum = (typeof GroupMemberScalarFieldEnum)[keyof typeof GroupMemberScalarFieldEnum]
+
+
+export const VoiceInteractionScalarFieldEnum = {
+  id: 'id',
+  requestId: 'requestId',
+  createdAt: 'createdAt',
+  vadStartAt: 'vadStartAt',
+  recordingStopAt: 'recordingStopAt',
+  uploadCompleteAt: 'uploadCompleteAt',
+  transcriptionStartAt: 'transcriptionStartAt',
+  transcriptionEndAt: 'transcriptionEndAt',
+  llmParseStartAt: 'llmParseStartAt',
+  llmParseEndAt: 'llmParseEndAt',
+  matchingStartAt: 'matchingStartAt',
+  matchingEndAt: 'matchingEndAt',
+  confirmShownAt: 'confirmShownAt',
+  confirmReceivedAt: 'confirmReceivedAt',
+  dbWriteAckAt: 'dbWriteAckAt',
+  recordingDurationMs: 'recordingDurationMs',
+  transcriptionDurationMs: 'transcriptionDurationMs',
+  llmParseDurationMs: 'llmParseDurationMs',
+  matchingDurationMs: 'matchingDurationMs',
+  confirmWaitDurationMs: 'confirmWaitDurationMs',
+  totalDurationMs: 'totalDurationMs',
+  confirmationRoute: 'confirmationRoute',
+  webSttTranscript: 'webSttTranscript',
+  whisperTranscript: 'whisperTranscript',
+  matchedEntityValue: 'matchedEntityValue',
+  matchingTierUsed: 'matchingTierUsed'
+} as const
+
+export type VoiceInteractionScalarFieldEnum = (typeof VoiceInteractionScalarFieldEnum)[keyof typeof VoiceInteractionScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -2079,6 +2186,7 @@ export type GlobalOmitConfig = {
   groupBaseList?: Prisma.GroupBaseListOmit
   workbenchMember?: Prisma.WorkbenchMemberOmit
   groupMember?: Prisma.GroupMemberOmit
+  voiceInteraction?: Prisma.VoiceInteractionOmit
 }
 
 /* Types for Logging */

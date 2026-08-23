@@ -24,7 +24,8 @@ interface UseVoiceActionHandlerOptions {
 }
 
 interface VoiceActionHandlerResult {
-  handleParsedResult: (parsed: ParsedResult) => Promise<void>;
+  /** requestId identifies this interaction for docs/features/19_voice_telemetry.md — omitted for non-voice callers. */
+  handleParsedResult: (parsed: ParsedResult, requestId?: string) => Promise<void>;
   calculateNextCell: (currentCell: CellPosition | null) => CellPosition | null;
 }
 
@@ -90,7 +91,7 @@ export function useVoiceActionHandler({
    * across all cell-selection changes.
    */
   const handleParsedResult = useCallback(
-    async (parsed: ParsedResult) => {
+    async (parsed: ParsedResult, requestId?: string) => {
       // Read volatile state imperatively — no stale-closure risk, no re-render on change
       const { activeCell, continuousMode } = useUIStore.getState();
 
@@ -136,12 +137,15 @@ export function useVoiceActionHandler({
             variant: 'destructive',
           });
 
-          setPendingConfirmation({
-            entity: parsed.entity ?? matched ?? '',
-            value: parsed.value as string | number | boolean | null,
-            confidence: 0,
-            alternatives: [],
-          });
+          setPendingConfirmation(
+            {
+              entity: parsed.entity ?? matched ?? '',
+              value: parsed.value as string | number | boolean | null,
+              confidence: 0,
+              alternatives: [],
+            },
+            requestId
+          );
 
           setRecordingState('confirming');
           return;
@@ -157,7 +161,8 @@ export function useVoiceActionHandler({
           tableId,
           matchedCell.rowKey,
           matchedCell.tableColumnId,
-          parsed.value as string | number | boolean | null
+          parsed.value as string | number | boolean | null,
+          requestId
         );
 
         // Sync pointer to matched entity after the write so the UI follows the data
@@ -183,22 +188,28 @@ export function useVoiceActionHandler({
           setRecordingState('idle');
         }
       } else if (ambiguityResult.isAmbiguous || ambiguityResult.recommendedAction === 'ask_user') {
-        setPendingConfirmation({
-          entity: matched ?? parsed.entity ?? '',
-          value: parsed.value as string | number | boolean | null,
-          confidence,
-          alternatives,
-        });
+        setPendingConfirmation(
+          {
+            entity: matched ?? parsed.entity ?? '',
+            value: parsed.value as string | number | boolean | null,
+            confidence,
+            alternatives,
+          },
+          requestId
+        );
 
         setRecordingState('confirming');
       } else {
         // No match or very low confidence — show confirmation dialog
-        setPendingConfirmation({
-          entity: parsed.entity ?? '',
-          value: parsed.value as string | number | boolean | null,
-          confidence: 0,
-          alternatives: [],
-        });
+        setPendingConfirmation(
+          {
+            entity: parsed.entity ?? '',
+            value: parsed.value as string | number | boolean | null,
+            confidence: 0,
+            alternatives: [],
+          },
+          requestId
+        );
 
         setRecordingState('confirming');
       }

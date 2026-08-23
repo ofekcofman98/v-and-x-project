@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
+import { voiceTelemetry } from '@/lib/client/hooks/voice/use-voice-telemetry';
 import type { BatchCellWrite, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { CellPosition } from '@/lib/client/stores/ui-store';
@@ -21,8 +22,11 @@ interface UseVoiceBatchHandlerOptions {
 }
 
 interface VoiceBatchHandlerResult {
-  /** Surfaces a batch result for confirmation (sets recordingState to 'confirming'). */
-  handleBatchResult: (result: VoiceBatchResult) => void;
+  /**
+   * Surfaces a batch result for confirmation (sets recordingState to 'confirming').
+   * requestId identifies this interaction for docs/features/19_voice_telemetry.md.
+   */
+  handleBatchResult: (result: VoiceBatchResult, requestId?: string) => void;
   /** Commits every currently-resolved write (route 'auto') in one transaction, then advances the pointer. */
   confirmBatch: () => Promise<void>;
   /** User tapped a disambiguation candidate — resolves that entry to 'auto'. */
@@ -85,10 +89,20 @@ export function useVoiceBatchHandler({
   );
 
   const confirmBatch = useCallback(async () => {
-    const { pendingBatchConfirmation, activeCell, navigationMode, continuousMode } =
+    const { pendingBatchConfirmation, pendingBatchRequestId, activeCell, navigationMode, continuousMode } =
       useUIStore.getState();
 
+    // docs/features/19_voice_telemetry.md §7 — confirm_received_at (whether
+    // triggered by the auto-commit timer or a manual "Confirm" click).
+    if (pendingBatchRequestId) {
+      voiceTelemetry.mark(pendingBatchRequestId, 'confirmReceivedAt');
+    }
+
     if (!pendingBatchConfirmation || !activeCell) {
+      if (pendingBatchRequestId) {
+        voiceTelemetry.setConfirmationRoute(pendingBatchRequestId, 'abandoned');
+        voiceTelemetry.flush(pendingBatchRequestId);
+      }
       setPendingBatchConfirmation(null);
       setRecordingState('idle');
       return;
@@ -100,6 +114,10 @@ export function useVoiceBatchHandler({
     );
 
     if (committable.length === 0) {
+      if (pendingBatchRequestId) {
+        voiceTelemetry.setConfirmationRoute(pendingBatchRequestId, 'abandoned');
+        voiceTelemetry.flush(pendingBatchRequestId);
+      }
       setPendingBatchConfirmation(null);
       setRecordingState('idle');
       return;
@@ -114,7 +132,8 @@ export function useVoiceBatchHandler({
           rowKey: w.rowKey,
           tableColumnId: w.tableColumnId,
           value: w.value as string | number | boolean | null,
-        }))
+        })),
+        pendingBatchRequestId ?? undefined
       );
 
       // Advance the pointer once per committed write, starting from the cell
@@ -139,9 +158,18 @@ export function useVoiceBatchHandler({
       );
 
       if (remaining.length > 0) {
-        setPendingBatchConfirmation(remaining);
+        // Interaction not done yet — more commits expected for this same
+        // requestId, so don't finalize confirmation_route / flush yet.
+        setPendingBatchConfirmation(remaining, undefined, pendingBatchRequestId ?? undefined);
         setRecordingState('confirming');
         return;
+      }
+
+      // docs/features/19_voice_telemetry.md §7, §12 — everything committable
+      // is written; this requestId's interaction is complete.
+      if (pendingBatchRequestId) {
+        voiceTelemetry.setConfirmationRoute(pendingBatchRequestId, 'batch');
+        voiceTelemetry.flush(pendingBatchRequestId);
       }
 
       setPendingBatchConfirmation(null);
@@ -173,8 +201,8 @@ export function useVoiceBatchHandler({
   ]);
 
   const handleBatchResult = useCallback(
-    (result: VoiceBatchResult) => {
-      setPendingBatchConfirmation(result.writes, result.overflowCount);
+    (result: VoiceBatchResult, requestId?: string) => {
+      setPendingBatchConfirmation(result.writes, result.overflowCount, requestId);
       setRecordingState('confirming');
 
       // Auto-commit whenever at least one entry resolved ('auto') — resolved

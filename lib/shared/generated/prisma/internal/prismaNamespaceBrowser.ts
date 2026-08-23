@@ -65,7 +65,8 @@ export const ModelName = {
   Group: 'Group',
   GroupBaseList: 'GroupBaseList',
   WorkbenchMember: 'WorkbenchMember',
-  GroupMember: 'GroupMember'
+  GroupMember: 'GroupMember',
+  VoiceInteraction: 'VoiceInteraction'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -283,6 +284,38 @@ export const GroupMemberScalarFieldEnum = {
 } as const
 
 export type GroupMemberScalarFieldEnum = (typeof GroupMemberScalarFieldEnum)[keyof typeof GroupMemberScalarFieldEnum]
+
+
+export const VoiceInteractionScalarFieldEnum = {
+  id: 'id',
+  requestId: 'requestId',
+  createdAt: 'createdAt',
+  vadStartAt: 'vadStartAt',
+  recordingStopAt: 'recordingStopAt',
+  uploadCompleteAt: 'uploadCompleteAt',
+  transcriptionStartAt: 'transcriptionStartAt',
+  transcriptionEndAt: 'transcriptionEndAt',
+  llmParseStartAt: 'llmParseStartAt',
+  llmParseEndAt: 'llmParseEndAt',
+  matchingStartAt: 'matchingStartAt',
+  matchingEndAt: 'matchingEndAt',
+  confirmShownAt: 'confirmShownAt',
+  confirmReceivedAt: 'confirmReceivedAt',
+  dbWriteAckAt: 'dbWriteAckAt',
+  recordingDurationMs: 'recordingDurationMs',
+  transcriptionDurationMs: 'transcriptionDurationMs',
+  llmParseDurationMs: 'llmParseDurationMs',
+  matchingDurationMs: 'matchingDurationMs',
+  confirmWaitDurationMs: 'confirmWaitDurationMs',
+  totalDurationMs: 'totalDurationMs',
+  confirmationRoute: 'confirmationRoute',
+  webSttTranscript: 'webSttTranscript',
+  whisperTranscript: 'whisperTranscript',
+  matchedEntityValue: 'matchedEntityValue',
+  matchingTierUsed: 'matchingTierUsed'
+} as const
+
+export type VoiceInteractionScalarFieldEnum = (typeof VoiceInteractionScalarFieldEnum)[keyof typeof VoiceInteractionScalarFieldEnum]
 
 
 export const SortOrder = {

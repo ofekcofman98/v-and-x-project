@@ -7,6 +7,7 @@
 import { useCallback, useRef } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useVAD } from '@/lib/client/hooks/voice/use-vad';
+import { voiceTelemetry } from '@/lib/client/hooks/voice/use-voice-telemetry';
 import { toast } from '@/components/ui/use-toast';
 import { ErrorCodes } from '@/lib/shared/types/voice-errors';
 import { getErrorMessage } from '@/lib/shared/errors/error-mapping';
@@ -17,8 +18,9 @@ import { isVoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
 interface UseContinuousVoiceOptions {
   tableId: string;
   tableSchema: TableSchema;
-  onResult: (result: ParsedResult) => void;
-  onBatchResult: (result: VoiceBatchResult) => void;
+  /** requestId identifies this interaction for docs/features/19_voice_telemetry.md. */
+  onResult: (result: ParsedResult, requestId: string) => void;
+  onBatchResult: (result: VoiceBatchResult, requestId: string) => void;
   onError: (error: Error) => void;
 }
 
@@ -64,13 +66,16 @@ export function useContinuousVoice({
    * is stable across all cell-selection changes.
    */
   const handleChunk = useCallback(
-    async (audioBlob: Blob) => {
+    async (audioBlob: Blob, requestId: string) => {
       if (!isContinuousRef.current) return;
 
       // Read volatile state imperatively — no stale-closure risk, no re-render on change
       const { activeCell, navigationMode } = useUIStore.getState();
 
       if (!activeCell) {
+        // Never uploaded — nothing to correlate a server response with.
+        voiceTelemetry.setConfirmationRoute(requestId, 'abandoned');
+        voiceTelemetry.flush(requestId);
         setRecordingState('listening');
         return;
       }
@@ -84,11 +89,15 @@ export function useContinuousVoice({
         formData.append('activeCell', JSON.stringify(activeCell));
         formData.append('navigationMode', navigationMode);
         formData.append('tableId', tableId);
+        formData.append('request_id', requestId);
 
         const response = await fetch('/api/voice-entry', {
           method: 'POST',
           body: formData,
         });
+        // docs/features/19_voice_telemetry.md §7 — response-received, not
+        // upload-bytes-flushed (documented limitation, see §9).
+        voiceTelemetry.mark(requestId, 'uploadCompleteAt');
 
         if (!response.ok) {
           throw new Error(`Voice entry failed: ${response.statusText}`);
@@ -96,6 +105,7 @@ export function useContinuousVoice({
 
         const payload = await response.json();
         const result: VoiceEntryResult | VoiceBatchResult = payload.data;
+        voiceTelemetry.merge(requestId, payload.data?.telemetry);
 
         // Echo what Whisper actually heard, including on the empty/hallucination
         // early-exit below — that's exactly when the user most needs to see it.
@@ -108,12 +118,14 @@ export function useContinuousVoice({
         if (result && isVoiceBatchResult(result)) {
           consecutiveFailuresRef.current = 0;
           setRecordingState('confirming');
-          onBatchResult(result);
+          onBatchResult(result, requestId);
           return;
         }
 
         // Handle empty transcripts or hallucinations (early exit from API)
         if (!result || (!result.entity && !result.value)) {
+          voiceTelemetry.setConfirmationRoute(requestId, 'abandoned');
+          voiceTelemetry.flush(requestId);
           setRecordingState('listening');
           return;
         }
@@ -123,13 +135,17 @@ export function useContinuousVoice({
 
         // Pass result upstream for entity matching and pointer advancement
         setRecordingState('confirming');
-        onResult(result);
+        onResult(result, requestId);
 
         // NOTE: Component is responsible for calling confirmEntry() / cancelEntry()
         // After confirmEntry(), the state machine (06_SMART_POINTER.md §10)
         // automatically re-enters 'listening' because continuousMode === true
       } catch (err) {
         consecutiveFailuresRef.current += 1;
+
+        // docs/features/19_voice_telemetry.md §7 — flush on abandon, client-side error catch.
+        voiceTelemetry.setConfirmationRoute(requestId, 'abandoned');
+        voiceTelemetry.flush(requestId);
 
         // Auto-stop after too many consecutive failures
         if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) {

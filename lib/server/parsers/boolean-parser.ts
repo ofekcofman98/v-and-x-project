@@ -2,13 +2,13 @@
 import { normalizeText } from './text-normalizer';
 
 const TRUE_SET = new Set([
-  'yes', 'true', 'present', 'check', 'checked', 'done', 'complete', 'completed', 'correct', '1', 'y',
-  'כן', 'נכון', 'חיובי', 'בוצע', 'הושלם', 'יש', 'נוכח', 'נוכחת', 'אישור', 'וי'
+  'yes', 'true', 'present', 'here', 'check', 'checked', 'done', 'complete', 'completed', 'correct', '1', 'y',
+  'כן', 'נכון', 'חיובי', 'בוצע', 'הושלם', 'יש', 'נוכח', 'נוכחת', 'כאן', 'אישור', 'וי'
 ]);
 
 const FALSE_SET = new Set([
-  'no', 'false', 'absent', 'uncheck', 'unchecked', 'not done', 'incomplete', 'wrong', '0', 'n',
-  'לא', 'שלילי', 'לא בוצע', 'חסר', 'חסרה', 'נעדר', 'נעדרת', 'ביטול', 'אין'
+  'no', 'false', 'absent', 'not here', 'uncheck', 'unchecked', 'not done', 'incomplete', 'wrong', '0', 'n',
+  'לא', 'שלילי', 'לא בוצע', 'חסר', 'חסרה', 'נעדר', 'נעדרת', 'לא כאן', 'ביטול', 'אין'
 ]);
 
 export function parseBoolean(input: string): boolean | null {

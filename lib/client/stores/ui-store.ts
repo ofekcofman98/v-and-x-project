@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { BatchCellWrite } from '@/lib/shared/types/voice-pipeline';
+import { voiceTelemetry } from '@/lib/client/hooks/voice/use-voice-telemetry';
 
 /**
  * Represents a cell position in the table
@@ -131,12 +132,16 @@ interface UIState {
   
   // Confirmation
   pendingConfirmation: PendingConfirmation | null;
+  /** requestId of the voice interaction awaiting confirmation, for docs/features/19_voice_telemetry.md. */
+  pendingConfirmationRequestId: string | null;
 
   // Batch Confirmation — sibling to pendingConfirmation rather than a union,
   // so existing single-entry consumers are untouched.
   // docs/features/03_ai_table_agent.md §5
   pendingBatchConfirmation: BatchCellWrite[] | null;
   batchOverflowCount: number;
+  /** requestId of the voice interaction that produced the pending batch, for docs/features/19_voice_telemetry.md. */
+  pendingBatchRequestId: string | null;
 
   // Continuous Flow (docs/04_STATE_MANAGEMENT.md §7)
   /** Whether the VAD continuous loop is active */
@@ -186,9 +191,11 @@ interface UIState {
   setActiveTable: (tableId: string | null) => void;
   setRecordingState: (state: RecordingState) => void;
   setNavigationMode: (mode: NavigationMode) => void;
-  setPendingConfirmation: (confirmation: PendingConfirmation | null) => void;
+  /** `requestId`, when provided alongside a non-null confirmation, stamps confirm_shown_at (docs/features/19_voice_telemetry.md §7). */
+  setPendingConfirmation: (confirmation: PendingConfirmation | null, requestId?: string) => void;
 
-  setPendingBatchConfirmation: (writes: BatchCellWrite[] | null, overflowCount?: number) => void;
+  /** `requestId`, when provided alongside non-empty writes, stamps confirm_shown_at (docs/features/19_voice_telemetry.md §7). */
+  setPendingBatchConfirmation: (writes: BatchCellWrite[] | null, overflowCount?: number, requestId?: string) => void;
   updateBatchWrite: (index: number, write: BatchCellWrite) => void;
   removeBatchWrite: (index: number) => void;
 
@@ -237,8 +244,10 @@ export const useUIStore = create<UIState>()(
         recordingState: 'idle',
         navigationMode: 'column-first',
         pendingConfirmation: null,
+        pendingConfirmationRequestId: null,
         pendingBatchConfirmation: null,
         batchOverflowCount: 0,
+        pendingBatchRequestId: null,
         continuousMode: false,
         lastTranscript: null,
         provisionalFeedback: {
@@ -259,8 +268,10 @@ export const useUIStore = create<UIState>()(
               activeTableId: tableId,
               activeCell: null,
               pendingConfirmation: null,
+              pendingConfirmationRequestId: null,
               pendingBatchConfirmation: null,
               batchOverflowCount: 0,
+              pendingBatchRequestId: null,
               continuousMode: false,
               recordingState: 'idle',
               lastTranscript: null,
@@ -276,10 +287,28 @@ export const useUIStore = create<UIState>()(
         
         setNavigationMode: (mode) => set({ navigationMode: mode }),
         
-        setPendingConfirmation: (confirmation) => set({ pendingConfirmation: confirmation }),
+        setPendingConfirmation: (confirmation, requestId) => {
+          // docs/features/19_voice_telemetry.md §7 — confirm_shown_at.
+          if (confirmation && requestId) {
+            voiceTelemetry.mark(requestId, 'confirmShownAt');
+          }
+          set({
+            pendingConfirmation: confirmation,
+            pendingConfirmationRequestId: confirmation ? (requestId ?? null) : null,
+          });
+        },
 
-        setPendingBatchConfirmation: (writes, overflowCount = 0) =>
-          set({ pendingBatchConfirmation: writes, batchOverflowCount: overflowCount }),
+        setPendingBatchConfirmation: (writes, overflowCount = 0, requestId) => {
+          // docs/features/19_voice_telemetry.md §7 — confirm_shown_at.
+          if (writes && writes.length > 0 && requestId) {
+            voiceTelemetry.mark(requestId, 'confirmShownAt');
+          }
+          set({
+            pendingBatchConfirmation: writes,
+            batchOverflowCount: overflowCount,
+            pendingBatchRequestId: writes && writes.length > 0 ? (requestId ?? null) : null,
+          });
+        },
 
         updateBatchWrite: (index, write) =>
           set((state) => {
@@ -293,7 +322,18 @@ export const useUIStore = create<UIState>()(
           set((state) => {
             if (!state.pendingBatchConfirmation) return state;
             const writes = state.pendingBatchConfirmation.filter((_, i) => i !== index);
-            return { pendingBatchConfirmation: writes.length > 0 ? writes : null };
+
+            if (writes.length === 0) {
+              // Every entry was dismissed — nothing left to commit.
+              // docs/features/19_voice_telemetry.md §7 — flush on abandon.
+              if (state.pendingBatchRequestId) {
+                voiceTelemetry.setConfirmationRoute(state.pendingBatchRequestId, 'abandoned');
+                voiceTelemetry.flush(state.pendingBatchRequestId);
+              }
+              return { pendingBatchConfirmation: null, pendingBatchRequestId: null };
+            }
+
+            return { pendingBatchConfirmation: writes };
           }),
 
         // Continuous mode actions
@@ -338,20 +378,41 @@ export const useUIStore = create<UIState>()(
         },
         
         confirmEntry: () => {
-          set({ recordingState: 'committing' });
-          
+          set((state) => {
+            // docs/features/19_voice_telemetry.md §7, §12 — confirm_received_at.
+            // No cell mutation happens here (Constraint 2) — this is the
+            // interaction's terminal point for the single-entry confirm route.
+            const requestId = state.pendingConfirmationRequestId;
+            if (requestId) {
+              voiceTelemetry.mark(requestId, 'confirmReceivedAt');
+              voiceTelemetry.setConfirmationRoute(requestId, 'confirmed');
+              voiceTelemetry.flush(requestId);
+            }
+            return { recordingState: 'committing' };
+          });
+
           setTimeout(() => {
             set({
               recordingState: 'idle',
               pendingConfirmation: null,
+              pendingConfirmationRequestId: null,
             });
           }, 500);
         },
-        
+
         cancelEntry: () => {
-          set({
-            recordingState: 'idle',
-            pendingConfirmation: null,
+          set((state) => {
+            // docs/features/19_voice_telemetry.md §7 — flush on abandon.
+            const requestId = state.pendingConfirmationRequestId;
+            if (requestId) {
+              voiceTelemetry.setConfirmationRoute(requestId, 'abandoned');
+              voiceTelemetry.flush(requestId);
+            }
+            return {
+              recordingState: 'idle',
+              pendingConfirmation: null,
+              pendingConfirmationRequestId: null,
+            };
           });
         },
         
@@ -362,8 +423,10 @@ export const useUIStore = create<UIState>()(
             recordingState: 'idle',
             navigationMode: 'column-first',
             pendingConfirmation: null,
+            pendingConfirmationRequestId: null,
             pendingBatchConfirmation: null,
             batchOverflowCount: 0,
+            pendingBatchRequestId: null,
             continuousMode: false,
             lastTranscript: null,
             provisionalFeedback: {

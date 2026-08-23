@@ -5,9 +5,11 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { voiceTelemetry } from './use-voice-telemetry';
 
 interface UseVoiceEntryOptions {
-  onAudioReady: (audioBlob: Blob) => void;
+  /** requestId identifies this interaction for docs/features/19_voice_telemetry.md. */
+  onAudioReady: (audioBlob: Blob, requestId: string) => void;
   onError: (error: Error) => void;
 }
 
@@ -36,6 +38,7 @@ export function useVoiceEntry({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const requestIdRef = useRef<string | null>(null);
 
   /**
    * Start recording audio from microphone
@@ -68,23 +71,30 @@ export function useVoiceEntry({
         const audioBlob = new Blob(audioChunksRef.current, {
           type: 'audio/webm',
         });
-        
+
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((track) => track.stop());
           streamRef.current = null;
         }
-        
+
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
           animationFrameRef.current = null;
         }
-        
-        onAudioReady(audioBlob);
+
+        // docs/features/19_voice_telemetry.md §7 — recording_stop_at.
+        const requestId = requestIdRef.current ?? voiceTelemetry.begin();
+        voiceTelemetry.mark(requestId, 'recordingStopAt');
+
+        onAudioReady(audioBlob, requestId);
       };
 
       mediaRecorder.start();
       mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
+
+      // docs/features/19_voice_telemetry.md §7 — requestId generation, vad_start_at.
+      requestIdRef.current = voiceTelemetry.begin();
 
       setupAudioLevelMonitoring(stream);
     } catch (error) {

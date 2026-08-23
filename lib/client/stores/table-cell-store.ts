@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import type { CellData } from '@/lib/shared/types/table-schema';
+import { voiceTelemetry } from '@/lib/client/hooks/voice/use-voice-telemetry';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -32,16 +33,28 @@ interface TableCellState {
   setCellData: (data: CellData[]) => void;
   /** Pass `force: true` to bypass the staleness cache (e.g. a manual refresh action). */
   fetchCells: (tableId: string, options?: { force?: boolean }) => Promise<void>;
-  updateCell: (tableId: string, rowKey: string, tableColumnId: string, value: string | number | boolean | null) => Promise<void>;
+  /** `requestId`, when provided, marks db_write_ack_at on success (docs/features/19_voice_telemetry.md §7) — omitted by manual grid edits. */
+  updateCell: (
+    tableId: string,
+    rowKey: string,
+    tableColumnId: string,
+    value: string | number | boolean | null,
+    requestId?: string
+  ) => Promise<void>;
   /**
    * Commits multiple cell writes in one transaction/one invalidation, for
    * the Multi-Entity Batch Voice Entry flow (docs/features/03_ai_table_agent.md §5.3).
    * Throws on failure so the caller (useVoiceBatchHandler) can decide
    * whether to retry — the pointer must not advance on a failed commit.
+   * `requestId`, when provided, marks db_write_ack_at on success
+   * (docs/features/19_voice_telemetry.md §7) — the caller finalizes
+   * confirmation_route and flushes, since one batch requestId may span
+   * multiple partial commits (§12).
    */
   updateCellsBatch: (
     tableId: string,
-    writes: Array<{ rowKey: string; tableColumnId: string; value: string | number | boolean | null }>
+    writes: Array<{ rowKey: string; tableColumnId: string; value: string | number | boolean | null }>,
+    requestId?: string
   ) => Promise<void>;
   getCellValue: (rowKey: string, tableColumnId: string) => string | number | boolean | null | undefined;
   clearLastUpdated: () => void;
@@ -109,7 +122,8 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
     tableId: string,
     rowKey: string,
     tableColumnId: string,
-    value: string | number | boolean | null
+    value: string | number | boolean | null,
+    requestId?: string
   ) => {
     // Guard: both identifiers must be database UUIDs. Base-list column IDs
     // are human-readable slugs (e.g. "first_name") and must never reach the API.
@@ -177,7 +191,17 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
       // Optionally, you could update with the server response
       const result = await response.json();
       console.log('Cell updated successfully:', result);
-      
+
+      // docs/features/19_voice_telemetry.md §7 — db_write_ack_at, flush.
+      // requestId reaching here means no confirmation dialog interrupted the
+      // flow (Constraint 2) — 'auto' unless an earlier confirm step already
+      // set a different route.
+      if (requestId) {
+        voiceTelemetry.mark(requestId, 'dbWriteAckAt');
+        voiceTelemetry.setConfirmationRoute(requestId, 'auto');
+        voiceTelemetry.flush(requestId);
+      }
+
     } catch (error) {
       // 4. ROLLBACK: If the API fails, restore previous state
       console.error('Error updating cell:', error);
@@ -201,7 +225,7 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
   
   
   // Commit multiple cell writes in one transaction/one invalidation
-  updateCellsBatch: async (tableId, writes) => {
+  updateCellsBatch: async (tableId, writes, requestId) => {
     // Same UUID guard as updateCell — base-list column IDs (human-readable
     // slugs) must never reach the API.
     const invalid = writes.find(
@@ -254,6 +278,14 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
 
       if (!response.ok) {
         throw new Error(`Failed to update cells: ${response.statusText}`);
+      }
+
+      // docs/features/19_voice_telemetry.md §7, §12 — db_write_ack_at only.
+      // confirmation_route ('batch') and flush are the caller's
+      // responsibility (useVoiceBatchHandler.confirmBatch) since one
+      // requestId can span multiple partial commits.
+      if (requestId) {
+        voiceTelemetry.mark(requestId, 'dbWriteAckAt');
       }
     } catch (error) {
       // 4. ROLLBACK: If the API fails, restore previous state — no partial

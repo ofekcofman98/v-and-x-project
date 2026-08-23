@@ -6,6 +6,7 @@
 
 import { useRef, useCallback, useState } from 'react';
 import { decideChunkFlush } from './vad-chunking';
+import { voiceTelemetry } from './use-voice-telemetry';
 
 export interface VADOptions {
   /** RMS energy level (0–255) above which audio is considered speech. Default: 15 */
@@ -50,7 +51,8 @@ const OVERFLOW_SILENCE_MS = 250;
 
 export interface VADCallbacks {
   onSpeechStart: () => void;
-  onSpeechEnd: (audioBlob: Blob) => void;
+  /** requestId identifies this interaction for docs/features/19_voice_telemetry.md. */
+  onSpeechEnd: (audioBlob: Blob, requestId: string) => void;
   onError: (error: Error) => void;
   /**
    * Called when a chunk was flushed because it ran past maxChunkMs, rather
@@ -98,6 +100,11 @@ export function useVAD(options: VADOptions = {}) {
   // start it itself from the "waiting for speech" branch below.
   const restartPendingRef = useRef(false);
   const [volume, setVolume] = useState(0);
+  // docs/features/19_voice_telemetry.md §7 — the requestId for the
+  // in-progress (or most recently emitted) chunk. A chunk split by overflow
+  // gets a fresh requestId at restart (see flushChunk) since each emitted
+  // chunk becomes its own /api/voice-entry request.
+  const requestIdRef = useRef<string | null>(null);
 
   /**
    * Calculate RMS (Root Mean Square) energy from audio samples
@@ -127,13 +134,15 @@ export function useVAD(options: VADOptions = {}) {
    * branch requires the recorder to already be inactive (see tick()).
    */
   const emitChunk = useCallback(
-    (recorder: MediaRecorder, callbacks: VADCallbacks | null, onEmitted?: () => void) => {
+    (recorder: MediaRecorder, callbacks: VADCallbacks | null, requestId: string, onEmitted?: () => void) => {
       if (recorder.state !== 'recording') return;
 
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         chunksRef.current = [];
-        callbacks?.onSpeechEnd(blob);
+        // docs/features/19_voice_telemetry.md §7 — recording_stop_at, chunk-emit.
+        voiceTelemetry.mark(requestId, 'recordingStopAt');
+        callbacks?.onSpeechEnd(blob, requestId);
         onEmitted?.();
       };
 
@@ -163,6 +172,9 @@ export function useVAD(options: VADOptions = {}) {
       if (!recorder || recorder.state === 'inactive') return;
 
       const callbacks = callbacksRef.current;
+      // Capture now — an overflow restart regenerates requestIdRef.current
+      // for the NEXT chunk before this emit's async onstop fires.
+      const requestId = requestIdRef.current ?? voiceTelemetry.begin();
 
       isSpeakingRef.current = false;
       silenceStartRef.current = null;
@@ -171,7 +183,7 @@ export function useVAD(options: VADOptions = {}) {
       if (reason === 'overflow') {
         restartPendingRef.current = true;
         callbacks?.onChunkOverflow?.();
-        emitChunk(recorder, callbacks, () => {
+        emitChunk(recorder, callbacks, requestId, () => {
           // Recorder is reliably 'inactive' here (see emitChunk). Restart
           // immediately — the user is still speaking through the split, so
           // treat this exactly like an already-confirmed, already-running
@@ -183,11 +195,14 @@ export function useVAD(options: VADOptions = {}) {
           isSpeakingRef.current = true;
           recordingStartRef.current = Date.now();
           restartPendingRef.current = false;
+          // The continuation chunk is its own /api/voice-entry request —
+          // fresh requestId, fresh vad_start_at at the restart moment.
+          requestIdRef.current = voiceTelemetry.begin();
         });
         return;
       }
 
-      setTimeout(() => emitChunk(recorder, callbacks), POST_SPEECH_PADDING_MS);
+      setTimeout(() => emitChunk(recorder, callbacks, requestId), POST_SPEECH_PADDING_MS);
     },
     [emitChunk]
   );
@@ -234,6 +249,8 @@ export function useVAD(options: VADOptions = {}) {
           silenceStartRef.current = null;
           recordingStartRef.current = now;
 
+          // docs/features/19_voice_telemetry.md §7 — requestId generation, vad_start_at.
+          requestIdRef.current = voiceTelemetry.begin();
           callbacksRef.current.onSpeechStart();
         }
       } else {
@@ -357,7 +374,7 @@ export function useVAD(options: VADOptions = {}) {
     // Flush any in-progress recording immediately (no trailing pad) — the
     // stream is torn down right below, so there's no more audio to wait for.
     if (isSpeakingRef.current && mediaRecorderRef.current) {
-      emitChunk(mediaRecorderRef.current, callbacksRef.current);
+      emitChunk(mediaRecorderRef.current, callbacksRef.current, requestIdRef.current ?? voiceTelemetry.begin());
     }
 
     // Stop microphone stream
@@ -377,6 +394,7 @@ export function useVAD(options: VADOptions = {}) {
     audioContextRef.current = null;
     analyserRef.current = null;
     mediaRecorderRef.current = null;
+    requestIdRef.current = null;
   }, [emitChunk]);
 
   return { startVAD, stopVAD, volume };
