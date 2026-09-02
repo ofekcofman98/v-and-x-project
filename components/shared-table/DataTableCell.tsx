@@ -10,7 +10,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useShallow } from 'zustand/react/shallow';
-import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
+import { useTableCellStore, cellKey } from '@/lib/client/stores/table-cell-store';
 import { cn } from '@/lib/shared/utils/cn';
 import { ColumnType, formatCellValue } from '@/lib/shared/types/column-types';
 import { coerceCellValue } from '@/lib/shared/parsers/cell-value';
@@ -97,10 +97,11 @@ export const DataTableCell = memo(
         : 'idle'
     );
 
-    // Only check lastUpdatedCell for this specific cell
+    // Only check justUpdatedCellKeys for this specific cell — one Set
+    // lookup, still a fine-grained boolean-returning selector so a batch
+    // write doesn't re-render every cell in the grid.
     const isJustUpdated = useTableCellStore((state) =>
-      state.lastUpdatedCell?.rowKey === rowKey &&
-      state.lastUpdatedCell?.tableColumnId === tableColumnId
+      state.justUpdatedCellKeys.has(cellKey(rowKey, tableColumnId))
     );
 
     // Focus input when entering edit mode
@@ -288,8 +289,13 @@ export const DataTableCell = memo(
             </div>
           )}
 
-          {/* Success animation overlay */}
-          {isActive && recordingState === 'committing' && (
+          {/* Success animation overlay — gated on isJustUpdated (this cell
+              was actually written), not isActive: recordingState briefly
+              hits 'committing' before the pointer re-targets, so gating on
+              isActive alone painted the pre-commit pointer cell green even
+              when it wasn't part of the write (most visible with
+              entity-first's cross-row re-target). */}
+          {isJustUpdated && recordingState === 'committing' && (
             <div className="absolute inset-0 flex items-center justify-center bg-green-500/20 rounded pointer-events-none">
               <div className="text-green-600 text-lg">✓</div>
             </div>

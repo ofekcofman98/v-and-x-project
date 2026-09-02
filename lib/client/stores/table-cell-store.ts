@@ -9,6 +9,11 @@ import { voiceTelemetry } from '@/lib/client/hooks/voice/use-voice-telemetry';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Composite key identifying a cell, for the justUpdatedCellKeys set. */
+export function cellKey(rowKey: string, tableColumnId: string): string {
+  return `${rowKey}:${tableColumnId}`;
+}
+
 // Matches the TanStack Query staleTime convention set in app/providers.tsx —
 // avoids reflashing "Loading table data..." when the user re-enters a table
 // they were already looking at within the last 5 minutes.
@@ -20,7 +25,8 @@ const CELLS_STALE_TIME_MS = 1000 * 60 * 5;
 interface TableCellState {
   // Cell data for the current table
   cellData: CellData[];
-  lastUpdatedCell: { rowKey: string; tableColumnId: string } | null;  // Last updated cell (for triggering success animation)
+  /** Cells touched by the most recent write (single or batch), for triggering the success animation on every one of them — not just the last. */
+  justUpdatedCellKeys: Set<string>;
   isLoading: boolean;      // track loading state
   error: string | null;    // track errors
 
@@ -66,7 +72,7 @@ interface TableCellState {
 export const useTableCellStore = create<TableCellState>((set, get) => ({
   // Initial state
   cellData: [],
-  lastUpdatedCell: null,
+  justUpdatedCellKeys: new Set(),
   isLoading: false,
   error: null,
   loadedTableId: null,
@@ -164,7 +170,7 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
       
       return {
         cellData: newCellData,
-        lastUpdatedCell: { rowKey, tableColumnId },
+        justUpdatedCellKeys: new Set([cellKey(rowKey, tableColumnId)]),
       };
     });
     
@@ -261,10 +267,9 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
         }
       }
 
-      const last = writes[writes.length - 1];
       return {
         cellData: newCellData,
-        lastUpdatedCell: { rowKey: last.rowKey, tableColumnId: last.tableColumnId },
+        justUpdatedCellKeys: new Set(writes.map((w) => cellKey(w.rowKey, w.tableColumnId))),
       };
     });
 
@@ -315,6 +320,6 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
     return cell?.value;
   },
     
-  // Clear the last updated cell marker
-  clearLastUpdated: () => set({ lastUpdatedCell: null }),
+  // Clear the just-updated cell markers
+  clearLastUpdated: () => set({ justUpdatedCellKeys: new Set() }),
 }));
