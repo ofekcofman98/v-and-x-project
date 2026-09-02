@@ -1,4 +1,5 @@
 import type { ColumnDefinition } from '@/lib/shared/types/table-schema';
+import type { NavigationMode } from '@/lib/shared/types/voice-pipeline';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Row-first mid-row detection
@@ -26,7 +27,7 @@ export function resolveFirstEditableColumnId(
  * Exported for unit testing.
  */
 export function isRowFirstMidRow(
-  navigationMode: 'column-first' | 'row-first',
+  navigationMode: NavigationMode,
   activeCell: { tableColumnId: string },
   tableSchema: { columns: Pick<ColumnDefinition, 'id' | 'isBaseColumn'>[] }
 ): boolean {

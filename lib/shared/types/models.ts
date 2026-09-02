@@ -28,6 +28,7 @@ import type { ColumnDefinition, RowDefinition, TableSchema } from '@/lib/shared/
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnAccess } from '@/lib/shared/types/column-access';
 import type { ColumnFormula } from '@/lib/shared/types/formula';
+import type { NavigationMode } from '@/lib/shared/types/voice-pipeline';
 
 // ═══════════════════════════════════════════════════════════
 // PRISMA ENUM MIRRORS (until Prisma Client is generated)
@@ -222,7 +223,7 @@ export interface ListEntityDTO {
  */
 export interface TableSettings {
   voice?: {
-    defaultMode?: 'column-first' | 'row-first';
+    defaultMode?: NavigationMode;
     autoAdvanceDelay?: number;
     confirmationThreshold?: number;
   };

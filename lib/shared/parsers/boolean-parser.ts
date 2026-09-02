@@ -1,4 +1,4 @@
-// lib/parsers/boolean-parser.ts
+// lib/shared/parsers/boolean-parser.ts
 import { normalizeText } from './text-normalizer';
 
 const TRUE_SET = new Set([

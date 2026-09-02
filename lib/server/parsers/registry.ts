@@ -9,7 +9,7 @@
 
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnValidation } from '@/lib/shared/types/table-schema';
-import { parseBoolean } from './boolean-parser';
+import { parseBoolean } from '@/lib/shared/parsers/boolean-parser';
 import { parseNaturalDate } from './date-parser';
 import { parseSpokenNumber } from './number-parser';
 import { parseText } from './text-parser';

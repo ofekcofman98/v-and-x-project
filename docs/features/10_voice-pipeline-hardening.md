@@ -387,8 +387,16 @@ export function parseSpokenNumber(input: string, lang: 'he' | 'en' | 'auto'): nu
 
 ### 4.3 Bilingual Boolean Parser
 
+Lives in `lib/shared/parsers/boolean-parser.ts` (shared zone, not server-only) —
+`normalizeText` is its only dependency and is pure, so both the voice pipeline
+(`lib/server/parsers/registry.ts`'s `BooleanParser`) and the manual-edit path
+(`lib/shared/parsers/cell-value.ts`, used by `DataTableCell.tsx`) run the
+exact same vocabulary. This is the fix for a past bug: the manual path used
+to send the raw typed string with no coercion, so a legacy string value like
+`"no"` rendered as `✓` (truthy-tested) instead of `✗`.
+
 ```typescript
-// lib/parsers/boolean/bilingual-boolean.ts
+// lib/shared/parsers/boolean-parser.ts
 const TRUE_SET = new Set([
   // EN
   'yes','true','present','here','check','checked','done','complete','completed','correct','1','y',
@@ -400,7 +408,7 @@ const FALSE_SET = new Set([
   'לא','שלילי','לא בוצע','חסר','חסרה','נעדר','נעדרת','לא כאן','ביטול','אין',
 ]);
 
-export function parseBilingualBoolean(input: string): boolean | null {
+export function parseBoolean(input: string): boolean | null {
   const norm = normalizeText(input); // §4.4 — critical: strips niqqud, trailing punctuation
   if (TRUE_SET.has(norm)) return true;
   if (FALSE_SET.has(norm)) return false;
@@ -416,7 +424,7 @@ export function parseBilingualBoolean(input: string): boolean | null {
 One shared normalizer used by TextParser, boolean sets, cache keys, and pre-embedding text:
 
 ```typescript
-// lib/parsers/text/normalize.ts
+// lib/shared/parsers/text-normalizer.ts
 export function normalizeText(input: string): string {
   return input
     .normalize('NFC')
