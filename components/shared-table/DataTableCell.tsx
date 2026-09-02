@@ -14,6 +14,7 @@ import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { cn } from '@/lib/shared/utils/cn';
 import { ColumnType, formatCellValue } from '@/lib/shared/types/column-types';
 import { coerceCellValue } from '@/lib/shared/parsers/cell-value';
+import { getNavBandAxis } from '@/lib/client/navigation/nav-band';
 
 interface DataTableCellProps {
   tableId: string;
@@ -76,19 +77,9 @@ export const DataTableCell = memo(
     const isInActiveBand =
       !isActive &&
       activeRowKey !== null &&
-      (() => {
-        switch (navigationMode) {
-          case 'column-first':
-            return activeColumnId === tableColumnId;
-          case 'row-first':
-          case 'entity-first':
-            return activeRowKey === rowKey;
-          default: {
-            const _exhaustive: never = navigationMode;
-            return _exhaustive;
-          }
-        }
-      })();
+      (getNavBandAxis(navigationMode) === 'column'
+        ? activeColumnId === tableColumnId
+        : activeRowKey === rowKey);
 
     const isProvisionalTarget =
       !isActive && provisionalRowKey === rowKey && activeColumnId === tableColumnId;

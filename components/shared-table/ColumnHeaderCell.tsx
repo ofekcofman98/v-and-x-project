@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Trash2, Lock, Key, Calculator } from 'lucide-react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useShallow } from 'zustand/react/shallow';
+import { getNavBandAxis } from '@/lib/client/navigation/nav-band';
 import type { ColumnDef } from './types';
 
 const FOREST = '#13501B';
@@ -50,19 +51,7 @@ export function ColumnHeaderCell({
       activeColumnId: state.activeCell?.tableColumnId ?? null,
     }))
   );
-  const isActiveColumnBand = (() => {
-    switch (navigationMode) {
-      case 'column-first':
-        return activeColumnId === column.id;
-      case 'row-first':
-      case 'entity-first':
-        return false;
-      default: {
-        const _exhaustive: never = navigationMode;
-        return _exhaustive;
-      }
-    }
-  })();
+  const isActiveColumnBand = getNavBandAxis(navigationMode) === 'column' && activeColumnId === column.id;
 
   return (
     <th

@@ -13,6 +13,7 @@ import { evaluateFormula, formatFormulaResult } from '@/lib/shared/utils/formula
 import type { ColumnFormula } from '@/lib/shared/types/formula';
 import { Calculator } from 'lucide-react';
 import { cn } from '@/lib/shared/utils/cn';
+import { getNavBandAxis } from '@/lib/client/navigation/nav-band';
 
 interface ComputedCellProps {
   rowKey: string;
@@ -43,19 +44,9 @@ export function ComputedCell({ rowKey, tableColumnId, formula }: ComputedCellPro
   );
   const isInActiveBand =
     activeRowKey !== null &&
-    (() => {
-      switch (navigationMode) {
-        case 'column-first':
-          return activeColumnId === tableColumnId;
-        case 'row-first':
-        case 'entity-first':
-          return activeRowKey === rowKey;
-        default: {
-          const _exhaustive: never = navigationMode;
-          return _exhaustive;
-        }
-      }
-    })();
+    (getNavBandAxis(navigationMode) === 'column'
+      ? activeColumnId === tableColumnId
+      : activeRowKey === rowKey);
 
   const formattedValue = formatFormulaResult(result, formula);
 
