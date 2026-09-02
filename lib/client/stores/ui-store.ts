@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import type { BatchCellWrite } from '@/lib/shared/types/voice-pipeline';
+import type { BatchCellWrite, NavigationMode } from '@/lib/shared/types/voice-pipeline';
 import { voiceTelemetry } from '@/lib/client/hooks/voice/use-voice-telemetry';
 
 /**
@@ -31,10 +31,12 @@ export type RecordingState =
   | 'error';      // Error occurred
 
 /**
- * Navigation mode for Smart Pointer advancement
+ * Navigation mode for Smart Pointer advancement.
+ * Re-exported from lib/shared/types/voice-pipeline.ts, the single source of
+ * truth, so existing import sites of this store keep working unchanged.
  * Based on: docs/06_SMART_POINTER.md §3.1
  */
-export type NavigationMode = 'column-first' | 'row-first';
+export type { NavigationMode };
 
 /**
  * Pending confirmation data structure

@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { openai } from './openai-client';
 import { AI_MODELS, AI_LIMITS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
+import type { EntityGroup } from './batch-segmentation';
 
 // Zod schema for LLM output validation — mirrors llm-prompts.ts's convention
 // of colocating the schema with the call site rather than in shared types.
@@ -26,6 +27,19 @@ const EntityValueBatchExtractionSchema = z.object({
       z.object({
         entityText: z.string().min(1),
         rawValue: z.string().min(1),
+      })
+    )
+    .min(1)
+    .max(30),
+});
+
+// docs/features/18_entity_first_navigation.md §6, §8
+const EntityGroupBatchExtractionSchema = z.object({
+  groups: z
+    .array(
+      z.object({
+        entityText: z.string().min(1),
+        rawValues: z.array(z.string().min(1)).min(1),
       })
     )
     .min(1)
@@ -64,6 +78,27 @@ RESPOND ONLY IN JSON (strictly matching this schema):
   "entries": [
     { "entityText": "Dan", "rawValue": "85" },
     { "entityText": "Noa", "rawValue": "90" }
+  ]
+}
+`.trim();
+}
+
+function buildEntityGroupPrompt(transcript: string): string {
+  return `
+You are a lightning-fast data extraction assistant.
+Your ONLY job is to split the transcript into (entity, values) groups, in the
+order they were spoken. An entity is named once, followed by every value
+spoken for it, before the next entity (if any). Do NOT attempt to match
+entities against any database — return EXACTLY what was heard for each
+entity and value.
+
+USER SAID: "${transcript}"
+
+RESPOND ONLY IN JSON (strictly matching this schema):
+{
+  "groups": [
+    { "entityText": "Dana", "rawValues": ["90", "85", "70"] },
+    { "entityText": "Yossi", "rawValues": ["70", "60", "55"] }
   ]
 }
 `.trim();
@@ -132,4 +167,25 @@ export async function segmentEntityValuePairsViaLLM(
   }
 
   throw new Error('LLM batch segmentation (entity-value) failed validation after retry');
+}
+
+/**
+ * Entity-first LLM segmentation fallback: splits a transcript into
+ * (entityText, rawValues[]) groups with one bounded retry on Zod parse
+ * failure. Throws after the retry is exhausted — the orchestrator degrades
+ * to the single-entry pipeline on failure.
+ * docs/features/18_entity_first_navigation.md §6
+ */
+export async function segmentEntityGroupsViaLLM(transcript: string): Promise<EntityGroup[]> {
+  const prompt = buildEntityGroupPrompt(transcript);
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const parsed = await callSegmentationLLM(prompt);
+    const validated = EntityGroupBatchExtractionSchema.safeParse(parsed);
+    if (validated.success) {
+      return validated.data.groups;
+    }
+  }
+
+  throw new Error('LLM batch segmentation (entity-group) failed validation after retry');
 }

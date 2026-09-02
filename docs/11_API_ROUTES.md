@@ -280,7 +280,7 @@ const ParseRequestSchema = z.object({
     ),
   }),
   activeColumnId: z.string(),
-  navigationMode: z.enum(['column-first', 'row-first']),
+  navigationMode: z.enum(['column-first', 'row-first', 'entity-first']), // docs/features/18_entity_first_navigation.md
 });
 
 // ═══════════════════════════════════════════════════════════

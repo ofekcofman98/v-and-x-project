@@ -14,7 +14,7 @@
 import { z } from 'zod';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
-import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
+import type { NavigationMode, ParsedResult } from '@/lib/shared/types/voice-pipeline';
 import { parseForColumn } from '@/lib/server/parsers/registry';
 import { openai } from '@/lib/server/services/ai-service/shared/openai-client';
 import { AI_MODELS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
@@ -57,7 +57,7 @@ export interface TranscriptParseParams {
   transcript: string;
   tableSchema: TableSchema;
   activeCell: { rowId: string; columnId: string };
-  navigationMode: 'column-first' | 'row-first';
+  navigationMode: NavigationMode;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ function buildParsePrompt(params: {
   transcript: string;
   tableSchema: TableSchema;
   activeCell: { rowId: string; columnId: string };
-  navigationMode: 'column-first' | 'row-first';
+  navigationMode: NavigationMode;
 }): string {
   const { transcript, tableSchema, activeCell, navigationMode } = params;
   const currentColumn = tableSchema.columns.find((col) => col.id === activeCell.columnId);

@@ -20,6 +20,7 @@ import type {
   VoiceEntryPayload,
   VoiceEntryResponse,
 } from '@/lib/shared/types/voice-pipeline';
+import { NavigationModeSchema } from '@/lib/shared/types/voice-pipeline';
 import { VocalGridError, ErrorCodes } from '@/lib/shared/types/voice-errors';
 import { processVoiceEntry } from '@/lib/server/services/voice-entry-service';
 
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
   const audioFile = formData.get('audio') as File | null;
   const tableSchemaJson = formData.get('tableSchema') as string | null;
   const activeCellJson = formData.get('activeCell') as string | null;
-  const navigationMode = (formData.get('navigationMode') as string) || 'column-first';
+  const navigationModeRaw = (formData.get('navigationMode') as string) || 'column-first';
   const tableId = (formData.get('tableId') as string) || 'default';
   const language = req.headers.get('x-language') ?? undefined;
   // docs/features/19_voice_telemetry.md §6 — a FormData field (not a header),
@@ -159,6 +160,22 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
       { status: 400 }
     );
   }
+
+  const navigationModeResult = NavigationModeSchema.safeParse(navigationModeRaw);
+  if (!navigationModeResult.success) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: ErrorCodes.VAL_INVALID_FORMAT,
+          message: `Unknown navigation mode: "${navigationModeRaw}"`,
+          details: null,
+        },
+      },
+      { status: 400 }
+    );
+  }
+  const navigationMode = navigationModeResult.data;
 
   if (!tableSchemaJson || !activeCellJson) {
     console.error('[VoiceEntry] Missing parameters:', {
@@ -204,7 +221,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<VoiceEntryRes
   const payload: VoiceEntryPayload = {
     tableSchema,
     activeCell,
-    navigationMode: navigationMode as 'column-first' | 'row-first',
+    navigationMode,
     tableId,
     language,
     requestId,

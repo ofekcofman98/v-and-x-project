@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/client/stores/use-auth-store';
@@ -47,9 +48,7 @@ export function AppHeader() {
       <div className="container flex h-14 max-w-screen-2xl items-center px-4 sm:px-6 lg:px-8">
         <div className="flex flex-1 items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: '#13501B' }}>
-              <span className="text-lg font-bold text-white">V</span>
-            </div>
+            <Image src="/assets/logo/LogoGreen.svg" alt="VocalGrid" width={32} height={32} className="h-8 w-8" />
             <span className="hidden font-bold sm:inline-block" style={{ fontFamily: 'var(--font-display)' }}>
               VocalGrid
             </span>

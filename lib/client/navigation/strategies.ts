@@ -75,4 +75,9 @@ import { NavigationMode, CellPosition } from '../stores/ui-store';
   export const navigationStrategies: Record<NavigationMode, NavigationStrategy> = {
     'row-first': rowFirstStrategy,
     'column-first': columnFirstStrategy,
+    // Cell-motion math is identical to row-first — down to the next row, back
+    // to a fixed start column. Entity-first's real difference is entirely in
+    // speech parsing and batch-commit re-targeting, handled elsewhere.
+    // docs/features/18_entity_first_navigation.md §3.5, §7
+    'entity-first': rowFirstStrategy,
   };

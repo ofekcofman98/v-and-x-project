@@ -405,18 +405,19 @@ Both schemas live in `lib/shared/types/voice-pipeline.ts`. All committed cells a
 
 ### 5.5 Navigation-Mode Divergence & Convergence
 
-Column-first and row-first batches diverge in **segmentation and per-entry resolution**, then converge on a single shared write/commit/pointer path:
+Column-first, row-first, and entity-first (docs/features/18_entity_first_navigation.md) batches diverge in **segmentation and per-entry resolution**, then converge on a single shared write/commit/pointer path:
 
-| Stage | Column-first | Row-first |
-|---|---|---|
-| Segmentation | `(entityText, rawValue)` pairs | bare `rawValue` sequence |
-| Entity resolution | `matchAsync` against `tableSchema.rows` labels (matching engine) | none — row fixed by the active cell, mirrors the single-entry `isRowFirstMidRow` shortcut |
-| Target resolution | one write per matched row, same active column | walk forward from the active column across the row's editable columns (`resolveRowFirstColumnTargets`), capping at row end |
-| Possible confidence routes | `auto` / `disambiguate` / `unresolved` / `parse_error` (4) | `auto` / `parse_error` only (2 — no entity match means no ambiguity is possible) |
-| Overflow handling | not applicable (each entry targets a distinct row) | values beyond the row's remaining editable columns are parked, never spilled into the next row |
-| Convergence point | Both produce a `BatchCellWrite[]` → one commit transaction → one pointer-advance loop → the same `BatchConfirmationStrip` UI |
+| Stage | Column-first | Row-first | Entity-first |
+|---|---|---|---|
+| Segmentation | `(entityText, rawValue)` pairs | bare `rawValue` sequence | `(entityText, rawValues[])` groups — one entity, several values |
+| Entity resolution | `matchAsync` against `tableSchema.rows` labels (matching engine) | none — row fixed by the active cell, mirrors the single-entry `isRowFirstMidRow` shortcut | `matchAsync`, once per group (not per value) |
+| Target resolution | one write per matched row, same active column | walk forward from the active column across the row's editable columns (`resolveRowFirstColumnTargets`), capping at row end | `resolveRowFirstColumnTargets` per group, from the utterance's starting column, over the matched row |
+| Possible confidence routes | `auto` / `disambiguate` / `unresolved` / `parse_error` (4) | `auto` / `parse_error` only (2 — no entity match means no ambiguity is possible) | same 4 as column-first, routed once per group via the shared `routeEntityMatch` helper |
+| Overflow handling | not applicable (each entry targets a distinct row) | values beyond the row's remaining editable columns are parked, never spilled into the next row | same as row-first, per group — summed across groups, never spilled into the next group's row |
+| Pointer re-target after commit | generic per-write strategy walk | generic per-write strategy walk | last resolved entity's row, at the utterance's starting column (`use-voice-batch-handler.ts`) |
+| Convergence point | All three produce a `BatchCellWrite[]` → one commit transaction → the same `BatchConfirmationStrip` UI |
 
-This keeps the two modes' genuinely different logic (segmentation shape, whether entity resolution runs at all) isolated to dedicated service files, while everything downstream — the write shape, the transaction, the cache invalidation, and the confirmation UI — is shared and nav-mode-agnostic.
+This keeps each mode's genuinely different logic (segmentation shape, whether/how often entity resolution runs) isolated to dedicated service files — entity-first's resolver in particular composes `matchAsync` and `resolveRowFirstColumnTargets` rather than reimplementing either — while everything else downstream — the write shape, the transaction, the cache invalidation, and the confirmation UI — is shared and nav-mode-agnostic.
 
 ---
 

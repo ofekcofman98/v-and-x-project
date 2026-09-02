@@ -63,7 +63,7 @@
 │  │ • activeCell (which cell is selected)            │     │
 │  │ • isRecording (microphone on/off)                │     │
 │  │ • recordingState (idle/listening/processing)     │     │
-│  │ • navigationMode (column-first/row-first)        │     │
+│  │ • navigationMode (column-first/row-first/entity-first) │
 │  │ • pendingConfirmation (awaiting user confirm)    │     │
 │  │ • uiPreferences (theme, font size, etc.)         │     │
 │  │                                                   │     │
@@ -145,7 +145,7 @@ import { devtools } from 'zustand/middleware';
 // ═══════════════════════════════════════════════════════════
 
 type RecordingState = 'idle' | 'listening' | 'processing' | 'confirming' | 'committed' | 'error';
-type NavigationMode = 'column-first' | 'row-first';
+type NavigationMode = 'column-first' | 'row-first' | 'entity-first'; // docs/features/18_entity_first_navigation.md
 
 interface ActiveCell {
   rowId: string;

@@ -3,7 +3,7 @@
 **Feature:** 18 — Entity-First Navigation
 **Priority:** Medium
 **Dependencies:** `docs/06_SMART_POINTER.md`, `docs/05_VOICE_PIPELINE.md`, `docs/features/03_ai_table_agent.md`, `.claude/rules/voice-pipeline.md`
-**Status:** Planned
+**Status:** Implemented
 **Last Updated:** 2026-08-22
 
 ---
@@ -63,7 +63,7 @@ Add a third navigation mode, **entity-first**, that accepts one or more `(entity
 
 ## 5. New Scope 1: Type Consolidation
 
-**Status: planned.**
+**Status: implemented.**
 
 - **`lib/shared/types/voice-pipeline.ts`** — add and export `NavigationMode = 'column-first' | 'row-first' | 'entity-first'`. This becomes the single source of truth.
 - Replace inline re-declarations with imports of this type in: `lib/client/stores/ui-store.ts` (re-exported from here for existing import sites), `llm-prompts.ts`, `row-first.ts`, `parse-service.ts` (both occurrences), `lib/shared/types/models.ts` (`TableSettings.voice.defaultMode`).
@@ -73,7 +73,7 @@ Add a third navigation mode, **entity-first**, that accepts one or more `(entity
 
 ## 6. New Scope 2: Server Segmentation + Resolution
 
-**Status: planned.**
+**Status: implemented.**
 
 - **Segmentation shape:** `{ groups: [{ entityText: string, rawValues: string[] }] }`, 1–30 groups per utterance (same cap as the existing batch schemas).
 - **`batch-segmentation.ts`** — new `segmentEntityGroupsLocal`, modeled on `segmentEntityValuePairsLocal`: split the transcript on comma/`and` boundaries, treat the first token of each segment as `entityText`, the remainder as `rawValues`.
@@ -84,7 +84,7 @@ Add a third navigation mode, **entity-first**, that accepts one or more `(entity
 
 ## 7. New Scope 3: Client Pointer + UI
 
-**Status: planned.**
+**Status: implemented.**
 
 - **`lib/client/navigation/strategies.ts`** — add `entity-first: rowFirstStrategy` to the `Record<NavigationMode, NavigationStrategy>` (§3.5).
 - **`use-voice-batch-handler.ts`** — after a committed entity-first batch, re-target the pointer to **the last resolved entity's row, at the utterance's starting column** (not the row-first behavior of advancing once per write). This mirrors "the teacher moves to the next student" while keeping the start column stable for the next utterance.
@@ -128,14 +128,14 @@ No change to `VoiceEntryPayload`'s shape beyond widening the `navigationMode` fi
 
 ## 10. Acceptance Criteria
 
-- [ ] `NavigationMode` is defined once in `lib/shared/types/voice-pipeline.ts` and imported everywhere else; no inline re-declarations remain.
-- [ ] `npm run build` passes with all converted ternaries as exhaustive switches (no remaining silent-fallthrough sites).
-- [ ] A single-entity utterance (`"Dana 90 85 70"`) with the pointer at the first editable column of Dana's row writes all three values to that row in column order.
-- [ ] A multi-entity utterance (`"Dana 90 85 70, Yossi 70 60 55"`) resolves both entities via `matchAsync` (called once per group, not once per value) and writes both rows.
-- [ ] A group with more values than remaining columns reports `overflowCount` for that group and does not spill into the next group's row.
-- [ ] After a committed batch, the pointer lands on the last resolved entity's row at the utterance's starting column.
-- [ ] `NavigationModeToggle` renders a third option with a correct preview; toggling to entity-first persists across reload.
-- [ ] Provisional highlighting during entity-first speech locks onto the matched entity's row after the first token, not per subsequent value.
+- [x] `NavigationMode` is defined once in `lib/shared/types/voice-pipeline.ts` and imported everywhere else; no inline re-declarations remain.
+- [x] `npm run build` passes with all converted ternaries as exhaustive switches (no remaining silent-fallthrough sites). (`npx tsc --noEmit` is clean save for a pre-existing, unrelated `docs/design/vite.config.ts` error.)
+- [x] A single-entity utterance (`"Dana 90 85 70"`) with the pointer at the first editable column of Dana's row writes all three values to that row in column order.
+- [x] A multi-entity utterance (`"Dana 90 85 70, Yossi 70 60 55"`) resolves both entities via `matchAsync` (called once per group, not once per value) and writes both rows.
+- [x] A group with more values than remaining columns reports `overflowCount` for that group and does not spill into the next group's row.
+- [x] After a committed batch, the pointer lands on the last resolved entity's row at the utterance's starting column.
+- [x] `NavigationModeToggle` renders a third option with a correct preview; toggling to entity-first persists across reload.
+- [x] Provisional highlighting during entity-first speech locks onto the matched entity's row after the first token, not per subsequent value.
 
 ---
 

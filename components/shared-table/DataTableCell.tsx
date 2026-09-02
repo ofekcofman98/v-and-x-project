@@ -10,9 +10,11 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useShallow } from 'zustand/react/shallow';
-import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
+import { useTableCellStore, cellKey } from '@/lib/client/stores/table-cell-store';
 import { cn } from '@/lib/shared/utils/cn';
 import { ColumnType, formatCellValue } from '@/lib/shared/types/column-types';
+import { coerceCellValue } from '@/lib/shared/parsers/cell-value';
+import { getNavBandAxis } from '@/lib/client/navigation/nav-band';
 
 interface DataTableCellProps {
   tableId: string;
@@ -37,6 +39,7 @@ export const DataTableCell = memo(
     onClick,
   }: DataTableCellProps) {
     const [isEditing, setIsEditing] = useState(false);
+    const [hasError, setHasError] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Subscribe to store value for table columns (reactive!)
@@ -74,7 +77,7 @@ export const DataTableCell = memo(
     const isInActiveBand =
       !isActive &&
       activeRowKey !== null &&
-      (navigationMode === 'column-first'
+      (getNavBandAxis(navigationMode) === 'column'
         ? activeColumnId === tableColumnId
         : activeRowKey === rowKey);
 
@@ -94,10 +97,11 @@ export const DataTableCell = memo(
         : 'idle'
     );
 
-    // Only check lastUpdatedCell for this specific cell
+    // Only check justUpdatedCellKeys for this specific cell — one Set
+    // lookup, still a fine-grained boolean-returning selector so a batch
+    // write doesn't re-render every cell in the grid.
     const isJustUpdated = useTableCellStore((state) =>
-      state.lastUpdatedCell?.rowKey === rowKey &&
-      state.lastUpdatedCell?.tableColumnId === tableColumnId
+      state.justUpdatedCellKeys.has(cellKey(rowKey, tableColumnId))
     );
 
     // Focus input when entering edit mode
@@ -111,6 +115,7 @@ export const DataTableCell = memo(
     const handleDoubleClick = () => {
       if (isReadOnly) return;
       setIsEditing(true);
+      setHasError(false);
       setEditedValue(value?.toString() || '');
     };
 
@@ -119,22 +124,41 @@ export const DataTableCell = memo(
       if (isReadOnly || isEditing) return;
       if (e.key === 'Enter') {
         setIsEditing(true);
+        setHasError(false);
         setEditedValue(value?.toString() || '');
       }
     };
 
-    // Save on blur or Enter
+    // Save on blur or Enter. Runs the edited text through the same
+    // coercion the voice pipeline uses (coerceCellValue → parseBoolean for
+    // BOOLEAN columns) so typing "no" and saying "no" store the identical
+    // value. Unparseable input is rejected — the cell stays in edit mode
+    // with an error style instead of silently discarding what was typed.
     const handleSave = async () => {
-      setIsEditing(false);
-      if (isReadOnly) return;
-      if (editedValue !== value?.toString()) {
-        await useTableCellStore.getState().updateCell(
-          tableId,
-          rowKey,
-          tableColumnId,
-          editedValue
-        );
+      if (isReadOnly) {
+        setIsEditing(false);
+        return;
       }
+      if (editedValue === value?.toString()) {
+        setIsEditing(false);
+        return;
+      }
+
+      const result = coerceCellValue(editedValue, columnType);
+      if (!result.ok) {
+        setHasError(true);
+        inputRef.current?.focus();
+        return;
+      }
+
+      setHasError(false);
+      setIsEditing(false);
+      await useTableCellStore.getState().updateCell(
+        tableId,
+        rowKey,
+        tableColumnId,
+        result.value
+      );
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -142,6 +166,7 @@ export const DataTableCell = memo(
         handleSave();
       } else if (e.key === 'Escape') {
         setIsEditing(false);
+        setHasError(false);
         setEditedValue(value?.toString() || '');
       }
     };
@@ -177,11 +202,8 @@ export const DataTableCell = memo(
           'transition-all duration-200',
           // Read-only base tinting
           isReadOnly && 'bg-gray-50/60',
-          recordingState === 'listening' && isActive && !isReadOnly && 'animate-pulse',
           recordingState === 'processing' && isActive && !isReadOnly && 'bg-yellow-50',
           recordingState === 'confirming' && isActive && !isReadOnly && 'bg-orange-50',
-          // Success animation (green flash)
-          isJustUpdated && !isReadOnly && 'animate-[flash_0.5s_ease-in-out]',
         )}
         style={{
           borderColor: '#e5e7eb',
@@ -199,9 +221,18 @@ export const DataTableCell = memo(
         }}
       >
         {/* Inner wrapper: fixes the h-9 row height (matches DataCell) and hosts
-            the active ring + absolute overlays so they clip to the cell boundary */}
+            the active ring + absolute overlays so they clip to the cell boundary.
+            Also the sole host for opacity/background-color animations
+            (listening pulse, success flash) — a <td> in a border-collapse
+            table is a bad compositing-layer host: removing an animated class
+            from it can leave the layer's last paint stuck on screen until an
+            unrelated repaint (DevTools open, hover) flushes it. */}
         <div
-          className="relative h-9 w-full"
+          className={cn(
+            'relative h-9 w-full',
+            recordingState === 'listening' && isActive && !isReadOnly && 'animate-pulse',
+            isJustUpdated && !isReadOnly && 'animate-[flash_0.5s_ease-in-out]',
+          )}
           style={
             isActive && !isReadOnly
               ? { boxShadow: 'inset 0 0 0 2px #13501B' }
@@ -213,12 +244,16 @@ export const DataTableCell = memo(
               ref={inputRef}
               type="text"
               value={editedValue}
-              onChange={(e) => setEditedValue(e.target.value)}
+              onChange={(e) => {
+                setEditedValue(e.target.value);
+                setHasError(false);
+              }}
               onBlur={handleSave}
               onKeyDown={handleKeyDown}
               className={cn(
                 'w-full h-full px-2 py-1 text-sm bg-transparent border-none outline-none focus:ring-0 text-gray-900',
                 columnType === ColumnType.NUMBER && 'font-mono',
+                hasError && 'ring-1 ring-inset ring-red-500',
               )}
             />
           ) : (
@@ -254,8 +289,13 @@ export const DataTableCell = memo(
             </div>
           )}
 
-          {/* Success animation overlay */}
-          {isActive && recordingState === 'committing' && (
+          {/* Success animation overlay — gated on isJustUpdated (this cell
+              was actually written), not isActive: recordingState briefly
+              hits 'committing' before the pointer re-targets, so gating on
+              isActive alone painted the pre-commit pointer cell green even
+              when it wasn't part of the write (most visible with
+              entity-first's cross-row re-target). */}
+          {isJustUpdated && recordingState === 'committing' && (
             <div className="absolute inset-0 flex items-center justify-center bg-green-500/20 rounded pointer-events-none">
               <div className="text-green-600 text-lg">✓</div>
             </div>

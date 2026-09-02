@@ -13,6 +13,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { useToast } from '@/components/ui/use-toast';
 import { usePointerKeyboardNav } from '@/lib/client/hooks/shared/use-pointer-keyboard-nav';
+import { getNavBandAxis } from '@/lib/client/navigation/nav-band';
 import { DataTableCell } from './DataTableCell';
 import { ComputedCell } from './ComputedCell';
 import { ColumnHeaderCell } from './ColumnHeaderCell';
@@ -45,7 +46,7 @@ const RowIndexCell = memo(function RowIndexCell({
       activeRowKey: state.activeCell?.rowKey ?? null,
     }))
   );
-  const isActiveRowBand = navigationMode === 'row-first' && activeRowKey === rowKey;
+  const isActiveRowBand = getNavBandAxis(navigationMode) === 'row' && activeRowKey === rowKey;
 
   return (
     <td

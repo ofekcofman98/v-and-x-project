@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import type { ServerTelemetrySpans } from '@/lib/shared/types/voice-telemetry';
 
@@ -11,6 +12,19 @@ export interface EntityMatch {
 }
 
 export type ParseAction = 'UPDATE_CELL' | 'ERROR' | 'AMBIGUOUS';
+
+/**
+ * Navigation mode for Smart Pointer advancement — single source of truth.
+ * Based on: docs/06_SMART_POINTER.md §3.1, docs/features/18_entity_first_navigation.md §5
+ */
+export type NavigationMode = 'column-first' | 'row-first' | 'entity-first';
+
+/**
+ * Zod schema mirroring NavigationMode, shared by every API route that
+ * validates a request-supplied navigation mode (/api/parse, /api/voice-entry)
+ * so the literal list is declared exactly once.
+ */
+export const NavigationModeSchema = z.enum(['column-first', 'row-first', 'entity-first']);
 
 export interface ParsedResult {
   entity: string | null;
@@ -38,7 +52,7 @@ export type ProcessingPath =
 export interface VoiceEntryPayload {
   tableSchema: TableSchema;
   activeCell: { rowKey: string; tableColumnId: string };
-  navigationMode: 'column-first' | 'row-first';
+  navigationMode: NavigationMode;
   tableId: string;
   language?: string;
   /** docs/features/19_voice_telemetry.md §3 Constraint 1 — threaded from client capture start. */

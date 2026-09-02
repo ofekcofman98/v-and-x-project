@@ -8,7 +8,7 @@ vi.mock('@/lib/server/matching/matcher', () => ({
   matchAsync: (...args: unknown[]) => matchAsyncMock(...args),
 }));
 
-import { resolveColumnFirstEntry, resolveRowFirstEntry } from './batch-resolve';
+import { resolveColumnFirstEntry, resolveRowFirstEntry, resolveEntityFirstGroup } from './batch-resolve';
 
 const ctx = { language: 'en' as const };
 
@@ -141,5 +141,71 @@ describe('resolveRowFirstEntry', () => {
 
     expect(['auto', 'parse_error']).toContain(valid.confidenceRoute);
     expect(['auto', 'parse_error']).toContain(invalid.confidenceRoute);
+  });
+});
+
+describe('resolveEntityFirstGroup', () => {
+  const multiColumnSchema: TableSchema = {
+    columns: [
+      { id: 'entity', label: 'Name', type: ColumnType.TEXT, isBaseColumn: true },
+      { id: 'math', label: 'Math', type: ColumnType.NUMBER },
+      { id: 'english', label: 'English', type: ColumnType.NUMBER },
+      { id: 'science', label: 'Science', type: ColumnType.NUMBER },
+    ],
+    rows: [
+      { id: 'row-dana', label: 'Dana' },
+      { id: 'row-yossi', label: 'Yossi' },
+    ],
+  };
+
+  it('matches the entity once and writes all values in column order, carrying real confidence', async () => {
+    matchAsyncMock.mockResolvedValue({ matched: 'Dana', confidence: 0.95, matchType: 'exact' });
+
+    const result = await resolveEntityFirstGroup(
+      { entityText: 'Dana', rawValues: ['90', '85', '70'] },
+      multiColumnSchema,
+      { tableColumnId: 'math' },
+      'table-1',
+      ctx
+    );
+
+    expect(matchAsyncMock).toHaveBeenCalledTimes(1);
+    expect(result.writes).toHaveLength(3);
+    expect(result.writes.map((w) => w.tableColumnId)).toEqual(['math', 'english', 'science']);
+    expect(result.writes.every((w) => w.rowKey === 'row-dana')).toBe(true);
+    expect(result.writes.every((w) => w.confidenceRoute === 'auto')).toBe(true);
+    expect(result.writes.every((w) => w.entityMatch?.confidence === 0.95)).toBe(true);
+    expect(result.overflowCount).toBe(0);
+  });
+
+  it('reports overflowCount without spilling into another row when values exceed remaining columns', async () => {
+    matchAsyncMock.mockResolvedValue({ matched: 'Dana', confidence: 0.95, matchType: 'exact' });
+
+    const result = await resolveEntityFirstGroup(
+      { entityText: 'Dana', rawValues: ['90', '85', '70', '60'] },
+      multiColumnSchema,
+      { tableColumnId: 'math' },
+      'table-1',
+      ctx
+    );
+
+    expect(result.writes).toHaveLength(3);
+    expect(result.writes.every((w) => w.rowKey === 'row-dana')).toBe(true);
+    expect(result.overflowCount).toBe(1);
+  });
+
+  it('leaves rowKey null and routes unresolved when the entity cannot be matched', async () => {
+    matchAsyncMock.mockResolvedValue({ matched: null, confidence: 0.2, matchType: 'none' });
+
+    const result = await resolveEntityFirstGroup(
+      { entityText: 'Xyz', rawValues: ['90'] },
+      multiColumnSchema,
+      { tableColumnId: 'math' },
+      'table-1',
+      ctx
+    );
+
+    expect(result.writes[0].rowKey).toBeNull();
+    expect(result.writes[0].confidenceRoute).toBe('unresolved');
   });
 });

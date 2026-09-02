@@ -120,3 +120,64 @@ export function segmentEntityValuePairsLocal(
 
   return entries;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Entity-first local segmentation
+// docs/features/18_entity_first_navigation.md §6, §8
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One (entity, values...) group parsed from an entity-first utterance. */
+export interface EntityGroup {
+  entityText: string;
+  rawValues: string[];
+}
+
+/** Segmentation result shape entity-first resolution composes over. */
+export interface EntityGroupSegmentation {
+  groups: EntityGroup[]; // 1–30
+}
+
+/**
+ * A group segment's leading (non-numeric) tokens are its entity text; the
+ * numeric tokens that follow are its values, in spoken order — "Dana 90 85
+ * 70" becomes { entityText: "Dana", rawValues: ["90", "85", "70"] }.
+ * Ambiguous (returns null) when there's no leading entity text, no numeric
+ * value at all, or a non-numeric token appears after the first value — this
+ * deliberately stays conservative about mixed value types (booleans, dates,
+ * free text) and lets the caller fall back to LLM segmentation for those.
+ */
+function tokenizeGroupSegment(segment: string): EntityGroup | null {
+  if (LEADING_NUMERIC_ARTIFACT.test(segment)) return null;
+
+  const tokens = segment.trim().split(/\s+/).filter(Boolean);
+  const firstValueIndex = tokens.findIndex((t) => BARE_NUMBER_TOKEN.test(t));
+  if (firstValueIndex <= 0) return null;
+
+  const entityText = tokens.slice(0, firstValueIndex).join(' ');
+  const rawValues = tokens.slice(firstValueIndex);
+  if (rawValues.some((v) => !BARE_NUMBER_TOKEN.test(v))) return null;
+
+  return { entityText, rawValues };
+}
+
+/**
+ * Entity-first local segmentation: splits a transcript into one-or-more
+ * `(entityText, rawValues[])` groups ("Dana 90 85 70, Yossi 70 60 55"). Each
+ * comma/"and"-separated segment names its entity once, then carries every
+ * value spoken for it. Returns null (ambiguous) if any segment doesn't
+ * tokenize cleanly, so the caller falls back to LLM segmentation.
+ * docs/features/18_entity_first_navigation.md §6
+ */
+export function segmentEntityGroupsLocal(transcript: string): EntityGroup[] | null {
+  const segments = splitSegments(transcript);
+  if (segments.length < 1) return null;
+
+  const groups: EntityGroup[] = [];
+  for (const segment of segments) {
+    const group = tokenizeGroupSegment(segment);
+    if (!group) return null;
+    groups.push(group);
+  }
+
+  return groups;
+}

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ColumnDefinition, TableSchema } from '@/lib/shared/types/table-schema';
-import type { ParsedResult } from '@/lib/shared/types/voice-pipeline';
+import type { NavigationMode, ParsedResult } from '@/lib/shared/types/voice-pipeline';
 import { openai } from './openai-client';
 import { AI_MODELS, AI_TUNING } from '@/lib/server/services/ai-service/shared/config';
 
@@ -43,7 +43,7 @@ export function buildParsePrompt(params: {
   transcript: string;
   tableSchema: TableSchema;
   activeCell: { rowKey: string; tableColumnId: string };
-  navigationMode: 'column-first' | 'row-first';
+  navigationMode: NavigationMode;
 }): string {
   const { transcript, tableSchema, activeCell, navigationMode } = params;
   const currentColumn = tableSchema.columns.find((col) => col.id === activeCell.tableColumnId);

@@ -1,4 +1,4 @@
-import { normalizeText } from './text-normalizer';
+import { normalizeText } from '@/lib/shared/parsers/text-normalizer';
 
 /**
  * Bilingual spoken-number parser (EN + HE).

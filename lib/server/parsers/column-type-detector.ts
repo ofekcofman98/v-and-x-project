@@ -1,5 +1,5 @@
 import { ColumnType } from '@/lib/shared/types/column-types';
-import { parseBoolean } from './boolean-parser';
+import { parseBoolean } from '@/lib/shared/parsers/boolean-parser';
 import { parseNaturalDate } from './date-parser';
 import { parseSpokenNumber } from './number-parser';
 

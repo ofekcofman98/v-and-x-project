@@ -543,7 +543,7 @@ export function usePointerNavigation(schema: TableSchema) {
 
 ### 3.4 Entity-First Mode
 
-> **Status:** Planned. Full design (segmentation, LLM prompt/schema, batch resolution,
+> **Status:** Implemented. Full design (segmentation, LLM prompt/schema, batch resolution,
 > pointer re-targeting) lives in `docs/features/18_entity_first_navigation.md` — this
 > section only defines the mode so all three navigation modes stay listed in one place.
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import { parseSpokenNumber } from './number-parser';
-import { parseBoolean } from './boolean-parser';
-import { normalizeText, normalizeForMatching } from './text-normalizer';
+import { parseBoolean } from '@/lib/shared/parsers/boolean-parser';
+import { normalizeText, normalizeForMatching } from '@/lib/shared/parsers/text-normalizer';
 import { parseForColumn } from './registry';
 
 describe('parseSpokenNumber', () => {
@@ -70,5 +70,16 @@ describe('parseForColumn', () => {
   it('passes through null with required validation', () => {
     const result = parseForColumn(null, { type: ColumnType.TEXT, validation: { required: true } }, { language: 'auto' });
     expect(result.valid).toBe(false);
+  });
+
+  it('parses a BOOLEAN column to a real boolean, not a string', () => {
+    const result = parseForColumn('no', { type: ColumnType.BOOLEAN }, { language: 'en' });
+    expect(result).toEqual({ value: false, valid: true });
+  });
+
+  it('marks unparseable BOOLEAN values invalid', () => {
+    const result = parseForColumn('banana', { type: ColumnType.BOOLEAN }, { language: 'en' });
+    expect(result.valid).toBe(false);
+    expect(result.value).toBeNull();
   });
 });

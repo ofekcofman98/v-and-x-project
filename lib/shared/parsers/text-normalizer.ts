@@ -1,12 +1,12 @@
 export function normalizeText(input: string): string {
     return input
       .normalize('NFC')
-      .replace(/[\u0591-\u05C7]/g, '')
+      .replace(/[֑-ׇ]/g, '')
       .replace(/[.,!?;:״"']+$/g, '')
       .replace(/\s+/g, ' ')
       .trim();
   }
-  
+
   /**
    * Normalize text for matching and hashing (convert to lowercase and duplicate final letters)
    */
