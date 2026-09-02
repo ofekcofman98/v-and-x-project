@@ -12,7 +12,11 @@ vi.mock('./openai-client', () => ({
   },
 }));
 
-import { segmentBareValuesViaLLM, segmentEntityValuePairsViaLLM } from './batch-llm-segmentation';
+import {
+  segmentBareValuesViaLLM,
+  segmentEntityValuePairsViaLLM,
+  segmentEntityGroupsViaLLM,
+} from './batch-llm-segmentation';
 
 function mockCompletion(content: string): void {
   createMock.mockResolvedValueOnce({
@@ -77,6 +81,45 @@ describe('segmentEntityValuePairsViaLLM', () => {
     mockCompletion(JSON.stringify({ entries: [{ entityText: '' }] }));
 
     await expect(segmentEntityValuePairsViaLLM('garbled')).rejects.toThrow();
+    expect(createMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('segmentEntityGroupsViaLLM', () => {
+  it('returns entity groups from a valid completion', async () => {
+    mockCompletion(
+      JSON.stringify({
+        groups: [
+          { entityText: 'Dana', rawValues: ['90', '85', '70'] },
+          { entityText: 'Yossi', rawValues: ['70', '60', '55'] },
+        ],
+      })
+    );
+
+    const result = await segmentEntityGroupsViaLLM('Dana ninety eighty five seventy, Yossi seventy sixty fifty five');
+
+    expect(result).toEqual([
+      { entityText: 'Dana', rawValues: ['90', '85', '70'] },
+      { entityText: 'Yossi', rawValues: ['70', '60', '55'] },
+    ]);
+    expect(createMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries once on invalid schema, then succeeds', async () => {
+    mockCompletion(JSON.stringify({ groups: [] })); // fails min(1)
+    mockCompletion(JSON.stringify({ groups: [{ entityText: 'Dana', rawValues: ['90'] }] }));
+
+    const result = await segmentEntityGroupsViaLLM('Dana ninety');
+
+    expect(result).toEqual([{ entityText: 'Dana', rawValues: ['90'] }]);
+    expect(createMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws after exhausting the retry on repeated invalid schema', async () => {
+    mockCompletion(JSON.stringify({ groups: [{ entityText: '', rawValues: [] }] }));
+    mockCompletion(JSON.stringify({ groups: [{ entityText: '', rawValues: [] }] }));
+
+    await expect(segmentEntityGroupsViaLLM('garbled')).rejects.toThrow();
     expect(createMock).toHaveBeenCalledTimes(2);
   });
 });

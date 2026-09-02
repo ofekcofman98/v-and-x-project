@@ -687,7 +687,7 @@ interface ParseRequest {
     rowId: string;
     columnId: string;
   };
-  navigationMode: 'column-first' | 'row-first';
+  navigationMode: 'column-first' | 'row-first' | 'entity-first'; // docs/features/18_entity_first_navigation.md
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -791,6 +791,13 @@ RULES:
 2. If navigation mode is "row-first":
    - The user is likely saying: "{column}, {value}"
    - OR just "{value}" (assume current column)
+
+3. If navigation mode is "entity-first":
+   - The user is likely saying: "{entity}, {value}, {value}, ..." — one
+     entity named once, followed by several values across columns.
+   - Batch segmentation (`segmentEntityGroupsLocal` / `segmentEntityGroupsViaLLM`,
+     docs/features/18_entity_first_navigation.md §6) handles this shape, not
+     this single-entry prompt.
 
 3. Entity matching:
    - Use fuzzy matching (handle typos, partial names)

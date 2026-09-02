@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { segmentBareValuesLocal, segmentEntityValuePairsLocal } from './batch-segmentation';
+import {
+  segmentBareValuesLocal,
+  segmentEntityValuePairsLocal,
+  segmentEntityGroupsLocal,
+} from './batch-segmentation';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ParseContext } from '@/lib/server/parsers/registry';
 
@@ -104,5 +108,53 @@ describe('segmentEntityValuePairsLocal', () => {
       { entityText: 'Dan', rawValue: '85' },
       { entityText: 'Noa', rawValue: '90' },
     ]);
+  });
+});
+
+describe('segmentEntityGroupsLocal', () => {
+  it('splits a single-entity multi-value group', () => {
+    expect(segmentEntityGroupsLocal('Dana 90 85 70')).toEqual([
+      { entityText: 'Dana', rawValues: ['90', '85', '70'] },
+    ]);
+  });
+
+  it('splits a multi-entity, multi-value transcript separated by commas', () => {
+    expect(segmentEntityGroupsLocal('Dana 90 85 70, Yossi 70 60 55')).toEqual([
+      { entityText: 'Dana', rawValues: ['90', '85', '70'] },
+      { entityText: 'Yossi', rawValues: ['70', '60', '55'] },
+    ]);
+  });
+
+  it('supports a multi-word entity name', () => {
+    expect(segmentEntityGroupsLocal('Noa Cohen 90 85')).toEqual([
+      { entityText: 'Noa Cohen', rawValues: ['90', '85'] },
+    ]);
+  });
+
+  it('splits groups joined by "and"', () => {
+    expect(segmentEntityGroupsLocal('Dana 90 85 and Yossi 70 60')).toEqual([
+      { entityText: 'Dana', rawValues: ['90', '85'] },
+      { entityText: 'Yossi', rawValues: ['70', '60'] },
+    ]);
+  });
+
+  it('returns null when a segment has no entity text before the first value', () => {
+    expect(segmentEntityGroupsLocal('90 85, Yossi 70 60')).toBeNull();
+  });
+
+  it('returns null when a segment has no value at all (ambiguous)', () => {
+    expect(segmentEntityGroupsLocal('Dana, Yossi 70 60')).toBeNull();
+  });
+
+  it('returns null when a non-numeric token follows the first value', () => {
+    expect(segmentEntityGroupsLocal('Dana 90 present')).toBeNull();
+  });
+
+  it('returns null for a Whisper list-numbering artifact', () => {
+    expect(segmentEntityGroupsLocal('26. Dana 90 85, 27. Yossi 70 60')).toBeNull();
+  });
+
+  it('returns null for an empty transcript', () => {
+    expect(segmentEntityGroupsLocal('')).toBeNull();
   });
 });

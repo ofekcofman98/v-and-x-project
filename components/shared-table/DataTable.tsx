@@ -45,7 +45,19 @@ const RowIndexCell = memo(function RowIndexCell({
       activeRowKey: state.activeCell?.rowKey ?? null,
     }))
   );
-  const isActiveRowBand = navigationMode === 'row-first' && activeRowKey === rowKey;
+  const isActiveRowBand = (() => {
+    switch (navigationMode) {
+      case 'row-first':
+      case 'entity-first':
+        return activeRowKey === rowKey;
+      case 'column-first':
+        return false;
+      default: {
+        const _exhaustive: never = navigationMode;
+        return _exhaustive;
+      }
+    }
+  })();
 
   return (
     <td

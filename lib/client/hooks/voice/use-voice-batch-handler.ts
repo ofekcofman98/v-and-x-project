@@ -136,17 +136,29 @@ export function useVoiceBatchHandler({
         pendingBatchRequestId ?? undefined
       );
 
-      // Advance the pointer once per committed write, starting from the cell
-      // active before this batch — lands one past the last write.
-      // docs/features/03_ai_table_agent.md §5.5
-      const strategy = navigationStrategies[navigationMode];
-      const rowIndexMap = new Map(tableSchema.rows.map((r, i) => [r.id, i]));
-      const colIndexMap = new Map(tableSchema.columns.map((c, i) => [c.id, i]));
+      // Pointer re-targeting after commit. Entity-first re-targets to the
+      // last resolved entity's row at the utterance's starting column
+      // ("the teacher moves to the next student") — a different shape than
+      // the generic per-write walk below, since every entity-first group
+      // re-names its own row rather than advancing linearly through cells.
+      // docs/features/18_entity_first_navigation.md §7
+      let nextCell: CellPosition | null;
+      if (navigationMode === 'entity-first') {
+        const lastWrite = committable[committable.length - 1];
+        nextCell = { rowKey: lastWrite.rowKey, tableColumnId: activeCell.tableColumnId };
+      } else {
+        // Advance the pointer once per committed write, starting from the
+        // cell active before this batch — lands one past the last write.
+        // docs/features/03_ai_table_agent.md §5.5
+        const strategy = navigationStrategies[navigationMode];
+        const rowIndexMap = new Map(tableSchema.rows.map((r, i) => [r.id, i]));
+        const colIndexMap = new Map(tableSchema.columns.map((c, i) => [c.id, i]));
 
-      let nextCell: CellPosition | null = activeCell;
-      for (let i = 0; i < committable.length; i++) {
-        if (!nextCell) break;
-        nextCell = strategy.getNext(nextCell, tableSchema, rowIndexMap, colIndexMap);
+        nextCell = activeCell;
+        for (let i = 0; i < committable.length; i++) {
+          if (!nextCell) break;
+          nextCell = strategy.getNext(nextCell, tableSchema, rowIndexMap, colIndexMap);
+        }
       }
 
       // Partial-commit semantics (docs/features/03_ai_table_agent.md §5.3):

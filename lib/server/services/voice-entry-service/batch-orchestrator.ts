@@ -11,9 +11,17 @@
 
 import type { VoiceEntryPayload } from '@/lib/shared/types/voice-pipeline';
 import type { BatchCellWrite, VoiceBatchResult } from '@/lib/shared/types/voice-pipeline';
-import { segmentBareValuesLocal, segmentEntityValuePairsLocal } from './batch-segmentation';
-import { segmentBareValuesViaLLM, segmentEntityValuePairsViaLLM } from './batch-llm-segmentation';
-import { resolveColumnFirstEntry, resolveRowFirstEntry } from './batch-resolve';
+import {
+  segmentBareValuesLocal,
+  segmentEntityValuePairsLocal,
+  segmentEntityGroupsLocal,
+} from './batch-segmentation';
+import {
+  segmentBareValuesViaLLM,
+  segmentEntityValuePairsViaLLM,
+  segmentEntityGroupsViaLLM,
+} from './batch-llm-segmentation';
+import { resolveColumnFirstEntry, resolveRowFirstEntry, resolveEntityFirstGroup } from './batch-resolve';
 import { resolveRowFirstColumnTargets } from './batch-row-first';
 import { toParseContext } from './parse-context';
 
@@ -102,6 +110,50 @@ async function resolveColumnFirstBatch(
 }
 
 /**
+ * Entity-first batch resolution: segments the transcript into
+ * (entity, values...) groups, resolving each group's entity once via
+ * `resolveEntityFirstGroup` (matchAsync + column-walk composition, §3.4) and
+ * summing `overflowCount` across groups — an overflowing group's excess
+ * values are parked, never spilled into the next group's row (§9).
+ * docs/features/18_entity_first_navigation.md §6
+ */
+async function resolveEntityFirstBatch(
+  transcript: string,
+  payload: VoiceEntryPayload
+): Promise<{ writes: BatchCellWrite[]; overflowCount: number; pathTaken: VoiceBatchResult['pathTaken'] }> {
+  const { tableSchema, activeCell, tableId } = payload;
+  const ctx = toParseContext(payload.language);
+
+  let groups = segmentEntityGroupsLocal(transcript);
+  let pathTaken: VoiceBatchResult['pathTaken'] = 'BATCH_LOCAL_SEGMENTATION';
+
+  if (!groups) {
+    console.log('[VoiceEntryService][Batch] Local entity-group segmentation ambiguous, trying LLM:', transcript);
+    try {
+      groups = await segmentEntityGroupsViaLLM(transcript);
+      pathTaken = 'BATCH_LLM_SEGMENTATION';
+    } catch (err) {
+      console.warn('[VoiceEntryService][Batch] LLM entity-group segmentation failed, degrading to single-entry:', {
+        transcript,
+        error: err instanceof Error ? err.message : err,
+      });
+      throw new BatchSegmentationFailedError();
+    }
+  }
+
+  let totalOverflow = 0;
+  const writesPerGroup = await Promise.all(
+    groups.map(async (group) => {
+      const { writes, overflowCount } = await resolveEntityFirstGroup(group, tableSchema, activeCell, tableId, ctx);
+      totalOverflow += overflowCount;
+      return writes;
+    })
+  );
+
+  return { writes: writesPerGroup.flat(), overflowCount: totalOverflow, pathTaken };
+}
+
+/**
  * Runs the batch sub-pipeline for a transcript that has already tripped
  * `looksLikeBatchUtterance`. Forks on navigation mode: column-first produces
  * (entity, value) pairs resolved against row labels; row-first produces
@@ -119,10 +171,28 @@ export async function processVoiceEntryBatch(
 
   const parsingStartTime = Date.now();
 
-  const { writes, overflowCount, pathTaken } =
-    payload.navigationMode === 'row-first'
-      ? await resolveRowFirstBatch(transcript, payload)
-      : await resolveColumnFirstBatch(transcript, payload);
+  let writes: BatchCellWrite[];
+  let overflowCount: number;
+  let pathTaken: VoiceBatchResult['pathTaken'];
+
+  switch (payload.navigationMode) {
+    case 'row-first': {
+      ({ writes, overflowCount, pathTaken } = await resolveRowFirstBatch(transcript, payload));
+      break;
+    }
+    case 'column-first': {
+      ({ writes, overflowCount, pathTaken } = await resolveColumnFirstBatch(transcript, payload));
+      break;
+    }
+    case 'entity-first': {
+      ({ writes, overflowCount, pathTaken } = await resolveEntityFirstBatch(transcript, payload));
+      break;
+    }
+    default: {
+      const _exhaustive: never = payload.navigationMode;
+      throw new Error(`Unhandled navigation mode: ${String(_exhaustive)}`);
+    }
+  }
 
   const parsingDuration = Date.now() - parsingStartTime;
   const totalDuration = Date.now() - timings.totalStartTime;

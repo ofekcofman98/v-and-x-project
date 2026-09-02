@@ -76,9 +76,19 @@ export const DataTableCell = memo(
     const isInActiveBand =
       !isActive &&
       activeRowKey !== null &&
-      (navigationMode === 'column-first'
-        ? activeColumnId === tableColumnId
-        : activeRowKey === rowKey);
+      (() => {
+        switch (navigationMode) {
+          case 'column-first':
+            return activeColumnId === tableColumnId;
+          case 'row-first':
+          case 'entity-first':
+            return activeRowKey === rowKey;
+          default: {
+            const _exhaustive: never = navigationMode;
+            return _exhaustive;
+          }
+        }
+      })();
 
     const isProvisionalTarget =
       !isActive && provisionalRowKey === rowKey && activeColumnId === tableColumnId;

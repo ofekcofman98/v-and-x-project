@@ -57,7 +57,7 @@ export interface TranscriptParseParams {
   transcript: string;
   tableSchema: TableSchema;
   activeCell: { rowId: string; columnId: string };
-  navigationMode: 'column-first' | 'row-first';
+  navigationMode: NavigationMode;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ function buildParsePrompt(params: {
   transcript: string;
   tableSchema: TableSchema;
   activeCell: { rowId: string; columnId: string };
-  navigationMode: 'column-first' | 'row-first';
+  navigationMode: NavigationMode;
 }): string {
   const { transcript, tableSchema, activeCell, navigationMode } = params;
   const currentColumn = tableSchema.columns.find((col) => col.id === activeCell.columnId);

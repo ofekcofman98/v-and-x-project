@@ -541,6 +541,12 @@ export function ConfirmationDialog() {
 ```
 
 ### 2.5 NavigationModeToggle Component
+
+> The real implementation (`components/shared-table/NavigationModeToggle.tsx`)
+> renders a third option, `entity-first` (docs/features/18_entity_first_navigation.md),
+> alongside row-first/column-first, driven by a `MODE_OPTIONS` array rather
+> than the two hardcoded `<Button>`s below — this snippet predates that.
+
 ```typescript
 // components/NavigationModeToggle.tsx
 

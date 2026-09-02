@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import { executeTranscriptParse } from '@/lib/server/services/parse-service';
+import { NavigationModeSchema } from '@/lib/shared/types/voice-pipeline';
 
 // export const runtime = 'nodejs';
 export const runtime = 'edge';
@@ -58,7 +59,7 @@ const ParseRequestSchema = z.object({
     rowId: z.string(),
     columnId: z.string(),
   }),
-  navigationMode: z.enum(['column-first', 'row-first']),
+  navigationMode: NavigationModeSchema,
 });
 
 const ParsedResultSchema = z.object({

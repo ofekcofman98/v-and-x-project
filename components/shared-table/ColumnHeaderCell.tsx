@@ -50,7 +50,19 @@ export function ColumnHeaderCell({
       activeColumnId: state.activeCell?.tableColumnId ?? null,
     }))
   );
-  const isActiveColumnBand = navigationMode === 'column-first' && activeColumnId === column.id;
+  const isActiveColumnBand = (() => {
+    switch (navigationMode) {
+      case 'column-first':
+        return activeColumnId === column.id;
+      case 'row-first':
+      case 'entity-first':
+        return false;
+      default: {
+        const _exhaustive: never = navigationMode;
+        return _exhaustive;
+      }
+    }
+  })();
 
   return (
     <th

@@ -5,7 +5,7 @@
 
 'use client';
 
-import { ArrowDown, ArrowRight } from 'lucide-react';
+import { ArrowDown, ArrowRight, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useUIStore, type NavigationMode } from '@/lib/client/stores/ui-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,7 +18,19 @@ import { cn } from '@/lib/shared/utils/cn';
  */
 function ModePreview({ mode, active }: { mode: NavigationMode; active: boolean }) {
   const cellColor = (row: number, col: number) => {
-    const highlighted = mode === 'column-first' ? col === 0 : row === 0;
+    const highlighted = (() => {
+      switch (mode) {
+        case 'column-first':
+          return col === 0;
+        case 'row-first':
+        case 'entity-first':
+          return row === 0;
+        default: {
+          const _exhaustive: never = mode;
+          return _exhaustive;
+        }
+      }
+    })();
     if (!highlighted) return 'rgba(255,255,255,0.35)';
     return active ? 'rgba(255,255,255,0.95)' : '#13501B';
   };
@@ -58,6 +70,12 @@ const MODE_OPTIONS: Array<{
     label: 'Column-first',
     tooltip: 'Move down after entry',
     Icon: ArrowDown,
+  },
+  {
+    mode: 'entity-first',
+    label: 'Entity-first',
+    tooltip: 'Say a name once, then its values across columns',
+    Icon: UserRound,
   },
 ];
 

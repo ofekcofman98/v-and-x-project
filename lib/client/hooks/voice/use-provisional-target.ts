@@ -61,6 +61,14 @@ export function useProvisionalTarget({
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Entity-first: the entity is matched once, from the first token, then
+  // held for the rest of the utterance — re-matching per interim-transcript
+  // update (like column-first) would let a later mid-utterance value word
+  // get mistaken for a new entity name. Reset at the utterance boundary
+  // (isActive flips false) alongside clearProvisionalFeedback below.
+  // docs/features/18_entity_first_navigation.md §7
+  const lockedEntityRowKeyRef = useRef<string | null | undefined>(undefined);
+
   useEffect(() => {
     if (!isActive || !interimTranscript) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -70,40 +78,72 @@ export function useProvisionalTarget({
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(() => {
-      // Row-first: the row is already fixed by the pointer, mirroring the
-      // server's isRowFirstMidRow shortcut — only the value needs guessing.
-      // Read the active row from the store directly (not a hook
-      // subscription) since this callback only ever fires while speech is
-      // active, and subscribing would re-run the effect on every pointer
-      // move for no benefit.
-      if (navigationMode === 'row-first') {
-        const activeRowKey = useUIStore.getState().activeCell?.rowKey ?? null;
-        setProvisionalFeedback({
-          interimTranscript,
-          provisionalRowKey: activeRowKey,
-          provisionalValue: interimTranscript.trim() || null,
-        });
-        return;
+      switch (navigationMode) {
+        case 'row-first': {
+          // The row is already fixed by the pointer, mirroring the server's
+          // isRowFirstMidRow shortcut — only the value needs guessing. Read
+          // the active row from the store directly (not a hook subscription)
+          // since this callback only ever fires while speech is active, and
+          // subscribing would re-run the effect on every pointer move for no
+          // benefit.
+          const activeRowKey = useUIStore.getState().activeCell?.rowKey ?? null;
+          setProvisionalFeedback({
+            interimTranscript,
+            provisionalRowKey: activeRowKey,
+            provisionalValue: interimTranscript.trim() || null,
+          });
+          return;
+        }
+        case 'column-first': {
+          const extracted = extractEntityQuick(interimTranscript);
+          if (!extracted) {
+            setProvisionalFeedback({ interimTranscript });
+            return;
+          }
+
+          const labels = tableSchema.rows.map((row) => row.label);
+          const result = chainRef.current!.match(extracted.entity, labels, PROVISIONAL_MIN_CONFIDENCE);
+
+          const matchedRow = result.matched
+            ? tableSchema.rows.find((row) => row.label === result.matched)
+            : null;
+
+          setProvisionalFeedback({
+            interimTranscript,
+            provisionalRowKey: matchedRow?.id ?? null,
+            provisionalValue: matchedRow ? String(extracted.value) : null,
+          });
+          return;
+        }
+        case 'entity-first': {
+          if (lockedEntityRowKeyRef.current === undefined) {
+            // First interim update of this utterance — extract and match
+            // just the first token (the entity name), once.
+            const firstToken = interimTranscript.trim().split(/\s+/)[0] ?? '';
+            const extracted = extractEntityQuick(firstToken);
+            const entityText = extracted ? extracted.entity : firstToken;
+
+            const labels = tableSchema.rows.map((row) => row.label);
+            const result = chainRef.current!.match(entityText, labels, PROVISIONAL_MIN_CONFIDENCE);
+            const matchedRow = result.matched
+              ? tableSchema.rows.find((row) => row.label === result.matched)
+              : null;
+
+            lockedEntityRowKeyRef.current = matchedRow?.id ?? null;
+          }
+
+          setProvisionalFeedback({
+            interimTranscript,
+            provisionalRowKey: lockedEntityRowKeyRef.current,
+            provisionalValue: null,
+          });
+          return;
+        }
+        default: {
+          const _exhaustive: never = navigationMode;
+          return _exhaustive;
+        }
       }
-
-      const extracted = extractEntityQuick(interimTranscript);
-      if (!extracted) {
-        setProvisionalFeedback({ interimTranscript });
-        return;
-      }
-
-      const labels = tableSchema.rows.map((row) => row.label);
-      const result = chainRef.current!.match(extracted.entity, labels, PROVISIONAL_MIN_CONFIDENCE);
-
-      const matchedRow = result.matched
-        ? tableSchema.rows.find((row) => row.label === result.matched)
-        : null;
-
-      setProvisionalFeedback({
-        interimTranscript,
-        provisionalRowKey: matchedRow?.id ?? null,
-        provisionalValue: matchedRow ? String(extracted.value) : null,
-      });
     }, DEBOUNCE_MS);
 
     return () => {
@@ -116,6 +156,7 @@ export function useProvisionalTarget({
   useEffect(() => {
     if (!isActive) {
       clearProvisionalFeedback();
+      lockedEntityRowKeyRef.current = undefined;
     }
   }, [isActive, clearProvisionalFeedback]);
 }

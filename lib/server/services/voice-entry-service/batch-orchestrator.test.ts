@@ -194,3 +194,86 @@ describe('processVoiceEntryBatch — row-first', () => {
     expect(result.overflowCount).toBe(1);
   });
 });
+
+describe('processVoiceEntryBatch — entity-first', () => {
+  const payload: VoiceEntryPayload = {
+    tableSchema,
+    activeCell: { rowKey: 'row-dan', tableColumnId: 'math' },
+    navigationMode: 'entity-first',
+    tableId: 'table-1',
+  };
+
+  it('resolves a single-entity multi-value group, matching once, writing all values in column order', async () => {
+    matchAsyncMock.mockResolvedValueOnce({ matched: 'Dan Cohen', confidence: 0.95, matchType: 'exact' });
+
+    const result = await processVoiceEntryBatch('Dan 90 85 70', payload, timings);
+
+    expect(result.isBatch).toBe(true);
+    expect(result.pathTaken).toBe('BATCH_LOCAL_SEGMENTATION');
+    expect(result.overflowCount).toBe(0);
+    expect(result.writes).toHaveLength(3);
+    expect(result.writes.map((w) => w.tableColumnId)).toEqual(['math', 'english', 'science']);
+    expect(result.writes.every((w) => w.rowKey === 'row-dan')).toBe(true);
+    expect(matchAsyncMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves a multi-entity utterance, matching once per group (not per value)', async () => {
+    matchAsyncMock
+      .mockResolvedValueOnce({ matched: 'Dan Cohen', confidence: 0.95, matchType: 'exact' })
+      .mockResolvedValueOnce({ matched: 'Noa Levi', confidence: 0.95, matchType: 'exact' });
+
+    const result = await processVoiceEntryBatch('Dan 90 85 70, Noa 70 60 55', payload, timings);
+
+    expect(result.writes).toHaveLength(6);
+    expect(matchAsyncMock).toHaveBeenCalledTimes(2);
+    expect(result.writes.slice(0, 3).every((w) => w.rowKey === 'row-dan')).toBe(true);
+    expect(result.writes.slice(3, 6).every((w) => w.rowKey === 'row-noa')).toBe(true);
+  });
+
+  it('reports overflowCount for a group with more values than remaining columns, without bleeding into the next group', async () => {
+    matchAsyncMock
+      .mockResolvedValueOnce({ matched: 'Dan Cohen', confidence: 0.95, matchType: 'exact' })
+      .mockResolvedValueOnce({ matched: 'Noa Levi', confidence: 0.95, matchType: 'exact' });
+
+    // 4 values from 'math' leaves only 3 editable columns (math, english,
+    // science) — one value overflows and must not spill into Noa's row.
+    const result = await processVoiceEntryBatch('Dan 90 85 70 60, Noa 70 60 55', payload, timings);
+
+    expect(result.overflowCount).toBe(1);
+    expect(result.writes).toHaveLength(6);
+    expect(result.writes.slice(0, 3).every((w) => w.rowKey === 'row-dan')).toBe(true);
+    expect(result.writes.slice(3, 6).every((w) => w.rowKey === 'row-noa')).toBe(true);
+  });
+
+  it('falls back to LLM segmentation when local entity-group segmentation is ambiguous', async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              groups: [{ entityText: 'Dan', rawValues: ['90', '85'] }],
+            }),
+          },
+        },
+      ],
+    });
+    matchAsyncMock.mockResolvedValueOnce({ matched: 'Dan Cohen', confidence: 0.95, matchType: 'exact' });
+
+    // "Dan 90 present" is ambiguous locally (non-numeric token after the
+    // first value) — exercises the LLM fallback path.
+    const result = await processVoiceEntryBatch('Dan 90 present', payload, timings);
+
+    expect(result.pathTaken).toBe('BATCH_LLM_SEGMENTATION');
+    expect(result.writes).toHaveLength(2);
+  });
+
+  it('throws BatchSegmentationFailedError when both local and LLM segmentation fail', async () => {
+    createMock.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ groups: [] }) } }],
+    });
+
+    await expect(processVoiceEntryBatch('Dan 90 present', payload, timings)).rejects.toThrow(
+      BatchSegmentationFailedError
+    );
+  });
+});
