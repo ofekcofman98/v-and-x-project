@@ -97,3 +97,5 @@ This project follows strict TypeScript and architecture patterns:
 - Zod validation at all API boundaries
 
 See `.cursorrules` for complete coding standards.
+
+All rights reserved. This repository is provided for portfolio/demonstration purposes only. No license is granted for use, modification, or distribution
