@@ -88,6 +88,7 @@ export async function processVoiceEntry(
   let matchingStartAt: string | undefined;
   let matchingEndAt: string | undefined;
   let matchingTierUsed: MatchingTier | undefined;
+  let wasBatch: boolean | undefined;
 
   /**
    * Assembles the telemetry spans object attached to every returned result.
@@ -103,6 +104,7 @@ export async function processVoiceEntry(
       matchingStartAt,
       matchingEndAt,
       matchingTierUsed,
+      wasBatch,
     };
 
     if (VOICE_ACCURACY_TELEMETRY_ENABLED) {
@@ -148,6 +150,9 @@ export async function processVoiceEntry(
         transcriptionDuration,
         totalStartTime,
       });
+      // Set only on success — the catch below degrades a failed segmentation
+      // to the single-entry pipeline, and those rows must not read as batch.
+      wasBatch = true;
       return { ...batchResult, telemetry: buildTelemetry() };
     } catch (err) {
       if (!(err instanceof BatchSegmentationFailedError)) throw err;
@@ -423,6 +428,15 @@ export async function processVoiceEntry(
   // it matched but the guessed "entity" didn't resolve to a real row (e.g.
   // "Not here" is split into entity:"Not" value:"here" — that guess is
   // wrong, but the full transcript is a valid bare boolean value).
+  //
+  // MUST run after quickExtract/matchAsync, never before: resolveBareValueEntry
+  // parses the WHOLE transcript against the active column type, and the
+  // NUMBER parser has a loose last-resort digit-extraction fallback
+  // (number-parser.ts) that will happily pull "74" out of "Rachel Green, 74"
+  // even though that's a genuine "Entity, value" utterance. Trying this
+  // first (as an earlier version of this code did) silently overwrote the
+  // CURRENTLY ACTIVE row with a spoken value meant for a DIFFERENT row —
+  // see the incident that reverted that change.
   if (!quickExtract || !quickExtractMatchedRow) {
     const bareValue = resolveBareValueEntry(transcript, activeColumn, activeRow, toParseContext(language));
 

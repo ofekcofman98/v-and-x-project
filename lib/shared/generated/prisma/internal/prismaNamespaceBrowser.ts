@@ -312,7 +312,10 @@ export const VoiceInteractionScalarFieldEnum = {
   webSttTranscript: 'webSttTranscript',
   whisperTranscript: 'whisperTranscript',
   matchedEntityValue: 'matchedEntityValue',
-  matchingTierUsed: 'matchingTierUsed'
+  matchingTierUsed: 'matchingTierUsed',
+  navigationMode: 'navigationMode',
+  wasBatch: 'wasBatch',
+  targets: 'targets'
 } as const
 
 export type VoiceInteractionScalarFieldEnum = (typeof VoiceInteractionScalarFieldEnum)[keyof typeof VoiceInteractionScalarFieldEnum]

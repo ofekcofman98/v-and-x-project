@@ -9,7 +9,30 @@
 
 import { prisma } from '@/lib/prisma';
 import { VOICE_ACCURACY_TELEMETRY_ENABLED } from './config';
-import type { VoiceInteractionMetrics } from '@/lib/shared/types/voice-telemetry';
+import type { VoiceInteractionMetrics, VoiceInteractionTarget } from '@/lib/shared/types/voice-telemetry';
+import { Prisma } from '@/lib/shared/generated/prisma/client';
+
+/**
+ * Strips written cell values from targets when accuracy telemetry is off —
+ * values are raw content, same category as the transcript fields. rowKey/
+ * tableColumnId (identifying *which* cell, not what was written) always pass.
+ *
+ * `matchingTier`/`matchedEntity` (the batch path's per-target equivalent of
+ * the top-level matchingTierUsed/matchedEntityValue) are stripped alongside
+ * value for the same reason those top-level fields live inside
+ * `accuracyFields` below: matchedEntity is a row label (content), and
+ * matchingTier is kept behind the same gate for consistency between the two
+ * representations rather than splitting the flag's meaning in two.
+ */
+function toStoredTargets(targets: VoiceInteractionTarget[] | undefined): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+  if (!targets || targets.length === 0) return Prisma.JsonNull;
+
+  const stored = VOICE_ACCURACY_TELEMETRY_ENABLED
+    ? targets
+    : targets.map(({ rowKey, tableColumnId }) => ({ rowKey, tableColumnId }));
+
+  return stored as Prisma.InputJsonValue;
+}
 
 /** Parses an ISO timestamp string to a Date, or null if absent/invalid. */
 function toDate(iso: string | undefined): Date | null {
@@ -73,6 +96,9 @@ export async function recordVoiceInteraction(metrics: VoiceInteractionMetrics): 
         totalDurationMs: durationMs(metrics.vadStartAt, metrics.dbWriteAckAt),
 
         confirmationRoute: metrics.confirmationRoute ?? null,
+        navigationMode: metrics.navigationMode ?? null,
+        wasBatch: metrics.wasBatch ?? null,
+        targets: toStoredTargets(metrics.targets),
 
         ...accuracyFields,
       },

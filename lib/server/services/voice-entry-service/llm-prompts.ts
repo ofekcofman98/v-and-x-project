@@ -59,8 +59,8 @@ Do NOT attempt to match the entity against any database. Return EXACTLY what was
 A cell is already selected (from a click, or from filling the previous column
 of this same row) — the user is often expected to say ONLY the value, with no
 name/entity at all. If the transcript does not mention any name/entity and is
-just a value, set "entity" and "entityMatch" to null. Only populate "entity"
-when a name/entity was actually spoken.
+just a value, set "entity" to null. Only populate "entity" when a name/entity
+was actually spoken.
 
 CURRENT STATE:
 - Navigation mode: ${navigationMode}
@@ -71,21 +71,17 @@ USER SAID: "${transcript}"
 RESPOND ONLY IN JSON (strictly matching this schema):
 {
   "entity": "The exact entity name you heard, or null if none was mentioned",
-  "entityMatch": null,
   "value": "The extracted value",
   "valueValid": true,
-  "action": "UPDATE_CELL",
-  "reasoning": "Extracted raw data from transcript"
+  "action": "UPDATE_CELL"
 }
 
 Example when an entity IS mentioned ("Noa Cohen, 21"):
 {
   "entity": "Noa Cohen",
-  "entityMatch": { "original": "Noa Cohen", "matched": "Noa Cohen", "confidence": 1.0, "matchType": "exact" },
   "value": 21,
   "valueValid": true,
-  "action": "UPDATE_CELL",
-  "reasoning": "Extracted raw data from transcript"
+  "action": "UPDATE_CELL"
 }
 `.trim();
 }

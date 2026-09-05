@@ -319,6 +319,10 @@ model VoiceInteraction {
   matchedEntityValue String? @map("matched_entity_value")
   matchingTierUsed   String? @map("matching_tier_used")
 
+  navigationMode String? @map("navigation_mode")
+  wasBatch       Boolean? @map("was_batch")
+  targets        Json?    @map("targets")
+
   @@index([requestId])
   @@index([createdAt])
   @@map("voice_interactions")

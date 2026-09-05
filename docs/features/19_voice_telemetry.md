@@ -85,6 +85,7 @@ Columns — see §8 for the full Prisma block. Summary:
 - 6 precomputed integer-ms durations, derived and stored at write time (not left to be recomputed from timestamp diffs later): `recording_duration_ms`, `transcription_duration_ms`, `llm_parse_duration_ms`, `matching_duration_ms`, `confirm_wait_duration_ms`, `total_duration_ms` (`vad_start_at` → `db_write_ack_at`).
 - `confirmation_route` (nullable text) — beyond the originally specified columns; see Constraint 2.
 - 4 nullable accuracy/trace columns, feature-flagged off by default: `web_stt_transcript`, `whisper_transcript`, `matched_entity_value`, `matching_tier_used`.
+- 3 nullable trace-context columns, added after the initial ship (`prisma/migrations/20260905131537_add_voice_interaction_trace_fields`): `navigation_mode` (text), `was_batch` (boolean), `targets` (jsonb — see §8 for `VoiceInteractionTarget`). `targets[].value` is stripped server-side when accuracy telemetry is off, same as the other content-bearing accuracy fields.
 - Indexes on `request_id` and `created_at`.
 
 Generated via `npx prisma migrate dev --name add_voice_interactions` (Migrate uses `DIRECT_URL` per `prisma.config.ts`), producing `prisma/migrations/<timestamp>_add_voice_interactions/migration.sql`. No hand-written standalone `.sql` file — this is the only migration convention in the repo. If the database enforces RLS the way `20260718125500_enable_rls_policies` does for domain tables, add a matching policy in the same migration (this table has no direct client access, so a service-role-only or deny-all policy is the likely shape — confirm before writing it).
@@ -105,7 +106,7 @@ Generated via `npx prisma migrate dev --name add_voice_interactions` (Migrate us
 
 **Status: planned.**
 
-New `lib/client/hooks/voice/use-voice-telemetry.ts` (or an equivalent module-level collector — the `requestId` must survive across hooks that don't share a React tree position): a `Map<requestId, Partial<VoiceInteractionMetrics>>` with `begin`, `mark`, `merge` (for server-returned spans), and `flush`. `flush` fires a **fire-and-forget** `fetch('/api/voice-telemetry', …)` — not awaited by any user-facing code path, failure caught and warned, never thrown — so it can never delay the confirmation flow.
+New `lib/client/hooks/voice/use-voice-telemetry.ts` (or an equivalent module-level collector — the `requestId` must survive across hooks that don't share a React tree position): a `Map<requestId, Partial<VoiceInteractionMetrics>>` with `begin`, `mark`, `merge` (for server-returned spans), `addTargets` (appends written cells — see below), and `flush`. `flush` fires a **fire-and-forget** `fetch('/api/voice-telemetry', …)` — not awaited by any user-facing code path, failure caught and warned, never thrown — so it can never delay the confirmation flow.
 
 Capture points, in pipeline order, implemented symmetrically in both the push-to-talk hook (`use-voice-pipeline.ts` / `use-voice-entry.ts`) and the VAD hook (`use-continuous-voice.ts` / `use-vad.ts`) per Constraint 4:
 
@@ -114,10 +115,12 @@ Capture points, in pipeline order, implemented symmetrically in both the push-to
 | `requestId` generation, `vad_start_at` | VAD: `use-vad.ts` `onSpeechStart` (after debounce). Push-to-talk: `use-voice-entry.ts` `mediaRecorder.start()`. |
 | `recording_stop_at` | VAD: `use-vad.ts` chunk-emit (Blob built). Push-to-talk: `use-voice-entry.ts` `mediaRecorder.onstop`. |
 | `upload_complete_at` | After the `fetch` to `/api/voice-entry` resolves, in both upload sites. This marks response-received, not upload-bytes-flushed — the browser cannot observe true upload completion without an XHR progress shim, and this spec does not add one. |
-| Server spans (`transcription_*`, `llm_parse_*`, `matching_*`, `matching_tier_used`, `whisper_transcript`) | Merged from `data.telemetry` in the same response used for `upload_complete_at`. |
+| Server spans (`transcription_*`, `llm_parse_*`, `matching_*`, `matching_tier_used`, `whisper_transcript`, `was_batch`) | Merged from `data.telemetry` in the same response used for `upload_complete_at`. `was_batch` is set server-side only after `processVoiceEntryBatch` succeeds (`pipeline.ts`) — a failed batch segmentation degrades to the single-entry path and must not be mislabeled. |
 | `web_stt_transcript` | Read from `useUIStore(s => s.provisionalFeedback.interimTranscript)` at flush time. |
+| `navigation_mode` | Read from `useUIStore(s => s.navigationMode)` at flush time — reflects the mode active when the interaction was flushed. |
 | `confirm_shown_at` | The `setPendingConfirmation` call sites in `use-voice-action-handler.ts` and `use-voice-batch-handler.ts`. |
 | `confirm_received_at` | `confirmEntry` (`ui-store.ts`) and `confirmBatch` (`use-voice-batch-handler.ts`). |
+| `targets` | `addTargets(requestId, [...])` in `table-cell-store.ts`'s `updateCell` / `updateCellsBatch`, alongside the existing `db_write_ack_at` mark. Appends rather than overwrites — one `requestId` can span multiple partial batch commits (§12). Batch writes additionally carry `targets[].matchingTier`/`matchedEntity`, sourced from `BatchCellWrite.entityMatch` in `use-voice-batch-handler.ts`'s `confirmBatch` — the per-cell equivalent of the top-level `matching_tier_used`/`matched_entity_value`, needed because one batch utterance can resolve several different entities at different tiers. |
 | `db_write_ack_at`, flush | After `response.ok` in `table-cell-store.ts`'s `updateCell` / `updateCellsBatch`, before optimistic state settles. This is also where `confirmation_route` is finalized: `'auto'` (direct write, no confirm shown), `'confirmed'` (single-entry confirm), `'batch'` (batch confirm). |
 | Flush on abandon | `cancelEntry` (`ui-store.ts`) and the client-side error catches in both upload hooks → `confirmation_route: 'abandoned'`, `db_write_ack_at` left null. |
 
@@ -160,6 +163,11 @@ model VoiceInteraction {
   matchedEntityValue        String?   @map("matched_entity_value")
   matchingTierUsed          String?   @map("matching_tier_used")
 
+  // Added post-ship: prisma/migrations/20260905131537_add_voice_interaction_trace_fields
+  navigationMode            String?   @map("navigation_mode")
+  wasBatch                  Boolean?  @map("was_batch")
+  targets                   Json?     @map("targets")
+
   @@index([requestId])
   @@index([createdAt])
   @@map("voice_interactions")
@@ -170,6 +178,23 @@ model VoiceInteraction {
 // lib/shared/types/voice-telemetry.ts
 export type MatchingTier = 'exact' | 'phonetic' | 'fuzzy' | 'semantic' | 'none';
 export type ConfirmationRoute = 'auto' | 'confirmed' | 'batch' | 'abandoned';
+
+// One cell written by an interaction. `value`, `matchingTier`, and
+// `matchedEntity` are all stripped server-side when accuracy telemetry is
+// off — `value` and `matchedEntity` are raw content (same category as
+// transcripts); `matchingTier` is kept behind the same gate for consistency
+// with the top-level matchingTierUsed rather than splitting the flag's
+// meaning in two. Populated by the batch path only — single-entry
+// interactions record tier/entity at the top level instead
+// (matchingTierUsed / matchedEntityValue), since there's exactly one match
+// per interaction there.
+export interface VoiceInteractionTarget {
+  rowKey: string;
+  tableColumnId: string;
+  value?: string | number | boolean | null;
+  matchingTier?: MatchingTier;
+  matchedEntity?: string | null;
+}
 
 export interface VoiceInteractionMetrics {
   requestId: string; // only required field — built incrementally
@@ -186,6 +211,9 @@ export interface VoiceInteractionMetrics {
   confirmReceivedAt?: string;
   dbWriteAckAt?: string;
   confirmationRoute?: ConfirmationRoute;
+  navigationMode?: NavigationMode; // reused from lib/shared/types/voice-pipeline.ts
+  wasBatch?: boolean;
+  targets?: VoiceInteractionTarget[];
   webSttTranscript?: string;
   whisperTranscript?: string;
   matchedEntityValue?: string;
@@ -201,6 +229,7 @@ export interface ServerTelemetrySpans {
   matchingStartAt?: string;
   matchingEndAt?: string;
   matchingTierUsed?: MatchingTier;
+  wasBatch?: boolean;
   whisperTranscript?: string;
   matchedEntityValue?: string;
 }
@@ -251,6 +280,8 @@ export interface ServerTelemetrySpans {
 The most important thing to check in review is Constraint 2: this feature does **not** assume every voice entry goes through a visible confirmation step. Most don't. `confirmation_route` exists specifically so a null `confirm_shown_at`/`confirm_received_at` pair reads as "auto-committed, no confirmation needed" rather than "confirmation UI shown but never observed" — those are very different signals for the accuracy side of this work and must not be conflated.
 
 The `upsert`-vs-`create` decision in `voice-interaction-service.ts` needs one explicit choice at implementation time: if flush only ever happens once per interaction (at db-write-ack, cancel, or a terminal error), `create` is sufficient and simpler. If a partial row is ever flushed early (e.g. on `confirm_shown_at` for observability of in-flight interactions) and then updated later, `upsert` on `requestId` is required instead. The plan assumes single-flush; revisit this if that assumption changes.
+
+**`targets` stores written cell values (post-ship addition).** When accuracy telemetry is on, `targets[].value` holds the actual value written to each cell — this is raw content, in the same privacy category as `whisper_transcript`/`web_stt_transcript`, and is stripped server-side (leaving only `rowKey`/`tableColumnId`) when the flag is off. Also worth flagging: `voice_interactions` still has no `user_id` column and no RLS policy, unlike the domain tables covered by `20260718125500_enable_rls_policies` — this predates the `targets` addition but `targets` widens what an unprotected read of this table would expose. Not resolved here; a decision for whoever owns that migration.
 
 ---
 

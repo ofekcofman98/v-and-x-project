@@ -71,6 +71,8 @@ export type VoiceInteractionMinAggregateOutputType = {
   whisperTranscript: string | null
   matchedEntityValue: string | null
   matchingTierUsed: string | null
+  navigationMode: string | null
+  wasBatch: boolean | null
 }
 
 export type VoiceInteractionMaxAggregateOutputType = {
@@ -100,6 +102,8 @@ export type VoiceInteractionMaxAggregateOutputType = {
   whisperTranscript: string | null
   matchedEntityValue: string | null
   matchingTierUsed: string | null
+  navigationMode: string | null
+  wasBatch: boolean | null
 }
 
 export type VoiceInteractionCountAggregateOutputType = {
@@ -129,6 +133,9 @@ export type VoiceInteractionCountAggregateOutputType = {
   whisperTranscript: number
   matchedEntityValue: number
   matchingTierUsed: number
+  navigationMode: number
+  wasBatch: number
+  targets: number
   _all: number
 }
 
@@ -178,6 +185,8 @@ export type VoiceInteractionMinAggregateInputType = {
   whisperTranscript?: true
   matchedEntityValue?: true
   matchingTierUsed?: true
+  navigationMode?: true
+  wasBatch?: true
 }
 
 export type VoiceInteractionMaxAggregateInputType = {
@@ -207,6 +216,8 @@ export type VoiceInteractionMaxAggregateInputType = {
   whisperTranscript?: true
   matchedEntityValue?: true
   matchingTierUsed?: true
+  navigationMode?: true
+  wasBatch?: true
 }
 
 export type VoiceInteractionCountAggregateInputType = {
@@ -236,6 +247,9 @@ export type VoiceInteractionCountAggregateInputType = {
   whisperTranscript?: true
   matchedEntityValue?: true
   matchingTierUsed?: true
+  navigationMode?: true
+  wasBatch?: true
+  targets?: true
   _all?: true
 }
 
@@ -352,6 +366,9 @@ export type VoiceInteractionGroupByOutputType = {
   whisperTranscript: string | null
   matchedEntityValue: string | null
   matchingTierUsed: string | null
+  navigationMode: string | null
+  wasBatch: boolean | null
+  targets: runtime.JsonValue | null
   _count: VoiceInteractionCountAggregateOutputType | null
   _avg: VoiceInteractionAvgAggregateOutputType | null
   _sum: VoiceInteractionSumAggregateOutputType | null
@@ -404,6 +421,9 @@ export type VoiceInteractionWhereInput = {
   whisperTranscript?: Prisma.StringNullableFilter<"VoiceInteraction"> | string | null
   matchedEntityValue?: Prisma.StringNullableFilter<"VoiceInteraction"> | string | null
   matchingTierUsed?: Prisma.StringNullableFilter<"VoiceInteraction"> | string | null
+  navigationMode?: Prisma.StringNullableFilter<"VoiceInteraction"> | string | null
+  wasBatch?: Prisma.BoolNullableFilter<"VoiceInteraction"> | boolean | null
+  targets?: Prisma.JsonNullableFilter<"VoiceInteraction">
 }
 
 export type VoiceInteractionOrderByWithRelationInput = {
@@ -433,6 +453,9 @@ export type VoiceInteractionOrderByWithRelationInput = {
   whisperTranscript?: Prisma.SortOrderInput | Prisma.SortOrder
   matchedEntityValue?: Prisma.SortOrderInput | Prisma.SortOrder
   matchingTierUsed?: Prisma.SortOrderInput | Prisma.SortOrder
+  navigationMode?: Prisma.SortOrderInput | Prisma.SortOrder
+  wasBatch?: Prisma.SortOrderInput | Prisma.SortOrder
+  targets?: Prisma.SortOrderInput | Prisma.SortOrder
 }
 
 export type VoiceInteractionWhereUniqueInput = Prisma.AtLeast<{
@@ -465,6 +488,9 @@ export type VoiceInteractionWhereUniqueInput = Prisma.AtLeast<{
   whisperTranscript?: Prisma.StringNullableFilter<"VoiceInteraction"> | string | null
   matchedEntityValue?: Prisma.StringNullableFilter<"VoiceInteraction"> | string | null
   matchingTierUsed?: Prisma.StringNullableFilter<"VoiceInteraction"> | string | null
+  navigationMode?: Prisma.StringNullableFilter<"VoiceInteraction"> | string | null
+  wasBatch?: Prisma.BoolNullableFilter<"VoiceInteraction"> | boolean | null
+  targets?: Prisma.JsonNullableFilter<"VoiceInteraction">
 }, "id" | "requestId">
 
 export type VoiceInteractionOrderByWithAggregationInput = {
@@ -494,6 +520,9 @@ export type VoiceInteractionOrderByWithAggregationInput = {
   whisperTranscript?: Prisma.SortOrderInput | Prisma.SortOrder
   matchedEntityValue?: Prisma.SortOrderInput | Prisma.SortOrder
   matchingTierUsed?: Prisma.SortOrderInput | Prisma.SortOrder
+  navigationMode?: Prisma.SortOrderInput | Prisma.SortOrder
+  wasBatch?: Prisma.SortOrderInput | Prisma.SortOrder
+  targets?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.VoiceInteractionCountOrderByAggregateInput
   _avg?: Prisma.VoiceInteractionAvgOrderByAggregateInput
   _max?: Prisma.VoiceInteractionMaxOrderByAggregateInput
@@ -531,6 +560,9 @@ export type VoiceInteractionScalarWhereWithAggregatesInput = {
   whisperTranscript?: Prisma.StringNullableWithAggregatesFilter<"VoiceInteraction"> | string | null
   matchedEntityValue?: Prisma.StringNullableWithAggregatesFilter<"VoiceInteraction"> | string | null
   matchingTierUsed?: Prisma.StringNullableWithAggregatesFilter<"VoiceInteraction"> | string | null
+  navigationMode?: Prisma.StringNullableWithAggregatesFilter<"VoiceInteraction"> | string | null
+  wasBatch?: Prisma.BoolNullableWithAggregatesFilter<"VoiceInteraction"> | boolean | null
+  targets?: Prisma.JsonNullableWithAggregatesFilter<"VoiceInteraction">
 }
 
 export type VoiceInteractionCreateInput = {
@@ -560,6 +592,9 @@ export type VoiceInteractionCreateInput = {
   whisperTranscript?: string | null
   matchedEntityValue?: string | null
   matchingTierUsed?: string | null
+  navigationMode?: string | null
+  wasBatch?: boolean | null
+  targets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
 }
 
 export type VoiceInteractionUncheckedCreateInput = {
@@ -589,6 +624,9 @@ export type VoiceInteractionUncheckedCreateInput = {
   whisperTranscript?: string | null
   matchedEntityValue?: string | null
   matchingTierUsed?: string | null
+  navigationMode?: string | null
+  wasBatch?: boolean | null
+  targets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
 }
 
 export type VoiceInteractionUpdateInput = {
@@ -618,6 +656,9 @@ export type VoiceInteractionUpdateInput = {
   whisperTranscript?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   matchedEntityValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   matchingTierUsed?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  navigationMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  wasBatch?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  targets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
 }
 
 export type VoiceInteractionUncheckedUpdateInput = {
@@ -647,6 +688,9 @@ export type VoiceInteractionUncheckedUpdateInput = {
   whisperTranscript?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   matchedEntityValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   matchingTierUsed?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  navigationMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  wasBatch?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  targets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
 }
 
 export type VoiceInteractionCreateManyInput = {
@@ -676,6 +720,9 @@ export type VoiceInteractionCreateManyInput = {
   whisperTranscript?: string | null
   matchedEntityValue?: string | null
   matchingTierUsed?: string | null
+  navigationMode?: string | null
+  wasBatch?: boolean | null
+  targets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
 }
 
 export type VoiceInteractionUpdateManyMutationInput = {
@@ -705,6 +752,9 @@ export type VoiceInteractionUpdateManyMutationInput = {
   whisperTranscript?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   matchedEntityValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   matchingTierUsed?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  navigationMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  wasBatch?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  targets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
 }
 
 export type VoiceInteractionUncheckedUpdateManyInput = {
@@ -734,6 +784,9 @@ export type VoiceInteractionUncheckedUpdateManyInput = {
   whisperTranscript?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   matchedEntityValue?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   matchingTierUsed?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  navigationMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  wasBatch?: Prisma.NullableBoolFieldUpdateOperationsInput | boolean | null
+  targets?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
 }
 
 export type VoiceInteractionCountOrderByAggregateInput = {
@@ -763,6 +816,9 @@ export type VoiceInteractionCountOrderByAggregateInput = {
   whisperTranscript?: Prisma.SortOrder
   matchedEntityValue?: Prisma.SortOrder
   matchingTierUsed?: Prisma.SortOrder
+  navigationMode?: Prisma.SortOrder
+  wasBatch?: Prisma.SortOrder
+  targets?: Prisma.SortOrder
 }
 
 export type VoiceInteractionAvgOrderByAggregateInput = {
@@ -801,6 +857,8 @@ export type VoiceInteractionMaxOrderByAggregateInput = {
   whisperTranscript?: Prisma.SortOrder
   matchedEntityValue?: Prisma.SortOrder
   matchingTierUsed?: Prisma.SortOrder
+  navigationMode?: Prisma.SortOrder
+  wasBatch?: Prisma.SortOrder
 }
 
 export type VoiceInteractionMinOrderByAggregateInput = {
@@ -830,6 +888,8 @@ export type VoiceInteractionMinOrderByAggregateInput = {
   whisperTranscript?: Prisma.SortOrder
   matchedEntityValue?: Prisma.SortOrder
   matchingTierUsed?: Prisma.SortOrder
+  navigationMode?: Prisma.SortOrder
+  wasBatch?: Prisma.SortOrder
 }
 
 export type VoiceInteractionSumOrderByAggregateInput = {
@@ -851,6 +911,10 @@ export type NullableIntFieldUpdateOperationsInput = {
   decrement?: number
   multiply?: number
   divide?: number
+}
+
+export type NullableBoolFieldUpdateOperationsInput = {
+  set?: boolean | null
 }
 
 
@@ -882,6 +946,9 @@ export type VoiceInteractionSelect<ExtArgs extends runtime.Types.Extensions.Inte
   whisperTranscript?: boolean
   matchedEntityValue?: boolean
   matchingTierUsed?: boolean
+  navigationMode?: boolean
+  wasBatch?: boolean
+  targets?: boolean
 }, ExtArgs["result"]["voiceInteraction"]>
 
 export type VoiceInteractionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -911,6 +978,9 @@ export type VoiceInteractionSelectCreateManyAndReturn<ExtArgs extends runtime.Ty
   whisperTranscript?: boolean
   matchedEntityValue?: boolean
   matchingTierUsed?: boolean
+  navigationMode?: boolean
+  wasBatch?: boolean
+  targets?: boolean
 }, ExtArgs["result"]["voiceInteraction"]>
 
 export type VoiceInteractionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -940,6 +1010,9 @@ export type VoiceInteractionSelectUpdateManyAndReturn<ExtArgs extends runtime.Ty
   whisperTranscript?: boolean
   matchedEntityValue?: boolean
   matchingTierUsed?: boolean
+  navigationMode?: boolean
+  wasBatch?: boolean
+  targets?: boolean
 }, ExtArgs["result"]["voiceInteraction"]>
 
 export type VoiceInteractionSelectScalar = {
@@ -969,9 +1042,12 @@ export type VoiceInteractionSelectScalar = {
   whisperTranscript?: boolean
   matchedEntityValue?: boolean
   matchingTierUsed?: boolean
+  navigationMode?: boolean
+  wasBatch?: boolean
+  targets?: boolean
 }
 
-export type VoiceInteractionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "requestId" | "createdAt" | "vadStartAt" | "recordingStopAt" | "uploadCompleteAt" | "transcriptionStartAt" | "transcriptionEndAt" | "llmParseStartAt" | "llmParseEndAt" | "matchingStartAt" | "matchingEndAt" | "confirmShownAt" | "confirmReceivedAt" | "dbWriteAckAt" | "recordingDurationMs" | "transcriptionDurationMs" | "llmParseDurationMs" | "matchingDurationMs" | "confirmWaitDurationMs" | "totalDurationMs" | "confirmationRoute" | "webSttTranscript" | "whisperTranscript" | "matchedEntityValue" | "matchingTierUsed", ExtArgs["result"]["voiceInteraction"]>
+export type VoiceInteractionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "requestId" | "createdAt" | "vadStartAt" | "recordingStopAt" | "uploadCompleteAt" | "transcriptionStartAt" | "transcriptionEndAt" | "llmParseStartAt" | "llmParseEndAt" | "matchingStartAt" | "matchingEndAt" | "confirmShownAt" | "confirmReceivedAt" | "dbWriteAckAt" | "recordingDurationMs" | "transcriptionDurationMs" | "llmParseDurationMs" | "matchingDurationMs" | "confirmWaitDurationMs" | "totalDurationMs" | "confirmationRoute" | "webSttTranscript" | "whisperTranscript" | "matchedEntityValue" | "matchingTierUsed" | "navigationMode" | "wasBatch" | "targets", ExtArgs["result"]["voiceInteraction"]>
 
 export type $VoiceInteractionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "VoiceInteraction"
@@ -1003,6 +1079,9 @@ export type $VoiceInteractionPayload<ExtArgs extends runtime.Types.Extensions.In
     whisperTranscript: string | null
     matchedEntityValue: string | null
     matchingTierUsed: string | null
+    navigationMode: string | null
+    wasBatch: boolean | null
+    targets: runtime.JsonValue | null
   }, ExtArgs["result"]["voiceInteraction"]>
   composites: {}
 }
@@ -1452,6 +1531,9 @@ export interface VoiceInteractionFieldRefs {
   readonly whisperTranscript: Prisma.FieldRef<"VoiceInteraction", 'String'>
   readonly matchedEntityValue: Prisma.FieldRef<"VoiceInteraction", 'String'>
   readonly matchingTierUsed: Prisma.FieldRef<"VoiceInteraction", 'String'>
+  readonly navigationMode: Prisma.FieldRef<"VoiceInteraction", 'String'>
+  readonly wasBatch: Prisma.FieldRef<"VoiceInteraction", 'Boolean'>
+  readonly targets: Prisma.FieldRef<"VoiceInteraction", 'Json'>
 }
     
 

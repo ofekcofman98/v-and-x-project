@@ -11,7 +11,12 @@
  */
 
 import { useUIStore } from '@/lib/client/stores/ui-store';
-import type { ConfirmationRoute, ServerTelemetrySpans, VoiceInteractionMetrics } from '@/lib/shared/types/voice-telemetry';
+import type {
+  ConfirmationRoute,
+  ServerTelemetrySpans,
+  VoiceInteractionMetrics,
+  VoiceInteractionTarget,
+} from '@/lib/shared/types/voice-telemetry';
 
 export type VoiceTelemetryTimestampField =
   | 'vadStartAt'
@@ -76,6 +81,18 @@ function merge(requestId: string, spans: ServerTelemetrySpans | undefined): void
 }
 
 /**
+ * Appends cell(s) written by this interaction. Appends rather than
+ * overwrites — a single requestId can span multiple partial batch commits
+ * (see table-cell-store.ts's updateCellsBatch), and overwriting would
+ * silently keep only the last commit's cells.
+ */
+function addTargets(requestId: string, targets: VoiceInteractionTarget[]): void {
+  const entry = pending.get(requestId);
+  if (!entry) return;
+  entry.targets = [...(entry.targets ?? []), ...targets];
+}
+
+/**
  * Fire-and-forget flush to /api/voice-telemetry. Never awaited by any
  * user-facing code path — failure is caught and warned, never thrown, so
  * this can never delay the confirmation flow. Removes the entry regardless
@@ -89,10 +106,12 @@ function flush(requestId: string): void {
 
   // §7 — read at flush time rather than captured earlier, since the
   // shadow transcript keeps growing for the duration of the utterance.
-  const interimTranscript = useUIStore.getState().provisionalFeedback.interimTranscript;
+  const uiState = useUIStore.getState();
+  const interimTranscript = uiState.provisionalFeedback.interimTranscript;
   if (interimTranscript) {
     entry.webSttTranscript = interimTranscript;
   }
+  entry.navigationMode = uiState.navigationMode;
 
   fetch('/api/voice-telemetry', {
     method: 'POST',
@@ -103,4 +122,4 @@ function flush(requestId: string): void {
   });
 }
 
-export const voiceTelemetry = { begin, mark, setConfirmationRoute, merge, flush };
+export const voiceTelemetry = { begin, mark, setConfirmationRoute, merge, addTargets, flush };

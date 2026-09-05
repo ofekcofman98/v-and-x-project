@@ -1664,11 +1664,16 @@ The thresholds in `useVAD` are environment-dependent. Use these as starting valu
 ├──────────────────────┼──────────────────────────────────────┤
 │  silenceDurationMs   │  Effect                              │
 ├──────────────────────┼──────────────────────────────────────┤
-│  800 ms              │  Aggressive — cuts off fast speakers │
-│  1200 ms             │  Balanced ← default                  │
-│  2000 ms             │  Relaxed — good for slow speakers    │
+│  450 ms              │  Aggressive — cuts off fast speakers │
+│  550 ms              │  Tight — cuts off inter-entry breaths│
+│                      │  during batch dictation, don't use   │
+│  700 ms              │  Balanced ← default                  │
+│  800 ms              │  Relaxed                             │
+│  1200-2000 ms        │  Very relaxed — good for slow speakers│
 └──────────────────────┴──────────────────────────────────────┘
 ```
+
+`POST_SPEECH_PADDING_MS` (`use-vad.ts`, not store-configurable) adds a further 150ms on top of `silenceDurationMs` before a chunk actually flushes — the real end-to-emit delay is `silenceDurationMs + 150`. Tuned per `docs/features/19_voice_telemetry.md`'s measured P50 recording duration; briefly tightened to 550ms and reverted after manual batch-dictation testing showed real inter-entry pauses (a breath, a glance at the next row) exceeding it and splitting one batch utterance into two interactions.
 
 ### 9.5 Error Handling in Continuous Mode
 

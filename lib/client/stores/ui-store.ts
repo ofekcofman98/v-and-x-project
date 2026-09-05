@@ -77,8 +77,13 @@ export interface VADSensitivity {
  * silenceDurationMs was 1800ms — for a short single-word value (e.g. "12")
  * that produced a ~2.5-2.9s blob dominated by trailing silence, which both
  * slowed transcription and increased the odds of Whisper mistaking the
- * ambient tail for speech. 700ms is still comfortably longer than a natural
- * mid-phrase pause (e.g. the comma in "Noa Cohen, 21"). docs/06_SMART_POINTER_LOGS.md
+ * ambient tail for speech. Tightened to 550ms per
+ * docs/features/19_voice_telemetry.md's measured P50 recording duration, but
+ * that cut off real batch dictation: a natural breath/glance pause between
+ * entries in "Monica Geller, 23. [pause] Rachel Green, 74" is comfortably
+ * longer than 550ms and got flushed as two separate interactions. Restored
+ * to 700ms — still tighter than the original 1800ms, but long enough for an
+ * inter-entry breath, not just a mid-phrase comma.
  */
 const defaultVADSensitivity: VADSensitivity = {
   speechThreshold: 15,

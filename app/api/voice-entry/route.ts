@@ -29,6 +29,11 @@ import { processVoiceEntry } from '@/lib/server/services/voice-entry-service';
 // provide. docs/features/10_voice-pipeline-hardening.md §3.2
 export const runtime = 'nodejs';
 
+// Pins this function near OpenAI's endpoint — pure network RTT reduction on
+// both the Whisper and LLM parse calls. No effect on local dev.
+// docs/features/19_voice_telemetry.md — latency findings.
+export const preferredRegion = 'iad1';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Input validation schemas
 // ─────────────────────────────────────────────────────────────────────────────

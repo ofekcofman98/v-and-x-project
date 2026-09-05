@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { apiSuccess, apiError, withErrorHandler, parseBody } from '@/lib/shared/utils/api';
 import { getAuthenticatedUser } from '@/lib/server/services/auth';
 import { recordVoiceInteraction } from '@/lib/server/services/telemetry/voice-interaction-service';
+import { NavigationModeSchema } from '@/lib/shared/types/voice-pipeline';
 
 // nodejs (not edge): shares the Prisma singleton, which needs a Node runtime.
 export const runtime = 'nodejs';
@@ -35,6 +36,20 @@ const VoiceInteractionMetricsSchema = z.object({
   dbWriteAckAt: z.string().datetime().optional(),
 
   confirmationRoute: ConfirmationRouteSchema.optional(),
+
+  navigationMode: NavigationModeSchema.optional(),
+  wasBatch: z.boolean().optional(),
+  targets: z
+    .array(
+      z.object({
+        rowKey: z.string(),
+        tableColumnId: z.string(),
+        value: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+        matchingTier: MatchingTierSchema.optional(),
+        matchedEntity: z.string().nullable().optional(),
+      })
+    )
+    .optional(),
 
   webSttTranscript: z.string().optional(),
   whisperTranscript: z.string().optional(),

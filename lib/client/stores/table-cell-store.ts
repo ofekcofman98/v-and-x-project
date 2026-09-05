@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import type { CellData } from '@/lib/shared/types/table-schema';
+import type { MatchingTier } from '@/lib/shared/types/voice-telemetry';
 import { voiceTelemetry } from '@/lib/client/hooks/voice/use-voice-telemetry';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -59,7 +60,13 @@ interface TableCellState {
    */
   updateCellsBatch: (
     tableId: string,
-    writes: Array<{ rowKey: string; tableColumnId: string; value: string | number | boolean | null }>,
+    writes: Array<{
+      rowKey: string;
+      tableColumnId: string;
+      value: string | number | boolean | null;
+      matchingTier?: MatchingTier;
+      matchedEntity?: string | null;
+    }>,
     requestId?: string
   ) => Promise<void>;
   getCellValue: (rowKey: string, tableColumnId: string) => string | number | boolean | null | undefined;
@@ -205,6 +212,7 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
       if (requestId) {
         voiceTelemetry.mark(requestId, 'dbWriteAckAt');
         voiceTelemetry.setConfirmationRoute(requestId, 'auto');
+        voiceTelemetry.addTargets(requestId, [{ rowKey, tableColumnId, value }]);
         voiceTelemetry.flush(requestId);
       }
 
@@ -278,7 +286,9 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
       const response = await fetch(`/api/tables/${tableId}/cells/batch`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ writes }),
+        body: JSON.stringify({
+          writes: writes.map(({ rowKey, tableColumnId, value }) => ({ rowKey, tableColumnId, value })),
+        }),
       });
 
       if (!response.ok) {
@@ -291,6 +301,7 @@ export const useTableCellStore = create<TableCellState>((set, get) => ({
       // requestId can span multiple partial commits.
       if (requestId) {
         voiceTelemetry.mark(requestId, 'dbWriteAckAt');
+        voiceTelemetry.addTargets(requestId, writes);
       }
     } catch (error) {
       // 4. ROLLBACK: If the API fails, restore previous state — no partial

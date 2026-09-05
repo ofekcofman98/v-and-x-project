@@ -132,6 +132,8 @@ export function useVoiceBatchHandler({
           rowKey: w.rowKey,
           tableColumnId: w.tableColumnId,
           value: w.value as string | number | boolean | null,
+          matchingTier: w.entityMatch?.matchType ?? 'none',
+          matchedEntity: w.entityMatch?.matched ?? null,
         })),
         pendingBatchRequestId ?? undefined
       );

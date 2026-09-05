@@ -1,9 +1,26 @@
 // docs/features/19_voice_telemetry.md §8 — Data Contract
 
+import type { NavigationMode } from './voice-pipeline';
+
 export type MatchingTier = 'exact' | 'phonetic' | 'fuzzy' | 'semantic' | 'none';
 
 /** How a voice interaction reached (or failed to reach) a DB write. See §3 Constraint 2. */
 export type ConfirmationRoute = 'auto' | 'confirmed' | 'batch' | 'abandoned';
+
+/**
+ * One cell written by an interaction. `value` is stripped server-side when
+ * VOICE_ACCURACY_TELEMETRY_ENABLED is off — it's raw content, same category
+ * as the transcript fields.
+ */
+export interface VoiceInteractionTarget {
+  rowKey: string;
+  tableColumnId: string;
+  value?: string | number | boolean | null;
+  /** Per-cell match provenance — populated by the batch path; single-entry
+   *  interactions carry this at the top level instead (matchingTierUsed). */
+  matchingTier?: MatchingTier;
+  matchedEntity?: string | null;
+}
 
 /**
  * Full set of stage timestamps, precomputed durations, and (flag-gated)
@@ -30,6 +47,13 @@ export interface VoiceInteractionMetrics {
 
   confirmationRoute?: ConfirmationRoute;
 
+  /** Active navigation mode at flush time — read from the UI store, not threaded per-stage. */
+  navigationMode?: NavigationMode;
+  /** Whether this interaction resolved via the batch (multi-value) path. */
+  wasBatch?: boolean;
+  /** Cell(s) written by this interaction — appended to as batch partial commits land. */
+  targets?: VoiceInteractionTarget[];
+
   /** Accuracy/trace fields — populated only when VOICE_ACCURACY_TELEMETRY_ENABLED is true. */
   webSttTranscript?: string;
   whisperTranscript?: string;
@@ -51,4 +75,5 @@ export interface ServerTelemetrySpans {
   matchingTierUsed?: MatchingTier;
   whisperTranscript?: string;
   matchedEntityValue?: string;
+  wasBatch?: boolean;
 }

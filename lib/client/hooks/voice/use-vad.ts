@@ -39,8 +39,7 @@ export interface VADOptions {
 // ms so trailing consonants aren't cut off at the silence boundary. Kept
 // small — the bulk of trailing-silence trimming now comes from the lower
 // silenceDurationMs default (ui-store.ts), not from this padding.
-// docs/06_SMART_POINTER_LOGS.md
-const POST_SPEECH_PADDING_MS = 200;
+const POST_SPEECH_PADDING_MS = 150;
 
 // Once a chunk has run past maxChunkMs, the effective silence window shrinks
 // to this so the chunk flushes at the next brief inter-word pause rather
