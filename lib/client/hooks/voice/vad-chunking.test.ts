@@ -4,7 +4,7 @@ import { decideChunkFlush } from './vad-chunking';
 const thresholds = {
   maxChunkMs: 15_000,
   hardMaxChunkMs: 30_000,
-  silenceDurationMs: 700,
+  silenceDurationMs: 800,
   overflowSilenceMs: 250,
 };
 
@@ -17,10 +17,10 @@ describe('decideChunkFlush', () => {
 
   it('flushes for "silence" once the normal silence window elapses under the soft cap', () => {
     expect(
-      decideChunkFlush({ chunkElapsedMs: 5000, silenceElapsedMs: 699 }, thresholds)
+      decideChunkFlush({ chunkElapsedMs: 5000, silenceElapsedMs: 799 }, thresholds)
     ).toBeNull();
     expect(
-      decideChunkFlush({ chunkElapsedMs: 5000, silenceElapsedMs: 700 }, thresholds)
+      decideChunkFlush({ chunkElapsedMs: 5000, silenceElapsedMs: 800 }, thresholds)
     ).toBe('silence');
   });
 
@@ -46,7 +46,7 @@ describe('decideChunkFlush', () => {
 
   it('uses the shrunk overflow silence window, not the normal one, once past the soft cap', () => {
     // 300ms of silence would not have flushed a normal (under-cap) chunk
-    // (needs 700ms) but does flush an overflowing one (needs only 250ms).
+    // (needs 800ms) but does flush an overflowing one (needs only 250ms).
     expect(
       decideChunkFlush({ chunkElapsedMs: 15_050, silenceElapsedMs: 300 }, thresholds)
     ).toBe('overflow');

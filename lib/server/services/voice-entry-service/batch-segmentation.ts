@@ -121,6 +121,53 @@ export function segmentEntityValuePairsLocal(
   return entries;
 }
 
+/** Result of a best-effort (entityText, rawValue) recovery over a transcript
+ *  that didn't segment cleanly end-to-end. */
+export interface PartialPairSegmentation {
+  pairs: { entityText: string; rawValue: string }[];
+  /** Original text of the trailing segment(s) that didn't form a complete
+   *  pair, e.g. a dangling name with no value spoken after it — surfaced to
+   *  the caller instead of silently dropped. Null when everything parsed. */
+  unparsedRemainder: string | null;
+}
+
+/**
+ * Last-resort recovery for column-first batches: walks comma/"and"-split
+ * segments two at a time (entityText, rawValue) for as long as they keep
+ * alternating cleanly, then stops — any trailing segment(s) that don't form
+ * a complete pair (e.g. a name with no value spoken after it, "Rachel
+ * Green, 74, Monica Geller, 86, Chris") are reported as `unparsedRemainder`
+ * rather than invalidating the pairs already recovered. Returns null only
+ * when not even a single leading pair could be recovered.
+ */
+export function segmentEntityValuePairsPartial(
+  transcript: string,
+  column?: Pick<ColumnDefinition, 'type' | 'validation'>,
+  ctx?: ParseContext
+): PartialPairSegmentation | null {
+  const segments = splitSegments(transcript);
+  if (segments.length < 2) return null;
+
+  const pairs: { entityText: string; rawValue: string }[] = [];
+  let i = 0;
+  while (i + 1 < segments.length) {
+    const entityText = segments[i];
+    const rawValue = segments[i + 1];
+
+    if (LEADING_NUMERIC_ARTIFACT.test(entityText) || BARE_NUMBER_TOKEN.test(entityText)) break;
+    if (!BARE_NUMBER_TOKEN.test(rawValue)) break;
+    if (column && ctx && !parseForColumn(rawValue, column, ctx).valid) break;
+
+    pairs.push({ entityText, rawValue });
+    i += 2;
+  }
+
+  if (pairs.length === 0) return null;
+
+  const remainder = segments.slice(i);
+  return { pairs, unparsedRemainder: remainder.length > 0 ? remainder.join(', ') : null };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Entity-first local segmentation
 // docs/features/18_entity_first_navigation.md §6, §8
@@ -180,4 +227,41 @@ export function segmentEntityGroupsLocal(transcript: string): EntityGroup[] | nu
   }
 
   return groups;
+}
+
+/** Result of a best-effort entity-group recovery over a transcript that
+ *  didn't segment cleanly end-to-end. */
+export interface PartialGroupSegmentation {
+  groups: EntityGroup[];
+  /** Original text of the trailing segment(s) that didn't tokenize as a
+   *  complete (entity, values...) group — surfaced to the caller instead of
+   *  silently dropped. Null when everything parsed. */
+  unparsedRemainder: string | null;
+}
+
+/**
+ * Last-resort recovery for entity-first batches: tokenizes segments in
+ * order for as long as each one cleanly yields an (entity, values...)
+ * group, then stops at the first segment that doesn't — e.g. a dangling
+ * name with no value spoken after it. That segment and everything after it
+ * are reported as `unparsedRemainder` rather than invalidating the groups
+ * already recovered. Returns null only when not even a single leading group
+ * could be recovered.
+ */
+export function segmentEntityGroupsPartial(transcript: string): PartialGroupSegmentation | null {
+  const segments = splitSegments(transcript);
+  if (segments.length < 1) return null;
+
+  const groups: EntityGroup[] = [];
+  let i = 0;
+  for (; i < segments.length; i++) {
+    const group = tokenizeGroupSegment(segments[i]);
+    if (!group) break;
+    groups.push(group);
+  }
+
+  if (groups.length === 0) return null;
+
+  const remainder = segments.slice(i);
+  return { groups, unparsedRemainder: remainder.length > 0 ? remainder.join(', ') : null };
 }

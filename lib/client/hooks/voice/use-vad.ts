@@ -71,7 +71,7 @@ export function useVAD(options: VADOptions = {}) {
   const {
     speechThreshold = 15,
     silenceThreshold = 8,
-    silenceDurationMs = 700,
+    silenceDurationMs = 800,
     speechDebounceMs = 150,
     maxChunkMs = 15_000,
     hardMaxChunkMs = 30_000,

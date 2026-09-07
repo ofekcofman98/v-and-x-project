@@ -187,4 +187,54 @@ describe('processVoiceEntry — entity+value boolean utterances still resolve vi
     expect(result.action).toBe('AMBIGUOUS');
     expect(createMock).toHaveBeenCalledTimes(1);
   });
+
+  it('a low-confidence LLM-fallback match is rejected as AMBIGUOUS rather than silently committed', async () => {
+    // Regression test: the LLM_FALLBACK matchAsync call used to accept
+    // *any* non-null match outright, with no confidence floor (unlike the
+    // fast path's >= 0.85 gate) — so a marginal fuzzy/phonetic hit with
+    // near-zero real overlap could get committed as if it were a confident
+    // match, mislabeled as 'semantic' regardless of which tier produced it.
+    transcribeAudioMock.mockResolvedValue({
+      transcript: 'Dan, here',
+      transcriptionDuration: 50,
+      audioDurationSec: 1,
+      promptEntities: [],
+    });
+    // 1st call: quick-extract's own guess ("Dan") misses entirely.
+    matchAsyncMock.mockResolvedValueOnce({ matched: null, confidence: 0, matchType: 'none' });
+    // 2nd call: the LLM fallback's matcher call returns a real entity, but
+    // at a confidence below the acceptance threshold.
+    matchAsyncMock.mockResolvedValueOnce({ matched: 'Noa Levi', confidence: 0.6, matchType: 'fuzzy' });
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              entity: 'Dan',
+              entityMatch: null,
+              value: 'here',
+              valueValid: true,
+              action: 'UPDATE_CELL',
+              reasoning: 'test',
+            }),
+          },
+        },
+      ],
+    });
+
+    const onNoaRow: VoiceEntryPayload = {
+      ...payload,
+      activeCell: { rowKey: 'row-noa', tableColumnId: 'present' },
+    };
+
+    const result = await processVoiceEntry(onNoaRow, audioFile);
+
+    expect('isBatch' in result).toBe(false);
+    if ('isBatch' in result) throw new Error('unreachable');
+
+    expect(result.pathTaken).toBe('LLM_FALLBACK');
+    expect(result.action).toBe('AMBIGUOUS');
+    expect(result.entity).toBeNull();
+    expect(result.entityMatch?.matched).toBeNull();
+  });
 });

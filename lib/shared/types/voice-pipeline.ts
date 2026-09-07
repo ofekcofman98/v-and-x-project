@@ -119,6 +119,13 @@ export interface VoiceBatchResult {
   parsingDuration: number;
   totalDuration: number;
   pathTaken: BatchProcessingPath;
+  /** Original text of a trailing segment that segmentation could not resolve
+   *  into a complete (entity, value) pair or group — e.g. a dangling name
+   *  with no value spoken after it ("...Monica Geller, 86, Chris"). The
+   *  writes above still cover everything that DID resolve cleanly; this
+   *  flags what was dropped instead of silently discarding it. Null/absent
+   *  when the whole transcript segmented cleanly. */
+  unparsedRemainder?: string | null;
   /** docs/features/19_voice_telemetry.md §6 — server-side spans for the client to merge. */
   telemetry?: ServerTelemetrySpans;
 }

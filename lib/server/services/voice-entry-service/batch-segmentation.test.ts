@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   segmentBareValuesLocal,
   segmentEntityValuePairsLocal,
+  segmentEntityValuePairsPartial,
   segmentEntityGroupsLocal,
+  segmentEntityGroupsPartial,
 } from './batch-segmentation';
 import { ColumnType } from '@/lib/shared/types/column-types';
 import type { ParseContext } from '@/lib/server/parsers/registry';
@@ -156,5 +158,60 @@ describe('segmentEntityGroupsLocal', () => {
 
   it('returns null for an empty transcript', () => {
     expect(segmentEntityGroupsLocal('')).toBeNull();
+  });
+});
+
+describe('segmentEntityValuePairsPartial', () => {
+  it('recovers leading pairs and flags a dangling trailing name with no value', () => {
+    // The exact shape that used to silently degrade the whole utterance to
+    // single-entry (and, downstream, hallucinate an unrelated entity match).
+    expect(segmentEntityValuePairsPartial('Rachel Green, 74, Monica Geller, 86, Chris')).toEqual({
+      pairs: [
+        { entityText: 'Rachel Green', rawValue: '74' },
+        { entityText: 'Monica Geller', rawValue: '86' },
+      ],
+      unparsedRemainder: 'Chris',
+    });
+  });
+
+  it('reports no remainder when every segment forms a complete pair', () => {
+    expect(segmentEntityValuePairsPartial('Dan, 85, Noa, 90')).toEqual({
+      pairs: [
+        { entityText: 'Dan', rawValue: '85' },
+        { entityText: 'Noa', rawValue: '90' },
+      ],
+      unparsedRemainder: null,
+    });
+  });
+
+  it('returns null when not even one leading pair can be recovered', () => {
+    expect(segmentEntityValuePairsPartial('Chris')).toBeNull();
+    expect(segmentEntityValuePairsPartial('90, Chris')).toBeNull();
+  });
+});
+
+describe('segmentEntityGroupsPartial', () => {
+  it('recovers leading groups and flags a dangling trailing name with no value', () => {
+    expect(segmentEntityGroupsPartial('Dana 90 85, Yossi 70 60, Chris')).toEqual({
+      groups: [
+        { entityText: 'Dana', rawValues: ['90', '85'] },
+        { entityText: 'Yossi', rawValues: ['70', '60'] },
+      ],
+      unparsedRemainder: 'Chris',
+    });
+  });
+
+  it('reports no remainder when every segment tokenizes cleanly', () => {
+    expect(segmentEntityGroupsPartial('Dana 90 85, Yossi 70 60')).toEqual({
+      groups: [
+        { entityText: 'Dana', rawValues: ['90', '85'] },
+        { entityText: 'Yossi', rawValues: ['70', '60'] },
+      ],
+      unparsedRemainder: null,
+    });
+  });
+
+  it('returns null when not even one leading group can be recovered', () => {
+    expect(segmentEntityGroupsPartial('Chris')).toBeNull();
   });
 });

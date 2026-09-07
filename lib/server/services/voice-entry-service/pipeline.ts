@@ -587,9 +587,23 @@ export async function processVoiceEntry(
     // it echoes back always carries the example's confidence: 1.0. Falling
     // back to either of those on a matcher miss would report a fabricated
     // high-confidence match for an entity that doesn't exist in the schema.
-    matchedEntity = finalMatch.matched;
+    // Unlike the fast path (Optimisation 2 above), `finalMatch` was never
+    // gated on confidence — any non-null verdict (including a marginal
+    // fuzzy/phonetic hit at the edge of fuzzyThreshold) was accepted
+    // outright and mislabeled as 'semantic' regardless of which matcher
+    // actually produced it. Mirror the fast path's >= 0.85 acceptance bar
+    // here, and preserve the real tier so telemetry isn't lying about how
+    // the match was made. A rejected match falls through to the
+    // `action: 'AMBIGUOUS'` branch below instead of silently committing to
+    // the wrong row.
+    const accepted =
+      finalMatch.matched !== null &&
+      finalMatch.confidence >= 0.85 &&
+      finalMatch.matchType !== 'none';
+    matchedEntity = accepted ? finalMatch.matched : null;
     matchConfidence = finalMatch.confidence;
-    matchType = matchedEntity ? 'semantic' : null;
+    // matchType is narrowed away from 'none' by the `accepted` guard above.
+    matchType = accepted ? (finalMatch.matchType as MatchType) : null;
     if (matchType) matchingTierUsed = matchType;
   }
 
@@ -631,7 +645,10 @@ export async function processVoiceEntry(
       entity: matchedEntity,
       value: parsedResult.value,
       confidence: responsePayload.entityMatch.confidence,
-      matchType: 'semantic',
+      // Cache the real tier the match was accepted at, not a hardcoded
+      // 'semantic' — matchType is guaranteed non-null here since
+      // matchedEntity is non-null.
+      matchType: matchType ?? 'semantic',
     });
   }
 

@@ -24,6 +24,7 @@ interface BatchConfirmationStripProps {
 export function BatchConfirmationStrip({ tableId, tableSchema }: BatchConfirmationStripProps) {
   const pendingBatchConfirmation = useUIStore((s) => s.pendingBatchConfirmation);
   const batchOverflowCount = useUIStore((s) => s.batchOverflowCount);
+  const batchUnparsedRemainder = useUIStore((s) => s.batchUnparsedRemainder);
   const recordingState = useUIStore((s) => s.recordingState);
   const setPendingBatchConfirmation = useUIStore((s) => s.setPendingBatchConfirmation);
   const setRecordingState = useUIStore((s) => s.setRecordingState);
@@ -105,6 +106,12 @@ export function BatchConfirmationStrip({ tableId, tableSchema }: BatchConfirmati
         {batchOverflowCount > 0 && (
           <li className="rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
             +{batchOverflowCount} value{batchOverflowCount === 1 ? '' : 's'} didn&apos;t fit in this row
+          </li>
+        )}
+
+        {batchUnparsedRemainder && (
+          <li className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+            Couldn&apos;t make sense of &ldquo;{batchUnparsedRemainder}&rdquo; — skipped, nothing written for it
           </li>
         )}
       </ul>

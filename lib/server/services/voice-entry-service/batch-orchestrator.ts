@@ -14,7 +14,9 @@ import type { BatchCellWrite, VoiceBatchResult } from '@/lib/shared/types/voice-
 import {
   segmentBareValuesLocal,
   segmentEntityValuePairsLocal,
+  segmentEntityValuePairsPartial,
   segmentEntityGroupsLocal,
+  segmentEntityGroupsPartial,
 } from './batch-segmentation';
 import {
   segmentBareValuesViaLLM,
@@ -41,7 +43,12 @@ export class BatchSegmentationFailedError extends Error {
 async function resolveRowFirstBatch(
   transcript: string,
   payload: VoiceEntryPayload
-): Promise<{ writes: BatchCellWrite[]; overflowCount: number; pathTaken: VoiceBatchResult['pathTaken'] }> {
+): Promise<{
+  writes: BatchCellWrite[];
+  overflowCount: number;
+  pathTaken: VoiceBatchResult['pathTaken'];
+  unparsedRemainder: string | null;
+}> {
   const { tableSchema, activeCell } = payload;
   const ctx = toParseContext(payload.language);
 
@@ -70,13 +77,18 @@ async function resolveRowFirstBatch(
   const { targets, overflowCount } = resolveRowFirstColumnTargets(activeCell, tableSchema, rawValues.length);
   const writes = targets.map((column, i) => resolveRowFirstEntry(rawValues![i], column, activeRow, ctx));
 
-  return { writes, overflowCount, pathTaken };
+  return { writes, overflowCount, pathTaken, unparsedRemainder: null };
 }
 
 async function resolveColumnFirstBatch(
   transcript: string,
   payload: VoiceEntryPayload
-): Promise<{ writes: BatchCellWrite[]; overflowCount: number; pathTaken: VoiceBatchResult['pathTaken'] }> {
+): Promise<{
+  writes: BatchCellWrite[];
+  overflowCount: number;
+  pathTaken: VoiceBatchResult['pathTaken'];
+  unparsedRemainder: string | null;
+}> {
   const { tableSchema, activeCell, tableId } = payload;
   const ctx = toParseContext(payload.language);
 
@@ -87,6 +99,7 @@ async function resolveColumnFirstBatch(
 
   let pairs = segmentEntityValuePairsLocal(transcript, activeColumn, ctx);
   let pathTaken: VoiceBatchResult['pathTaken'] = 'BATCH_LOCAL_SEGMENTATION';
+  let unparsedRemainder: string | null = null;
 
   if (!pairs) {
     console.log('[VoiceEntryService][Batch] Local entity-value segmentation ambiguous, trying LLM:', transcript);
@@ -94,11 +107,28 @@ async function resolveColumnFirstBatch(
       pairs = await segmentEntityValuePairsViaLLM(transcript);
       pathTaken = 'BATCH_LLM_SEGMENTATION';
     } catch (err) {
-      console.warn('[VoiceEntryService][Batch] LLM entity-value segmentation failed, degrading to single-entry:', {
+      console.warn('[VoiceEntryService][Batch] LLM entity-value segmentation failed, attempting partial recovery:', {
         transcript,
         error: err instanceof Error ? err.message : err,
       });
-      throw new BatchSegmentationFailedError();
+
+      // Rather than discarding a whole batch over one dangling fragment
+      // (e.g. "...Monica Geller, 86, Chris"), recover whatever leading
+      // pairs DID segment cleanly and flag the rest instead of silently
+      // dropping it. Only degrade to single-entry if not even one pair
+      // could be recovered.
+      const partial = segmentEntityValuePairsPartial(transcript, activeColumn, ctx);
+      if (!partial) {
+        throw new BatchSegmentationFailedError();
+      }
+
+      pairs = partial.pairs;
+      unparsedRemainder = partial.unparsedRemainder;
+      console.warn('[VoiceEntryService][Batch] Recovered partial pairs, flagging unparsed remainder:', {
+        transcript,
+        recoveredCount: pairs.length,
+        unparsedRemainder,
+      });
     }
   }
 
@@ -106,7 +136,7 @@ async function resolveColumnFirstBatch(
     pairs.map((entry) => resolveColumnFirstEntry(entry, tableSchema, activeColumn, tableId, ctx))
   );
 
-  return { writes, overflowCount: 0, pathTaken };
+  return { writes, overflowCount: 0, pathTaken, unparsedRemainder };
 }
 
 /**
@@ -120,12 +150,18 @@ async function resolveColumnFirstBatch(
 async function resolveEntityFirstBatch(
   transcript: string,
   payload: VoiceEntryPayload
-): Promise<{ writes: BatchCellWrite[]; overflowCount: number; pathTaken: VoiceBatchResult['pathTaken'] }> {
+): Promise<{
+  writes: BatchCellWrite[];
+  overflowCount: number;
+  pathTaken: VoiceBatchResult['pathTaken'];
+  unparsedRemainder: string | null;
+}> {
   const { tableSchema, activeCell, tableId } = payload;
   const ctx = toParseContext(payload.language);
 
   let groups = segmentEntityGroupsLocal(transcript);
   let pathTaken: VoiceBatchResult['pathTaken'] = 'BATCH_LOCAL_SEGMENTATION';
+  let unparsedRemainder: string | null = null;
 
   if (!groups) {
     console.log('[VoiceEntryService][Batch] Local entity-group segmentation ambiguous, trying LLM:', transcript);
@@ -133,11 +169,27 @@ async function resolveEntityFirstBatch(
       groups = await segmentEntityGroupsViaLLM(transcript);
       pathTaken = 'BATCH_LLM_SEGMENTATION';
     } catch (err) {
-      console.warn('[VoiceEntryService][Batch] LLM entity-group segmentation failed, degrading to single-entry:', {
+      console.warn('[VoiceEntryService][Batch] LLM entity-group segmentation failed, attempting partial recovery:', {
         transcript,
         error: err instanceof Error ? err.message : err,
       });
-      throw new BatchSegmentationFailedError();
+
+      // Recover whatever leading groups DID tokenize cleanly rather than
+      // discarding the whole batch over one dangling fragment (e.g. a name
+      // with no value spoken after it); only degrade to single-entry if not
+      // even one group could be recovered.
+      const partial = segmentEntityGroupsPartial(transcript);
+      if (!partial) {
+        throw new BatchSegmentationFailedError();
+      }
+
+      groups = partial.groups;
+      unparsedRemainder = partial.unparsedRemainder;
+      console.warn('[VoiceEntryService][Batch] Recovered partial groups, flagging unparsed remainder:', {
+        transcript,
+        recoveredCount: groups.length,
+        unparsedRemainder,
+      });
     }
   }
 
@@ -150,7 +202,7 @@ async function resolveEntityFirstBatch(
     })
   );
 
-  return { writes: writesPerGroup.flat(), overflowCount: totalOverflow, pathTaken };
+  return { writes: writesPerGroup.flat(), overflowCount: totalOverflow, pathTaken, unparsedRemainder };
 }
 
 /**
@@ -174,18 +226,19 @@ export async function processVoiceEntryBatch(
   let writes: BatchCellWrite[];
   let overflowCount: number;
   let pathTaken: VoiceBatchResult['pathTaken'];
+  let unparsedRemainder: string | null;
 
   switch (payload.navigationMode) {
     case 'row-first': {
-      ({ writes, overflowCount, pathTaken } = await resolveRowFirstBatch(transcript, payload));
+      ({ writes, overflowCount, pathTaken, unparsedRemainder } = await resolveRowFirstBatch(transcript, payload));
       break;
     }
     case 'column-first': {
-      ({ writes, overflowCount, pathTaken } = await resolveColumnFirstBatch(transcript, payload));
+      ({ writes, overflowCount, pathTaken, unparsedRemainder } = await resolveColumnFirstBatch(transcript, payload));
       break;
     }
     case 'entity-first': {
-      ({ writes, overflowCount, pathTaken } = await resolveEntityFirstBatch(transcript, payload));
+      ({ writes, overflowCount, pathTaken, unparsedRemainder } = await resolveEntityFirstBatch(transcript, payload));
       break;
     }
     default: {
@@ -207,6 +260,7 @@ export async function processVoiceEntryBatch(
     pathTaken,
     segmentCount: writes.length,
     overflowCount,
+    unparsedRemainder,
     routeTally,
     parsingDuration,
     totalDuration,
@@ -221,5 +275,6 @@ export async function processVoiceEntryBatch(
     parsingDuration,
     totalDuration,
     pathTaken,
+    unparsedRemainder,
   };
 }

@@ -81,14 +81,14 @@ export interface VADSensitivity {
  * docs/features/19_voice_telemetry.md's measured P50 recording duration, but
  * that cut off real batch dictation: a natural breath/glance pause between
  * entries in "Monica Geller, 23. [pause] Rachel Green, 74" is comfortably
- * longer than 550ms and got flushed as two separate interactions. Restored
- * to 700ms — still tighter than the original 1800ms, but long enough for an
- * inter-entry breath, not just a mid-phrase comma.
+ * longer than 550ms and got flushed as two separate interactions. Bumped to
+ * 700ms, still not enough margin for that same pause in practice — settled
+ * at 800ms for a safer cushion, still well under the original 1800ms.
  */
 const defaultVADSensitivity: VADSensitivity = {
   speechThreshold: 15,
   silenceThreshold: 8,
-  silenceDurationMs: 700,
+  silenceDurationMs: 800,
   maxChunkMs: 15_000,
   hardMaxChunkMs: 30_000,
 };
@@ -147,6 +147,10 @@ interface UIState {
   // docs/features/03_ai_table_agent.md §5
   pendingBatchConfirmation: BatchCellWrite[] | null;
   batchOverflowCount: number;
+  /** Trailing segment segmentation couldn't resolve into a pair/group (e.g. a
+   *  dangling name with no value spoken after it) — surfaced instead of
+   *  silently dropped. Null when the whole transcript segmented cleanly. */
+  batchUnparsedRemainder: string | null;
   /** requestId of the voice interaction that produced the pending batch, for docs/features/19_voice_telemetry.md. */
   pendingBatchRequestId: string | null;
 
@@ -202,7 +206,12 @@ interface UIState {
   setPendingConfirmation: (confirmation: PendingConfirmation | null, requestId?: string) => void;
 
   /** `requestId`, when provided alongside non-empty writes, stamps confirm_shown_at (docs/features/19_voice_telemetry.md §7). */
-  setPendingBatchConfirmation: (writes: BatchCellWrite[] | null, overflowCount?: number, requestId?: string) => void;
+  setPendingBatchConfirmation: (
+    writes: BatchCellWrite[] | null,
+    overflowCount?: number,
+    requestId?: string,
+    unparsedRemainder?: string | null
+  ) => void;
   updateBatchWrite: (index: number, write: BatchCellWrite) => void;
   removeBatchWrite: (index: number) => void;
 
@@ -254,6 +263,7 @@ export const useUIStore = create<UIState>()(
         pendingConfirmationRequestId: null,
         pendingBatchConfirmation: null,
         batchOverflowCount: 0,
+        batchUnparsedRemainder: null,
         pendingBatchRequestId: null,
         continuousMode: false,
         lastTranscript: null,
@@ -278,6 +288,7 @@ export const useUIStore = create<UIState>()(
               pendingConfirmationRequestId: null,
               pendingBatchConfirmation: null,
               batchOverflowCount: 0,
+        batchUnparsedRemainder: null,
               pendingBatchRequestId: null,
               continuousMode: false,
               recordingState: 'idle',
@@ -305,7 +316,7 @@ export const useUIStore = create<UIState>()(
           });
         },
 
-        setPendingBatchConfirmation: (writes, overflowCount = 0, requestId) => {
+        setPendingBatchConfirmation: (writes, overflowCount = 0, requestId, unparsedRemainder = null) => {
           // docs/features/19_voice_telemetry.md §7 — confirm_shown_at.
           if (writes && writes.length > 0 && requestId) {
             voiceTelemetry.mark(requestId, 'confirmShownAt');
@@ -313,6 +324,7 @@ export const useUIStore = create<UIState>()(
           set({
             pendingBatchConfirmation: writes,
             batchOverflowCount: overflowCount,
+            batchUnparsedRemainder: unparsedRemainder,
             pendingBatchRequestId: writes && writes.length > 0 ? (requestId ?? null) : null,
           });
         },
@@ -337,7 +349,7 @@ export const useUIStore = create<UIState>()(
                 voiceTelemetry.setConfirmationRoute(state.pendingBatchRequestId, 'abandoned');
                 voiceTelemetry.flush(state.pendingBatchRequestId);
               }
-              return { pendingBatchConfirmation: null, pendingBatchRequestId: null };
+              return { pendingBatchConfirmation: null, pendingBatchRequestId: null, batchUnparsedRemainder: null };
             }
 
             return { pendingBatchConfirmation: writes };
@@ -433,6 +445,7 @@ export const useUIStore = create<UIState>()(
             pendingConfirmationRequestId: null,
             pendingBatchConfirmation: null,
             batchOverflowCount: 0,
+        batchUnparsedRemainder: null,
             pendingBatchRequestId: null,
             continuousMode: false,
             lastTranscript: null,

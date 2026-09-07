@@ -216,7 +216,7 @@ export function useVoiceBatchHandler({
 
   const handleBatchResult = useCallback(
     (result: VoiceBatchResult, requestId?: string) => {
-      setPendingBatchConfirmation(result.writes, result.overflowCount, requestId);
+      setPendingBatchConfirmation(result.writes, result.overflowCount, requestId, result.unparsedRemainder ?? null);
       setRecordingState('confirming');
 
       // Auto-commit whenever at least one entry resolved ('auto') — resolved
