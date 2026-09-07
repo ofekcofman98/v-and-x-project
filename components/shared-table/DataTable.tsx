@@ -7,7 +7,7 @@
 
 'use client';
 
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useUIStore } from '@/lib/client/stores/ui-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
@@ -104,6 +104,14 @@ export const DataTable = memo(function DataTable({
   isReadOnly = false,
 }: DataTableProps) {
   const setActiveCell = useUIStore((state) => state.setActiveCell);
+  const setGridOrder = useUIStore((state) => state.setGridOrder);
+  const setSelectionRange = useUIStore((state) => state.setSelectionRange);
+  const extendSelection = useUIStore((state) => state.extendSelection);
+  // Tracks "mouse button held while dragging a selection" as a ref, not
+  // store/React state — a drag crosses many cells and must not re-render
+  // DataTable or the grid itself (docs/features/11_perf_and_navigation.md,
+  // spec §3.4). Read by DataTableCell's onMouseEnter via the same ref.
+  const isSelectingRef = useRef(false);
   // Included in the row/cell/header `key`s below so a toggle forces a full
   // remount of the grid instead of relying on each cell's own reactive
   // subscription to pick up the new mode — a remounted component reads
@@ -127,7 +135,23 @@ export const DataTable = memo(function DataTable({
     setLocalRepKey(representativeColumnKey ?? null);
   }, [representativeColumnKey]);
 
-  usePointerKeyboardNav({ tableSchema: { columns, rows }, enabled: !isReadOnly });
+  usePointerKeyboardNav({ tableSchema: { columns, rows }, enabled: !isReadOnly, tableId });
+
+  // Register row/column order so selection actions can resolve an
+  // anchor/focus pair into a rectangle (docs/features/20_interactive_grid_selection.md §5).
+  useEffect(() => {
+    setGridOrder(rows.map((row) => row.id), columns.map((column) => column.id));
+  }, [rows, columns, setGridOrder]);
+
+  // Single global listener ends a drag-select, mirroring the single
+  // keydown listener usePointerKeyboardNav already uses.
+  useEffect(() => {
+    const handleMouseUp = () => {
+      isSelectingRef.current = false;
+    };
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  }, []);
 
   // Fetch cell data only for editable (Table) views — BaseList has no table_cells rows.
   useEffect(() => {
@@ -159,10 +183,16 @@ export const DataTable = memo(function DataTable({
     }
   }, [isReadOnly, tableId, localRepKey, rows, toast]);
 
-  const handleCellClick = useCallback((rowKey: string, tableColumnId: string) => {
+  const handleCellClick = useCallback((rowKey: string, tableColumnId: string, shiftKey: boolean) => {
+    // Shift+Click extends the existing range from the current anchor
+    // instead of moving activeCell (spec §5) — no new drag starts.
+    if (shiftKey) {
+      extendSelection({ rowKey, tableColumnId });
+      return;
+    }
     setActiveCell({ rowKey, tableColumnId });
     onCellClick?.(rowKey, tableColumnId);
-  }, [setActiveCell, onCellClick]);
+  }, [setActiveCell, extendSelection, onCellClick]);
 
   const handleAccessSubmit = useCallback(async (access: ColumnAccess) => {
     if (!tableId || !accessModalColumn) return;
@@ -268,9 +298,18 @@ export const DataTable = memo(function DataTable({
                         isBaseColumn={column.isBaseColumn}
                         baseValue={row.values?.[column.id]}
                         isReadOnly={isReadOnly || column.isBaseColumn === true}
-                        onClick={() => {
+                        onClick={(event) => {
                           if (!isReadOnly && column.isBaseColumn !== true) {
-                            handleCellClick(row.id, column.id);
+                            handleCellClick(row.id, column.id, event.shiftKey);
+                          }
+                        }}
+                        onSelectStart={() => {
+                          isSelectingRef.current = true;
+                          setSelectionRange({ anchor: { rowKey: row.id, tableColumnId: column.id }, focus: { rowKey: row.id, tableColumnId: column.id } });
+                        }}
+                        onSelectExtend={() => {
+                          if (isSelectingRef.current) {
+                            extendSelection({ rowKey: row.id, tableColumnId: column.id });
                           }
                         }}
                       />

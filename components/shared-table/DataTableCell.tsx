@@ -24,7 +24,12 @@ interface DataTableCellProps {
   isBaseColumn?: boolean;
   baseValue?: string | number | boolean | null | undefined;
   isReadOnly?: boolean;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent) => void;
+  /** Mouse-down on this cell: starts a new drag-selection anchored here. */
+  onSelectStart?: () => void;
+  /** Mouse-enter on this cell while a drag is in progress: extends the
+   *  selection's focus to here. No-op if no drag is active. */
+  onSelectExtend?: () => void;
 }
 
 export const DataTableCell = memo(
@@ -37,6 +42,8 @@ export const DataTableCell = memo(
     baseValue,
     isReadOnly,
     onClick,
+    onSelectStart,
+    onSelectExtend,
   }: DataTableCellProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [hasError, setHasError] = useState(false);
@@ -103,6 +110,12 @@ export const DataTableCell = memo(
     const isJustUpdated = useTableCellStore((state) =>
       state.justUpdatedCellKeys.has(cellKey(rowKey, tableColumnId))
     );
+
+    // Per-cell selection read — same one-lookup shape as isJustUpdated above,
+    // not a prop threaded from DataTable, so dragging a selection across
+    // many cells only re-renders the cells that actually enter/leave the
+    // rectangle. docs/features/20_interactive_grid_selection.md §3.4
+    const isSelected = useUIStore((state) => state.selectedKeys.has(cellKey(rowKey, tableColumnId)));
 
     // Focus input when entering edit mode
     useEffect(() => {
@@ -195,6 +208,8 @@ export const DataTableCell = memo(
         onClick={onClick}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleCellKeyDown}
+        onMouseDown={onSelectStart}
+        onMouseEnter={onSelectExtend}
         tabIndex={isActive && !isReadOnly ? 0 : -1}
         className={cn(
           // Shared DataCell baseline: left border separator, zero outer padding
@@ -212,6 +227,12 @@ export const DataTableCell = memo(
               ? recordingState === 'listening'
                 ? '#e8f2e9'
                 : '#f2f8f2'
+              // Selection fill — a distinct, slightly stronger flat tint than
+              // the nav band, layered independently of the active-cell ring
+              // below so both read at once. Applies even when isReadOnly:
+              // selection is visual-only here, per spec §3.3/§5.
+              : isSelected
+              ? 'rgba(37,99,235,0.12)'
               // Deliberately weaker than the active-cell tints above, and
               // weaker than the provisional dashed outline's implied
               // urgency — this is structural context, not a pointer.

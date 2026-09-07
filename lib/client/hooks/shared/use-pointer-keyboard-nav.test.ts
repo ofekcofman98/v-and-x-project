@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveKeyboardNavigation } from './use-pointer-keyboard-nav';
+import { resolveKeyboardNavigation, resolveClearWrites } from './use-pointer-keyboard-nav';
 import type { TableSchema } from '@/lib/shared/types/table-schema';
 import { ColumnType } from '@/lib/shared/types/column-types';
 
@@ -120,5 +120,42 @@ describe('resolveKeyboardNavigation', () => {
       colIndexMap
     );
     expect(next).toBeNull();
+  });
+});
+
+describe('resolveClearWrites (docs/features/20_interactive_grid_selection.md §6)', () => {
+  const writableColumnIds = new Set(['col0', 'col1']);
+
+  it('turns every writable cell into a null-value write', () => {
+    const writes = resolveClearWrites(
+      [
+        { rowKey: 'row0', tableColumnId: 'col0' },
+        { rowKey: 'row1', tableColumnId: 'col1' },
+      ],
+      writableColumnIds
+    );
+    expect(writes).toEqual([
+      { rowKey: 'row0', tableColumnId: 'col0', value: null },
+      { rowKey: 'row1', tableColumnId: 'col1', value: null },
+    ]);
+  });
+
+  it('silently skips cells whose column is locked/base, never erroring', () => {
+    const writes = resolveClearWrites(
+      [
+        { rowKey: 'row0', tableColumnId: 'col0' },
+        { rowKey: 'row0', tableColumnId: 'first_name' }, // locked base-list column
+      ],
+      writableColumnIds
+    );
+    expect(writes).toEqual([{ rowKey: 'row0', tableColumnId: 'col0', value: null }]);
+  });
+
+  it('returns an empty array when every targeted cell is locked', () => {
+    const writes = resolveClearWrites(
+      [{ rowKey: 'row0', tableColumnId: 'first_name' }],
+      writableColumnIds
+    );
+    expect(writes).toEqual([]);
   });
 });
