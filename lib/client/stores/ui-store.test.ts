@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useUIStore, resolveSelectionCells } from './ui-store';
+import { useUIStore, resolveSelectionCells, MIN_COLUMN_WIDTH, MIN_ROW_HEIGHT, DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from './ui-store';
 
 const initialState = useUIStore.getState();
 
@@ -192,5 +192,47 @@ describe('useUIStore selection (docs/features/20_interactive_grid_selection.md ย
     const state = useUIStore.getState();
     expect(state.selectionRange).toBeNull();
     expect(state.selectedKeys.size).toBe(0);
+  });
+});
+
+describe('useUIStore resize (docs/features/20_interactive_grid_selection.md ยง7)', () => {
+  it('matches the pre-existing hardcoded defaults (180px column / 36px row)', () => {
+    expect(DEFAULT_COLUMN_WIDTH).toBe(180);
+    expect(DEFAULT_ROW_HEIGHT).toBe(36);
+  });
+
+  it('setColumnWidth stores the given width for that column only', () => {
+    useUIStore.getState().setColumnWidth('col-1', 240);
+
+    const state = useUIStore.getState();
+    expect(state.columnWidths).toEqual({ 'col-1': 240 });
+  });
+
+  it('setColumnWidth clamps below the minimum instead of storing a tiny/negative width', () => {
+    useUIStore.getState().setColumnWidth('col-1', 10);
+    expect(useUIStore.getState().columnWidths['col-1']).toBe(MIN_COLUMN_WIDTH);
+
+    useUIStore.getState().setColumnWidth('col-1', -50);
+    expect(useUIStore.getState().columnWidths['col-1']).toBe(MIN_COLUMN_WIDTH);
+  });
+
+  it('setRowHeight stores the given height for that row only', () => {
+    useUIStore.getState().setRowHeight('row-1', 60);
+
+    const state = useUIStore.getState();
+    expect(state.rowHeights).toEqual({ 'row-1': 60 });
+  });
+
+  it('setRowHeight clamps below the minimum', () => {
+    useUIStore.getState().setRowHeight('row-1', 5);
+    expect(useUIStore.getState().rowHeights['row-1']).toBe(MIN_ROW_HEIGHT);
+  });
+
+  it("resizing one column does not disturb another column's width", () => {
+    useUIStore.getState().setColumnWidth('col-1', 300);
+    useUIStore.getState().setColumnWidth('col-2', 100);
+
+    const state = useUIStore.getState();
+    expect(state.columnWidths).toEqual({ 'col-1': 300, 'col-2': 100 });
   });
 });

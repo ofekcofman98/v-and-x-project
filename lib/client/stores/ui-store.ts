@@ -19,6 +19,16 @@ export interface CellPosition {
 }
 
 /**
+ * Column/row resize defaults and clamps (docs/features/20_interactive_grid_selection.md §7).
+ * Match today's hardcoded `min-w-[180px]` / `h-9` — an unset column/row
+ * falls back to these, not a new visual default.
+ */
+export const DEFAULT_COLUMN_WIDTH = 180;
+export const MIN_COLUMN_WIDTH = 60;
+export const DEFAULT_ROW_HEIGHT = 36;
+export const MIN_ROW_HEIGHT = 24;
+
+/**
  * A drag/Shift-extended selection, anchor/focus convention (matches native
  * text selection). docs/features/20_interactive_grid_selection.md §5
  */
@@ -150,6 +160,12 @@ interface UIState {
    *  resolve an anchor/focus pair into a rectangle. Transient, not persisted. */
   gridOrder: { rowIds: string[]; columnIds: string[] };
 
+  // Column/row resize (docs/features/20_interactive_grid_selection.md §7).
+  // Keyed by column.id / row.id; an absent entry falls back to the
+  // DEFAULT_* constant above. Persisted — sizes survive reload.
+  columnWidths: Record<string, number>;
+  rowHeights: Record<string, number>;
+
   /**
    * The table the Smart Pointer / voice pipeline currently target.
    * Un-persisted — see setActiveTable. docs/features/16_master_detail_workspace.md §5
@@ -226,6 +242,13 @@ interface UIState {
    *  Starts a new 1-cell range (anchor = focus = `to`) if none exists yet. */
   extendSelection: (to: CellPosition) => void;
   clearSelection: () => void;
+
+  // Resize actions (docs/features/20_interactive_grid_selection.md §7).
+  // Clamping to MIN_COLUMN_WIDTH/MIN_ROW_HEIGHT happens here, not at the
+  // call site, so every caller (drag-in-progress and drag-end alike) gets
+  // the same floor.
+  setColumnWidth: (columnId: string, widthPx: number) => void;
+  setRowHeight: (rowId: string, heightPx: number) => void;
 
   /**
    * Single owned transition for "the workspace moved to a different table":
@@ -365,6 +388,8 @@ export const useUIStore = create<UIState>()(
         },
         preferences: defaultPreferences,
         voiceOutputEnabled: true,
+        columnWidths: {},
+        rowHeights: {},
 
         // Actions
         // Clears any existing selection — matches spec §5: a plain move of
@@ -389,6 +414,22 @@ export const useUIStore = create<UIState>()(
         },
 
         clearSelection: () => set({ selectionRange: null, selectedKeys: new Set() }),
+
+        setColumnWidth: (columnId, widthPx) =>
+          set((state) => ({
+            columnWidths: {
+              ...state.columnWidths,
+              [columnId]: Math.max(MIN_COLUMN_WIDTH, widthPx),
+            },
+          })),
+
+        setRowHeight: (rowId, heightPx) =>
+          set((state) => ({
+            rowHeights: {
+              ...state.rowHeights,
+              [rowId]: Math.max(MIN_ROW_HEIGHT, heightPx),
+            },
+          })),
 
         setActiveTable: (tableId) =>
           set((state) => {
@@ -581,6 +622,10 @@ export const useUIStore = create<UIState>()(
         partialize: (state) => ({
           preferences: state.preferences,
           navigationMode: state.navigationMode,
+          // Resize persists across reload (spec §7 acceptance criteria) —
+          // unlike selectionRange/activeCell, size is not pointer state.
+          columnWidths: state.columnWidths,
+          rowHeights: state.rowHeights,
         }),
       }
     ),

@@ -8,11 +8,12 @@
 'use client';
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { useUIStore } from '@/lib/client/stores/ui-store';
+import { useUIStore, DEFAULT_ROW_HEIGHT, MIN_ROW_HEIGHT } from '@/lib/client/stores/ui-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useTableCellStore } from '@/lib/client/stores/table-cell-store';
 import { useToast } from '@/components/ui/use-toast';
 import { usePointerKeyboardNav } from '@/lib/client/hooks/shared/use-pointer-keyboard-nav';
+import { useResizeDrag } from '@/lib/client/hooks/shared/use-resize-drag';
 import { getNavBandAxis } from '@/lib/client/navigation/nav-band';
 import { DataTableCell } from './DataTableCell';
 import { ComputedCell } from './ComputedCell';
@@ -48,16 +49,115 @@ const RowIndexCell = memo(function RowIndexCell({
   );
   const isActiveRowBand = getNavBandAxis(navigationMode) === 'row' && activeRowKey === rowKey;
 
+  // Row resize (docs/features/20_interactive_grid_selection.md §7) — the
+  // handle renders once per row here, not once per cell, so dragging it
+  // doesn't duplicate N drag targets across the row.
+  const height = useUIStore((state) => state.rowHeights[rowKey] ?? DEFAULT_ROW_HEIGHT);
+  const setRowHeight = useUIStore((state) => state.setRowHeight);
+  const { onMouseDown: onResizeMouseDown } = useResizeDrag({
+    getStartSize: () => height,
+    min: MIN_ROW_HEIGHT,
+    onResize: (heightPx) => setRowHeight(rowKey, heightPx),
+  });
+
   return (
     <td
-      className="h-9 w-10 text-center text-sm text-gray-400 select-none font-mono transition-colors duration-200"
+      className="relative h-full w-10 text-center text-sm text-gray-400 select-none font-mono transition-colors duration-200"
       style={{
         background: isActiveRowBand ? 'rgba(19,80,27,0.08)' : '#f5f5f5',
         borderRight: isActiveRowBand ? '2px solid #13501B' : '1px solid #e5e7eb',
       }}
     >
       {index + 1}
+      {/* Row resize handle — bottom edge grab strip. */}
+      <div
+        onMouseDown={(e) => onResizeMouseDown(e, 'y')}
+        className="absolute bottom-0 left-0 w-full h-1 cursor-row-resize hover:bg-blue-400/40 active:bg-blue-500/50"
+        role="presentation"
+      />
     </td>
+  );
+});
+
+/**
+ * One table row — extracted so its own `rowHeights[row.id]` subscription
+ * (docs/features/20_interactive_grid_selection.md §7) drives only this
+ * row's `<tr>` height, not a re-render of DataTable's full `rows.map()`.
+ * Same isolation rationale as RowIndexCell above.
+ */
+const TableRow = memo(function TableRow({
+  row,
+  index,
+  columns,
+  tableId,
+  isReadOnly,
+  navigationMode,
+  isSelectingRef,
+  handleCellClick,
+  setSelectionRange,
+  extendSelection,
+}: {
+  row: RowDefinition;
+  index: number;
+  columns: ColumnDefinition[];
+  tableId?: string;
+  isReadOnly: boolean;
+  navigationMode: string;
+  isSelectingRef: React.MutableRefObject<boolean>;
+  handleCellClick: (rowKey: string, tableColumnId: string, shiftKey: boolean) => void;
+  setSelectionRange: ReturnType<typeof useUIStore.getState>['setSelectionRange'];
+  extendSelection: ReturnType<typeof useUIStore.getState>['extendSelection'];
+}) {
+  const height = useUIStore((state) => state.rowHeights[row.id] ?? DEFAULT_ROW_HEIGHT);
+
+  return (
+    <tr
+      className="hover:bg-gray-50 transition-colors"
+      style={{ height, background: index % 2 === 0 ? '#fff' : '#fafafa', borderBottom: '1px solid #f0f0f0' }}
+    >
+      {/* Row number — carries the row-first band and the row resize handle */}
+      <RowIndexCell key={`${row.id}-${navigationMode}`} rowKey={row.id} index={index} />
+
+      {/* Data cells */}
+      {columns.map((column) =>
+        column.type === ColumnType.COMPUTED && column.formula ? (
+          <ComputedCell
+            key={`${row.id}-${column.id}-${index}-${navigationMode}`}
+            rowKey={row.id}
+            tableColumnId={column.id}
+            formula={column.formula}
+          />
+        ) : (
+          <DataTableCell
+            key={`${row.id}-${column.id}-${index}-${navigationMode}`}
+            tableId={tableId ?? ''}
+            rowKey={row.id}
+            tableColumnId={column.id}
+            columnType={column.type}
+            isBaseColumn={column.isBaseColumn}
+            baseValue={row.values?.[column.id]}
+            isReadOnly={isReadOnly || column.isBaseColumn === true}
+            onClick={(event) => {
+              if (!isReadOnly && column.isBaseColumn !== true) {
+                handleCellClick(row.id, column.id, event.shiftKey);
+              }
+            }}
+            onSelectStart={() => {
+              isSelectingRef.current = true;
+              setSelectionRange({
+                anchor: { rowKey: row.id, tableColumnId: column.id },
+                focus: { rowKey: row.id, tableColumnId: column.id },
+              });
+            }}
+            onSelectExtend={() => {
+              if (isSelectingRef.current) {
+                extendSelection({ rowKey: row.id, tableColumnId: column.id });
+              }
+            }}
+          />
+        )
+      )}
+    </tr>
   );
 });
 
@@ -271,51 +371,19 @@ export const DataTable = memo(function DataTable({
 
             <tbody>
               {rows.map((row, index) => (
-                <tr
+                <TableRow
                   key={row.id}
-                  className="hover:bg-gray-50 transition-colors"
-                  style={{ background: index % 2 === 0 ? '#fff' : '#fafafa', borderBottom: '1px solid #f0f0f0' }}
-                >
-                  {/* Row number — carries the row-first band */}
-                  <RowIndexCell key={`${row.id}-${navigationMode}`} rowKey={row.id} index={index} />
-
-                  {/* Data cells */}
-                  {columns.map((column) =>
-                    column.type === ColumnType.COMPUTED && column.formula ? (
-                      <ComputedCell
-                        key={`${row.id}-${column.id}-${index}-${navigationMode}`}
-                        rowKey={row.id}
-                        tableColumnId={column.id}
-                        formula={column.formula}
-                      />
-                    ) : (
-                      <DataTableCell
-                        key={`${row.id}-${column.id}-${index}-${navigationMode}`}
-                        tableId={tableId ?? ''}
-                        rowKey={row.id}
-                        tableColumnId={column.id}
-                        columnType={column.type}
-                        isBaseColumn={column.isBaseColumn}
-                        baseValue={row.values?.[column.id]}
-                        isReadOnly={isReadOnly || column.isBaseColumn === true}
-                        onClick={(event) => {
-                          if (!isReadOnly && column.isBaseColumn !== true) {
-                            handleCellClick(row.id, column.id, event.shiftKey);
-                          }
-                        }}
-                        onSelectStart={() => {
-                          isSelectingRef.current = true;
-                          setSelectionRange({ anchor: { rowKey: row.id, tableColumnId: column.id }, focus: { rowKey: row.id, tableColumnId: column.id } });
-                        }}
-                        onSelectExtend={() => {
-                          if (isSelectingRef.current) {
-                            extendSelection({ rowKey: row.id, tableColumnId: column.id });
-                          }
-                        }}
-                      />
-                    )
-                  )}
-                </tr>
+                  row={row}
+                  index={index}
+                  columns={columns}
+                  tableId={tableId}
+                  isReadOnly={isReadOnly}
+                  navigationMode={navigationMode}
+                  isSelectingRef={isSelectingRef}
+                  handleCellClick={handleCellClick}
+                  setSelectionRange={setSelectionRange}
+                  extendSelection={extendSelection}
+                />
               ))}
             </tbody>
           </table>

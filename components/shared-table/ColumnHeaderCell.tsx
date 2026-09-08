@@ -2,9 +2,10 @@
 
 import { Button } from '@/components/ui/button';
 import { Trash2, Lock, Key, Calculator } from 'lucide-react';
-import { useUIStore } from '@/lib/client/stores/ui-store';
+import { useUIStore, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH } from '@/lib/client/stores/ui-store';
 import { useShallow } from 'zustand/react/shallow';
 import { getNavBandAxis } from '@/lib/client/navigation/nav-band';
+import { useResizeDrag } from '@/lib/client/hooks/shared/use-resize-drag';
 import type { ColumnDef } from './types';
 
 const FOREST = '#13501B';
@@ -53,13 +54,27 @@ export function ColumnHeaderCell({
   );
   const isActiveColumnBand = getNavBandAxis(navigationMode) === 'column' && activeColumnId === column.id;
 
+  // Per-cell width read (docs/features/20_interactive_grid_selection.md §7)
+  // — same rationale as the isSelected/isJustUpdated pattern in
+  // DataTableCell: a store subscription keyed by this column's own id, not
+  // a prop, so resizing one column doesn't force siblings to re-render.
+  const width = useUIStore((state) => state.columnWidths[column.id] ?? DEFAULT_COLUMN_WIDTH);
+  const setColumnWidth = useUIStore((state) => state.setColumnWidth);
+  const { onMouseDown: onResizeMouseDown } = useResizeDrag({
+    getStartSize: () => width,
+    min: MIN_COLUMN_WIDTH,
+    onResize: (widthPx) => setColumnWidth(column.id, widthPx),
+  });
+
   return (
     <th
-      className="border-l first:border-l-0 min-w-[180px] group transition-colors"
+      className="relative border-l first:border-l-0 group transition-colors"
       style={{
         background: isActiveColumnBand ? 'rgba(19,80,27,0.08)' : isRepresentative ? FOREST_SUBTLE : '#f9fafb',
         borderColor: '#e5e7eb',
         borderTop: isActiveColumnBand ? '2px solid #13501B' : undefined,
+        width,
+        minWidth: width,
       }}
     >
       <div className="flex items-center justify-between p-2 gap-2">
@@ -133,6 +148,14 @@ export function ColumnHeaderCell({
           )}
         </div>
       </div>
+
+      {/* Column resize handle — right edge grab strip. stopPropagation in
+          useResizeDrag keeps this from also starting a cell drag-selection. */}
+      <div
+        onMouseDown={(e) => onResizeMouseDown(e, 'x')}
+        className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-blue-400/40 active:bg-blue-500/50"
+        role="presentation"
+      />
     </th>
   );
 }

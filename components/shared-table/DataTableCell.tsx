@@ -125,6 +125,18 @@ export const DataTableCell = memo(
       }
     }, [isEditing]);
 
+    // Drag-selecting cells (mousedown + mouseenter) would otherwise also
+    // trigger the browser's native text-selection anchor, painting the blue
+    // text highlight across every cell the drag passes through. Suppressing
+    // it here — not with a global CSS rule — keeps normal text selection
+    // inside an actively-editing <input> working (isEditing guard below).
+    // docs/features/20_interactive_grid_selection.md §5
+    const handleMouseDown = (e: React.MouseEvent<HTMLTableCellElement>) => {
+      if (isEditing) return;
+      e.preventDefault();
+      onSelectStart?.();
+    };
+
     const handleDoubleClick = () => {
       if (isReadOnly) return;
       setIsEditing(true);
@@ -208,13 +220,18 @@ export const DataTableCell = memo(
         onClick={onClick}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleCellKeyDown}
-        onMouseDown={onSelectStart}
+        onMouseDown={handleMouseDown}
         onMouseEnter={onSelectExtend}
         tabIndex={isActive && !isReadOnly ? 0 : -1}
         className={cn(
           // Shared DataCell baseline: left border separator, zero outer padding
           'border-l first:border-l-0 p-0',
           'transition-all duration-200',
+          // Blocks the native blue text-selection highlight while dragging
+          // across cells to build a range selection (§5). Harmless while
+          // editing: the <input> that replaces this content manages its own
+          // selection regardless of the ancestor's user-select.
+          'select-none',
           // Read-only base tinting
           isReadOnly && 'bg-gray-50/60',
           recordingState === 'processing' && isActive && !isReadOnly && 'bg-yellow-50',
@@ -250,7 +267,10 @@ export const DataTableCell = memo(
             unrelated repaint (DevTools open, hover) flushes it. */}
         <div
           className={cn(
-            'relative h-9 w-full',
+            // Height comes from the <tr> (TableRow's rowHeights subscription,
+            // docs/features/20_interactive_grid_selection.md §7) — h-full
+            // stretches to fill it instead of hardcoding the old h-9 default.
+            'relative h-full w-full',
             recordingState === 'listening' && isActive && !isReadOnly && 'animate-pulse',
             isJustUpdated && !isReadOnly && 'animate-[flash_0.5s_ease-in-out]',
           )}

@@ -58,7 +58,9 @@ export function ComputedCell({ rowKey, tableColumnId, formula }: ComputedCellPro
         background: isInActiveBand ? 'rgba(19,80,27,0.05)' : undefined,
       }}
     >
-      <div className="relative h-9 w-full">
+      {/* Height comes from the <tr> (TableRow's rowHeights subscription,
+          docs/features/20_interactive_grid_selection.md §7). */}
+      <div className="relative h-full w-full">
         <div
           className={cn(
             'flex items-center gap-1 w-full h-full px-2 py-1 text-sm overflow-hidden',
